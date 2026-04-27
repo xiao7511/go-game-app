@@ -4,7 +4,7 @@
   "description": "一个可离线运行的围棋网页应用。",
   "start_url": "/go-game-app/",
   "scope": "/go-game-app/",
-  "display": "fullscreen",
+  "display": "standalone",
   "background_color": "#0f1720",
   "theme_color": "#0f1720",
   "icons": [
