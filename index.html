@@ -9,6 +9,7 @@
   <link rel="manifest" href="manifest.json" />
   <link rel="apple-touch-icon" href="icon.svg" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js"></script>
   <script src="game.js"></script>
   <title>围棋 Pro</title>
   <style>
@@ -417,8 +418,8 @@
 
   <script>
     (() => {
-      const SUPABASE_URL = 'https://kogjjfccyncdszuuwlun.supabase.co';
-      const SUPABASE_ANON_KEY = 'PASTE_SUPABASE_ANON_KEY_HERE';
+      const SUPABASE_URL = window.APP_CONFIG?.SUPABASE_URL || 'https://kogjjfccyncdszuuwlun.supabase.co';
+      const SUPABASE_ANON_KEY = window.APP_CONFIG?.SUPABASE_ANON_KEY || 'PASTE_SUPABASE_ANON_KEY_HERE';
 
       const hasSupabase = typeof window.supabase !== 'undefined' && SUPABASE_ANON_KEY && !SUPABASE_ANON_KEY.includes('PASTE_');
       const supabaseClient = hasSupabase ? supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;

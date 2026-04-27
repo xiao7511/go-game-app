@@ -1,0 +1,4 @@
+# Local secret overrides and transient config
+config.local.js
+*.local.js
+*.secret.js
