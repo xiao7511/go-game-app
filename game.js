@@ -34,7 +34,11 @@
 
     const shell = boardShell();
     const stage = boardStage();
-    if (shell) shell.style.display = loggedIn ? 'grid' : 'none';
+    if (shell) {
+      shell.style.display = loggedIn ? 'grid' : 'none';
+      shell.classList.toggle('is-active', loggedIn);
+      shell.style.pointerEvents = loggedIn ? 'auto' : 'none';
+    }
     if (stage) stage.style.display = loggedIn ? 'grid' : 'none';
     if (sidebar()) sidebar().style.display = loggedIn ? '' : 'none';
     if (topbar()) topbar().style.display = loggedIn ? '' : '';
@@ -119,7 +123,7 @@
     if (authOverlay) return authOverlay;
     authOverlay = document.createElement('div');
     authOverlay.id = AUTH_OVERLAY_ID;
-    authOverlay.style.cssText = 'position:fixed;inset:0;z-index:100;display:grid;place-items:center;padding:18px;background:linear-gradient(180deg, rgba(12,18,24,.88), rgba(7,10,14,.92)),radial-gradient(circle at top, rgba(110,231,255,.18), transparent 30%),radial-gradient(circle at bottom right, rgba(246,196,83,.12), transparent 28%);backdrop-filter:blur(12px);';
+    authOverlay.style.cssText = 'position:fixed;inset:0;z-index:100;display:grid;place-items:center;padding:18px;background:linear-gradient(180deg, rgba(12,18,24,.88), rgba(7,10,14,.92)),radial-gradient(circle at top, rgba(110,231,255,.18), transparent 30%),radial-gradient(circle at bottom right, rgba(246,196,83,.12), transparent 28%);backdrop-filter:blur(12px);transform:translateZ(100px);';
     authOverlay.innerHTML = `
       <div class="panel" role="dialog" aria-modal="true" aria-labelledby="auth-title" style="width:min(94vw,460px);padding:24px;border-radius:28px;border:1px solid rgba(255,255,255,.12);background:rgba(16,24,32,.94);box-shadow:0 30px 80px rgba(0,0,0,.42);">
         <h2 id="auth-title" style="margin:0 0 8px;font-size:1.4rem;">围棋 Pro</h2>
