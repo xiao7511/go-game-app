@@ -9,7 +9,7 @@
   "theme_color": "#0f1720",
   "icons": [
     {
-      "src": "icon.svg",
+      "src": "/go-game-app/icon.svg",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any maskable"

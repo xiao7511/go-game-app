@@ -1,10 +1,10 @@
-const CACHE_NAME = 'go-game-pro-v2';
+const CACHE_NAME = 'go-game-pro-v3';
 const ASSETS = [
-  './',
-  './index.html',
-  './manifest.json',
-  './game.js',
-  './icon.svg'
+  '/go-game-app/',
+  '/go-game-app/index.html',
+  '/go-game-app/manifest.json',
+  '/go-game-app/game.js',
+  '/go-game-app/icon.svg'
 ];
 
 self.addEventListener('install', event => {
@@ -35,7 +35,7 @@ self.addEventListener('fetch', event => {
           caches.open(CACHE_NAME).then(cache => cache.put(event.request, copy));
           return response;
         })
-        .catch(() => caches.match('./index.html'));
+        .catch(() => caches.match('/go-game-app/'));
     })
   );
 });
