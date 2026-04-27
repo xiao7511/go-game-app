@@ -9,6 +9,7 @@
   <link rel="manifest" href="manifest.json" />
   <link rel="apple-touch-icon" href="icon.svg" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="game.js"></script>
   <title>围棋 Pro</title>
   <style>
     :root {
@@ -750,6 +751,9 @@
           supabaseClient.removeChannel(waitingChannel);
           waitingChannel = null;
         }
+        if (window.GoGameRealtime) {
+          window.GoGameRealtime.unbindMoves(supabaseClient);
+        }
       }
 
       function attachSession(row) {
@@ -767,6 +771,20 @@
         }
         renderUI();
         subscribeSession(row.id);
+        if (window.GoGameRealtime) {
+          window.GoGameRealtime.bindMoves({
+            supabaseClient,
+            sessionId: row.id,
+            currentUserId: user.id,
+            onRemoteMove: row => {
+              if (row.x === undefined || row.y === undefined) return;
+              const remotePlayer = row.player === 'black' ? BLACK : WHITE;
+              if (gameState.board[row.y][row.x] !== EMPTY) return;
+              placeStone(row.x, row.y, 'remote', remotePlayer);
+            },
+            onError: err => console.warn('move sync error:', err)
+          });
+        }
       }
 
       function subscribeSession(sessionId) {
@@ -803,6 +821,7 @@
 
         clearSubscriptions();
         waiting = true;
+        if (window.GoGameUI) window.GoGameUI.showMatchingOverlay();
         renderUI();
 
         const { data: waitingRows, error: waitError } = await supabaseClient
@@ -814,6 +833,7 @@
 
         if (waitError) {
           waiting = false;
+          if (window.GoGameUI) window.GoGameUI.hideMatchingOverlay();
           renderUI();
           return alert(`匹配失败：${waitError.message}`);
         }
@@ -836,6 +856,7 @@
 
           await supabaseClient.from('waiting_room').delete().or(`user_id.eq.${blackId},user_id.eq.${whiteId}`);
           attachSession(insertedSession);
+          if (window.GoGameUI) window.GoGameUI.hideMatchingOverlay();
           return;
         }
 
@@ -847,6 +868,7 @@
 
         if (waitingError) {
           waiting = false;
+          if (window.GoGameUI) window.GoGameUI.hideMatchingOverlay();
           renderUI();
           return alert(`进入等待房间失败：${waitingError.message}`);
         }
@@ -885,6 +907,7 @@
           gameState = createGameState();
           renderUI();
           draw();
+          if (window.GoGameUI) window.GoGameUI.hideMatchingOverlay();
           return;
         }
 
@@ -903,17 +926,18 @@
         gameState = createGameState();
         renderUI();
         draw();
+        if (window.GoGameUI) window.GoGameUI.hideMatchingOverlay();
       }
 
-      async function handleMove(x, y) {
+      async function placeStone(x, y, source = 'local', forcedPlayer = null) {
         if (boardLocked) return;
-        const player = gameState.turn === 'black' ? BLACK : WHITE;
+        const player = forcedPlayer ?? (gameState.turn === 'black' ? BLACK : WHITE);
         if (session && user) {
           const myTurn = (userRole === 'black' && gameState.turn === 'black') || (userRole === 'white' && gameState.turn === 'white');
-          if (!myTurn) return;
+          if (!myTurn && source !== 'remote') return;
         }
 
-        if (!session) {
+        if (source !== 'remote' && !session) {
           moveHistory.push({
             boardBefore: cloneBoard(gameState.board),
             turnBefore: gameState.turn,
@@ -925,14 +949,38 @@
 
         const result = applyMoveToState(gameState, x, y, player);
         if (!result.ok) {
-          if (!session) moveHistory.pop();
+          if (source !== 'remote' && !session) moveHistory.pop();
           return;
         }
 
         gameState = result.state;
         renderUI();
         draw();
-        if (session) await saveSessionState();
+
+        if (source !== 'remote' && session && supabaseClient) {
+          const moveRow = {
+            session_id: session.id,
+            user_id: user.id,
+            x,
+            y,
+            player: playerKey(player),
+            turn_number: gameState.moves.length,
+            created_at: new Date().toISOString()
+          };
+          const { error: moveError } = await supabaseClient.from('moves').insert([moveRow]);
+          if (moveError) console.warn('move insert error:', moveError.message);
+          const { error: sessionError } = await supabaseClient
+            .from('game_sessions')
+            .update({
+              board_state: gameState.board,
+              next_turn: gameState.turn,
+              black_captures: gameState.blackCaptures,
+              white_captures: gameState.whiteCaptures,
+              moves: gameState.moves
+            })
+            .eq('id', session.id);
+          if (sessionError) console.warn('session sync error:', sessionError.message);
+        }
       }
 
       function getBoardPoint(clientX, clientY) {
@@ -1019,7 +1067,7 @@
 
       canvas.addEventListener('click', e => {
         const p = getBoardPoint(e.clientX, e.clientY);
-        if (p) handleMove(p.x, p.y);
+        if (p) placeStone(p.x, p.y);
       });
 
       canvas.addEventListener('touchend', e => {
@@ -1027,7 +1075,7 @@
         const p = getBoardPoint(t.clientX, t.clientY);
         if (p) {
           e.preventDefault();
-          handleMove(p.x, p.y);
+          placeStone(p.x, p.y);
         }
       }, { passive: false });
 
