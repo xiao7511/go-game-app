@@ -21,11 +21,11 @@
       --muted: rgba(238, 244, 251, 0.72);
       --accent: #f6c453;
       --accent-2: #6ee7ff;
-      --board: #d7a15f;
       --shadow: 0 24px 70px rgba(0, 0, 0, 0.35);
       --radius: 22px;
-      --ok: #71e5a7;
-      --danger: #ff7f9b;
+      --wood-image: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(0,0,0,0.06)),
+        repeating-linear-gradient(90deg, rgba(96, 60, 25, 0.22) 0 18px, rgba(124, 84, 40, 0.14) 18px 36px),
+        linear-gradient(135deg, #8e6337 0%, #6f4827 48%, #8e6337 100%);
     }
 
     * { box-sizing: border-box; }
@@ -35,38 +35,46 @@
       font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
       color: var(--text);
       background:
-        radial-gradient(circle at top, rgba(110, 231, 255, 0.16), transparent 34%),
-        radial-gradient(circle at bottom right, rgba(246, 196, 83, 0.14), transparent 28%),
-        linear-gradient(180deg, #0f1720 0%, #111c27 100%);
+        radial-gradient(circle at top, rgba(110, 231, 255, 0.12), transparent 30%),
+        radial-gradient(circle at bottom right, rgba(246, 196, 83, 0.10), transparent 25%),
+        var(--wood-image);
+      background-attachment: fixed;
+      overflow: hidden;
+    }
+
+    body.is-immersive .topbar,
+    body.is-immersive .footer,
+    body.is-immersive .sidebar {
+      opacity: 0.03;
+      pointer-events: none;
     }
 
     .app {
+      position: relative;
       min-height: 100%;
       display: grid;
-      grid-template-rows: auto auto 1fr auto;
-      gap: 16px;
-      padding: 16px;
-      max-width: 1300px;
-      margin: 0 auto;
+      grid-template-rows: auto 1fr;
+      gap: 0;
+      padding: 0;
     }
 
     .topbar,
     .footer,
-    .card,
-    .board-shell {
+    .card {
       border: 1px solid var(--panel-border);
-      background: var(--panel);
+      background: rgba(13, 20, 28, 0.70);
       backdrop-filter: blur(14px);
       border-radius: var(--radius);
       box-shadow: var(--shadow);
     }
 
-    .topbar,
-    .footer {
-      padding: 14px 16px;
-    }
-
     .topbar {
+      position: fixed;
+      left: 12px;
+      right: 12px;
+      top: 12px;
+      z-index: 15;
+      padding: 10px 14px;
       display: flex;
       align-items: center;
       justify-content: space-between;
@@ -74,27 +82,16 @@
       flex-wrap: wrap;
     }
 
-    .brand {
-      display: grid;
-      gap: 4px;
-    }
-
-    .brand h1 {
-      margin: 0;
-      font-size: clamp(1.2rem, 3vw, 1.8rem);
-      letter-spacing: 0.04em;
-    }
-
-    .brand p {
-      margin: 0;
-      color: var(--muted);
-      font-size: 0.92rem;
-    }
+    .brand { display: grid; gap: 4px; }
+    .brand h1,
+    .brand p { margin: 0; }
+    .brand h1 { font-size: clamp(1.05rem, 3vw, 1.5rem); letter-spacing: 0.04em; }
+    .brand p { color: var(--muted); font-size: 0.88rem; }
 
     .status {
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 8px;
       flex-wrap: wrap;
       justify-content: flex-end;
       text-align: right;
@@ -104,44 +101,46 @@
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      min-height: 36px;
-      padding: 0 14px;
+      min-height: 34px;
+      padding: 0 12px;
       border-radius: 999px;
       border: 1px solid rgba(255,255,255,0.12);
       background: rgba(255,255,255,0.06);
       color: var(--text);
       font-weight: 700;
-      font-size: 0.9rem;
+      font-size: 0.84rem;
       white-space: nowrap;
     }
 
     .layout {
+      position: absolute;
+      inset: 0;
       display: grid;
-      grid-template-columns: 340px minmax(0, 1fr);
-      gap: 16px;
-      align-items: start;
+      grid-template-columns: 1fr;
+      min-height: 0;
     }
 
     .sidebar {
+      position: fixed;
+      right: 12px;
+      top: 74px;
+      bottom: 76px;
+      z-index: 20;
+      width: min(320px, 88vw);
       display: grid;
-      gap: 16px;
+      gap: 12px;
+      overflow: auto;
+      padding-right: 2px;
     }
 
     .card {
-      padding: 16px;
+      padding: 14px;
     }
 
     .card h2,
     .card h3 {
       margin: 0 0 12px;
       font-size: 1rem;
-    }
-
-    .muted {
-      color: var(--muted);
-      font-size: 0.92rem;
-      line-height: 1.7;
-      margin: 0;
     }
 
     .auth-tabs {
@@ -174,10 +173,7 @@
 
     .form[hidden] { display: none; }
 
-    input, button, textarea {
-      font: inherit;
-    }
-
+    input, button, textarea { font: inherit; }
     input {
       width: 100%;
       min-height: 44px;
@@ -214,15 +210,8 @@
       border: 1px solid rgba(255,255,255,0.10);
       box-shadow: none;
     }
-    button.danger {
-      color: #fff;
-      background: linear-gradient(180deg, #ff8da2 0%, #e95c7c 100%);
-    }
 
-    .stack {
-      display: grid;
-      gap: 10px;
-    }
+    .stack { display: grid; gap: 10px; }
 
     .user-box {
       display: grid;
@@ -238,17 +227,32 @@
     .user-box small { color: var(--muted); }
 
     .board-shell {
-      padding: 16px;
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+      padding: 0;
+    }
+
+    .board-stage {
+      width: min(100vw, 100vh);
+      height: min(100vw, 100vh);
+      max-width: 100vw;
+      max-height: 100vh;
+      transform: perspective(1000px) rotateX(25deg);
+      transform-origin: center center;
+      display: grid;
+      place-items: center;
     }
 
     .board-wrap {
-      width: min(92vw, 760px);
-      aspect-ratio: 1 / 1;
-      margin: 0 auto;
+      width: 100%;
+      height: 100%;
       position: relative;
-      border-radius: 18px;
-      background: linear-gradient(rgba(255,255,255,0.06), rgba(255,255,255,0.01)), var(--board);
-      box-shadow: inset 0 0 0 1px rgba(80, 52, 18, 0.18);
+      border-radius: 0;
+      background: var(--wood-image);
+      box-shadow: inset 0 0 0 1px rgba(80, 52, 18, 0.18), 0 30px 90px rgba(0,0,0,0.36);
       overflow: hidden;
     }
 
@@ -258,6 +262,69 @@
       height: 100%;
       touch-action: none;
       cursor: pointer;
+    }
+
+    .footer {
+      position: fixed;
+      left: 12px;
+      bottom: 12px;
+      z-index: 15;
+      max-width: 360px;
+      padding: 10px 14px;
+      font-size: 0.88rem;
+      color: rgba(238,244,251,0.62);
+      background: rgba(13, 20, 28, 0.56);
+      backdrop-filter: blur(10px);
+    }
+
+    .floating-actions {
+      position: fixed;
+      left: 12px;
+      bottom: 12px;
+      z-index: 30;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .icon-btn {
+      width: 52px;
+      height: 52px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      padding: 0;
+      color: #eef4fb;
+      background: rgba(16, 24, 32, 0.72);
+      border: 1px solid rgba(255,255,255,0.12);
+      backdrop-filter: blur(12px);
+      box-shadow: 0 12px 28px rgba(0,0,0,0.28);
+    }
+
+    .icon-btn svg { width: 22px; height: 22px; }
+
+    .drawer {
+      position: fixed;
+      left: 12px;
+      bottom: 76px;
+      z-index: 30;
+      width: min(320px, calc(100vw - 24px));
+      display: grid;
+      gap: 12px;
+      transform: translateY(130%);
+      opacity: 0;
+      pointer-events: none;
+      transition: transform 0.22s ease, opacity 0.22s ease;
+    }
+
+    .drawer.is-open {
+      transform: translateY(0);
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .drawer .card {
+      background: rgba(13, 20, 28, 0.90);
     }
 
     .panel-grid {
@@ -294,32 +361,35 @@
       line-height: 1.6;
     }
 
-    .footer {
-      text-align: center;
-      font-size: 0.9rem;
-      color: var(--muted);
-    }
-
-    .auth-note {
-      padding: 10px 12px;
-      border-radius: 14px;
-      background: rgba(255,255,255,0.05);
-      border: 1px solid rgba(255,255,255,0.08);
-      color: var(--muted);
-      font-size: 0.86rem;
-      line-height: 1.6;
-    }
-
     @media (max-width: 960px) {
-      .layout { grid-template-columns: 1fr; }
-      .board-wrap { width: min(94vw, 760px); }
+      .sidebar {
+        width: min(92vw, 360px);
+      }
+      .board-stage {
+        width: 100vw;
+        height: 100vw;
+        max-width: 100vh;
+        max-height: 100vh;
+      }
+    }
+
+    @media (max-width: 720px) {
+      .topbar,
+      .footer,
+      .sidebar {
+        display: none;
+      }
+      .board-stage {
+        width: 100vw;
+        height: 100vh;
+        transform: perspective(1000px) rotateX(25deg) translateY(-2vh);
+      }
+      .floating-actions { left: 10px; bottom: 10px; }
+      .drawer { left: 10px; bottom: 72px; }
     }
 
     @media (max-width: 520px) {
-      .app { padding: 10px; gap: 12px; }
-      .topbar, .footer, .card, .board-shell { border-radius: 18px; }
       .panel-grid { grid-template-columns: 1fr; }
-      .status { justify-content: flex-start; text-align: left; }
     }
   </style>
 </head>
@@ -328,7 +398,7 @@
     <header class="topbar">
       <div class="brand">
         <h1>围棋 Pro</h1>
-        <p>19×19 · 注册登录 · 在线匹配 · 实时同步 · 断网可离线</p>
+        <p>19×19 · 全屏沉浸 · 3D 棋盘 · 在线实时同步</p>
       </div>
       <div class="status">
         <span class="badge" id="authBadge">未登录</span>
@@ -345,27 +415,20 @@
             <button class="tab is-active" id="loginTab" type="button">登录</button>
             <button class="tab" id="registerTab" type="button">注册</button>
           </div>
-
           <form class="form" id="loginForm">
             <input id="loginEmail" type="email" placeholder="邮箱" autocomplete="email" required>
             <input id="loginPassword" type="password" placeholder="密码" autocomplete="current-password" required>
             <button type="submit">登录</button>
           </form>
-
           <form class="form" id="registerForm" hidden>
             <input id="registerName" type="text" placeholder="昵称" autocomplete="nickname" required>
             <input id="registerEmail" type="email" placeholder="邮箱" autocomplete="email" required>
             <input id="registerPassword" type="password" placeholder="密码（至少 6 位）" autocomplete="new-password" required>
             <button type="submit">注册</button>
           </form>
-
           <div class="user-box" id="userBox">
             <strong id="userName">游客</strong>
             <small id="userEmail">请先登录后开启在线匹配</small>
-          </div>
-
-          <div class="auth-note">
-            说明：请将 Supabase 的 URL 与 Anon Key 填入代码中的配置项后使用。
           </div>
         </section>
 
@@ -374,7 +437,8 @@
           <div class="stack">
             <button type="button" id="findOpponentBtn">寻找对手</button>
             <button type="button" class="secondary" id="leaveMatchBtn" disabled>离开房间</button>
-            <button type="button" class="danger" id="logoutBtn">退出登录</button>
+            <button type="button" class="secondary" id="settingsBtn">设置</button>
+            <button type="button" class="secondary" id="logoutBtn">退出登录</button>
           </div>
           <p class="hint" id="matchHint">点击“寻找对手”后，系统会把你放进 waiting_room；若发现其他等待玩家，会自动创建 game_session。</p>
         </section>
@@ -395,7 +459,6 @@
             <button type="button" class="secondary" id="undoBtn">悔棋</button>
             <button type="button" id="resetBtn">重新开始</button>
           </div>
-          <p class="hint">在线模式下为避免冲突，默认暂不启用悔棋。</p>
         </section>
 
         <section class="card">
@@ -405,8 +468,10 @@
       </aside>
 
       <section class="board-shell">
-        <div class="board-wrap">
-          <canvas id="board" aria-label="围棋棋盘"></canvas>
+        <div class="board-stage" id="boardStage">
+          <div class="board-wrap">
+            <canvas id="board" aria-label="围棋棋盘"></canvas>
+          </div>
         </div>
       </section>
     </main>
@@ -416,720 +481,23 @@
     </footer>
   </div>
 
-  <script>
-    (() => {
-      const SUPABASE_URL = window.APP_CONFIG?.SUPABASE_URL || 'https://kogjjfccyncdszuuwlun.supabase.co';
-      const SUPABASE_ANON_KEY = window.APP_CONFIG?.SUPABASE_ANON_KEY || 'PASTE_SUPABASE_ANON_KEY_HERE';
-
-      const hasSupabase = typeof window.supabase !== 'undefined' && SUPABASE_ANON_KEY && !SUPABASE_ANON_KEY.includes('PASTE_');
-      const supabaseClient = hasSupabase ? supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
-
-      const SIZE = 19;
-      const EMPTY = 0;
-      const BLACK = 1;
-      const WHITE = 2;
-      const MOVE_LIMIT = 200;
-
-      const board = Array.from({ length: SIZE }, () => Array(SIZE).fill(EMPTY));
-      const moveHistory = [];
-      let currentPlayer = BLACK;
-      let blackCaptures = 0;
-      let whiteCaptures = 0;
-
-      const authBadge = document.getElementById('authBadge');
-      const matchBadge = document.getElementById('matchBadge');
-      const turnBadge = document.getElementById('turnBadge');
-      const roleText = document.getElementById('roleText');
-      const userName = document.getElementById('userName');
-      const userEmail = document.getElementById('userEmail');
-      const matchHint = document.getElementById('matchHint');
-      const moveCountEl = document.getElementById('moveCount');
-      const blackCapturesEl = document.getElementById('blackCaptures');
-      const whiteCapturesEl = document.getElementById('whiteCaptures');
-      const moveListEl = document.getElementById('moveList');
-      const undoBtn = document.getElementById('undoBtn');
-      const resetBtn = document.getElementById('resetBtn');
-      const findOpponentBtn = document.getElementById('findOpponentBtn');
-      const leaveMatchBtn = document.getElementById('leaveMatchBtn');
-      const logoutBtn = document.getElementById('logoutBtn');
-      const loginTab = document.getElementById('loginTab');
-      const registerTab = document.getElementById('registerTab');
-      const loginForm = document.getElementById('loginForm');
-      const registerForm = document.getElementById('registerForm');
-      const loginEmail = document.getElementById('loginEmail');
-      const loginPassword = document.getElementById('loginPassword');
-      const registerName = document.getElementById('registerName');
-      const registerEmail = document.getElementById('registerEmail');
-      const registerPassword = document.getElementById('registerPassword');
-
-      const canvas = document.getElementById('board');
-      const ctx = canvas.getContext('2d');
-      let cell = 0;
-      let margin = 0;
-      let session = null;
-      let user = null;
-      let userRole = 'local';
-      let sessionChannel = null;
-      let waitingChannel = null;
-      let waiting = false;
-      let boardLocked = false;
-
-      if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-          navigator.serviceWorker.register('./sw.js').catch(err => console.warn('SW registration failed', err));
-        });
-      }
-
-      function createEmptyBoard() {
-        return Array.from({ length: SIZE }, () => Array(SIZE).fill(EMPTY));
-      }
-
-      function createGameState() {
-        return {
-          board: createEmptyBoard(),
-          turn: 'black',
-          blackCaptures: 0,
-          whiteCaptures: 0,
-          moves: []
-        };
-      }
-
-      let gameState = createGameState();
-
-      function cloneBoard(src) {
-        return src.map(row => row.slice());
-      }
-
-      function stoneName(player) {
-        return player === BLACK ? '黑棋' : '白棋';
-      }
-
-      function opponent(player) {
-        return player === BLACK ? WHITE : BLACK;
-      }
-
-      function playerKey(player) {
-        return player === BLACK ? 'black' : 'white';
-      }
-
-      function deepCloneState(state) {
-        return {
-          board: cloneBoard(state.board),
-          turn: state.turn,
-          blackCaptures: state.blackCaptures,
-          whiteCaptures: state.whiteCaptures,
-          moves: state.moves.map(m => ({ ...m }))
-        };
-      }
-
-      function setCanvasSize() {
-        const wrap = canvas.parentElement;
-        const size = Math.min(wrap.clientWidth, wrap.clientHeight);
-        const dpr = window.devicePixelRatio || 1;
-        canvas.width = Math.floor(size * dpr);
-        canvas.height = Math.floor(size * dpr);
-        canvas.style.width = size + 'px';
-        canvas.style.height = size + 'px';
-        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-        margin = Math.max(18, size * 0.045);
-        cell = (size - margin * 2) / (SIZE - 1);
-        draw();
-      }
-
-      function drawBoard() {
-        const w = canvas.clientWidth;
-        const h = canvas.clientHeight;
-        const size = Math.min(w, h);
-
-        ctx.clearRect(0, 0, w, h);
-
-        const bg = ctx.createLinearGradient(0, 0, 0, h);
-        bg.addColorStop(0, '#ddb06c');
-        bg.addColorStop(1, '#cc9655');
-        ctx.fillStyle = bg;
-        ctx.fillRect(0, 0, w, h);
-
-        ctx.strokeStyle = 'rgba(50, 34, 15, 0.72)';
-        ctx.lineWidth = 1;
-        for (let i = 0; i < SIZE; i++) {
-          const p = margin + i * cell;
-          ctx.beginPath();
-          ctx.moveTo(margin, p);
-          ctx.lineTo(size - margin, p);
-          ctx.stroke();
-          ctx.beginPath();
-          ctx.moveTo(p, margin);
-          ctx.lineTo(p, size - margin);
-          ctx.stroke();
-        }
-
-        const stars = [3, 9, 15];
-        ctx.fillStyle = 'rgba(40, 25, 10, 0.92)';
-        stars.forEach(x => stars.forEach(y => {
-          const px = margin + x * cell;
-          const py = margin + y * cell;
-          ctx.beginPath();
-          ctx.arc(px, py, Math.max(2.8, cell * 0.08), 0, Math.PI * 2);
-          ctx.fill();
-        }));
-      }
-
-      function drawStone(x, y, player) {
-        const px = margin + x * cell;
-        const py = margin + y * cell;
-        const radius = cell * 0.44;
-        const gradient = ctx.createRadialGradient(px - radius * 0.32, py - radius * 0.32, radius * 0.18, px, py, radius);
-        if (player === BLACK) {
-          gradient.addColorStop(0, '#6a6a6a');
-          gradient.addColorStop(0.55, '#1a1a1a');
-          gradient.addColorStop(1, '#050505');
-        } else {
-          gradient.addColorStop(0, '#ffffff');
-          gradient.addColorStop(0.62, '#e2e6eb');
-          gradient.addColorStop(1, '#bcc3cd');
-        }
-        ctx.beginPath();
-        ctx.fillStyle = gradient;
-        ctx.arc(px, py, radius, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.lineWidth = 1;
-        ctx.strokeStyle = player === BLACK ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.18)';
-        ctx.stroke();
-      }
-
-      function draw() {
-        drawBoard();
-        for (let y = 0; y < SIZE; y++) {
-          for (let x = 0; x < SIZE; x++) {
-            if (gameState.board[y][x] !== EMPTY) drawStone(x, y, gameState.board[y][x]);
-          }
-        }
-      }
-
-      function getGroupAndLiberties(startX, startY, srcBoard) {
-        const color = srcBoard[startY][startX];
-        const stack = [[startX, startY]];
-        const visited = new Set();
-        const stones = [];
-        let liberties = 0;
-
-        while (stack.length) {
-          const [x, y] = stack.pop();
-          const key = `${x},${y}`;
-          if (visited.has(key)) continue;
-          visited.add(key);
-          stones.push([x, y]);
-
-          const neighbors = [
-            [x - 1, y], [x + 1, y], [x, y - 1], [x, y + 1]
-          ];
-
-          for (const [nx, ny] of neighbors) {
-            if (nx < 0 || ny < 0 || nx >= SIZE || ny >= SIZE) continue;
-            const value = srcBoard[ny][nx];
-            if (value === EMPTY) liberties += 1;
-            else if (value === color && !visited.has(`${nx},${ny}`)) stack.push([nx, ny]);
-          }
-        }
-
-        return { stones, liberties };
-      }
-
-      function removeCapturedStones(placeX, placeY, player, workingBoard) {
-        const captured = [];
-        const enemy = opponent(player);
-        const neighbors = [
-          [placeX - 1, placeY], [placeX + 1, placeY], [placeX, placeY - 1], [placeX, placeY + 1]
-        ];
-
-        for (const [nx, ny] of neighbors) {
-          if (nx < 0 || ny < 0 || nx >= SIZE || ny >= SIZE) continue;
-          if (workingBoard[ny][nx] !== enemy) continue;
-          const group = getGroupAndLiberties(nx, ny, workingBoard);
-          if (group.liberties === 0) {
-            for (const [gx, gy] of group.stones) {
-              workingBoard[gy][gx] = EMPTY;
-              captured.push([gx, gy]);
-            }
-          }
-        }
-        return captured;
-      }
-
-      function applyMoveToState(state, x, y, player) {
-        if (state.board[y][x] !== EMPTY) {
-          return { ok: false, reason: '该点已有棋子' };
-        }
-
-        const nextState = deepCloneState(state);
-        nextState.board[y][x] = player;
-        const captured = removeCapturedStones(x, y, player, nextState.board);
-        const myGroup = getGroupAndLiberties(x, y, nextState.board);
-
-        if (myGroup.liberties === 0) {
-          return { ok: false, reason: '禁止自杀手' };
-        }
-
-        if (captured.length) {
-          if (player === BLACK) nextState.blackCaptures += captured.length;
-          else nextState.whiteCaptures += captured.length;
-        }
-
-        nextState.turn = player === BLACK ? 'white' : 'black';
-        nextState.moves.push({ x, y, player: playerKey(player), captured: captured.length });
-        if (nextState.moves.length > MOVE_LIMIT) nextState.moves.shift();
-        return { ok: true, state: nextState };
-      }
-
-      function updateBoardFromState(state) {
-        gameState = deepCloneState(state);
-        currentPlayerFromState();
-        renderUI();
-        draw();
-      }
-
-      function currentPlayerFromState() {
-        currentPlayer = gameState.turn === 'black' ? BLACK : WHITE;
-      }
-
-      function renderUI() {
-        currentPlayerFromState();
-        turnBadge.textContent = `轮到：${stoneName(currentPlayer)}`;
-        matchBadge.textContent = session ? `对局中 · ${userRole === 'black' ? '黑方' : '白方'}` : (waiting ? '等待匹配中' : '本地模式');
-        roleText.textContent = session ? (userRole === 'black' ? '黑方' : '白方') : '本地';
-        moveCountEl.textContent = String(gameState.moves.length);
-        blackCapturesEl.textContent = String(gameState.blackCaptures);
-        whiteCapturesEl.textContent = String(gameState.whiteCaptures);
-        moveListEl.innerHTML = gameState.moves.map((m, i) => `<li>${i + 1}. ${m.player === 'black' ? '黑棋' : '白棋'} (${m.x + 1}, ${m.y + 1})${m.captured ? `，提 ${m.captured} 子` : ''}</li>`).join('');
-        undoBtn.disabled = !!session;
-        findOpponentBtn.disabled = !user || !hasSupabase;
-        leaveMatchBtn.disabled = !(session || waiting);
-        logoutBtn.disabled = !user || !hasSupabase;
-        if (!hasSupabase) {
-          matchHint.textContent = '当前未配置 Supabase Anon Key，系统处于本地模式。';
-        }
-        authBadge.textContent = user ? '已登录' : '未登录';
-        userName.textContent = user ? (user.user_metadata?.nickname || user.email || user.id) : '游客';
-        userEmail.textContent = user ? `ID: ${user.id}` : '请先登录后开启在线匹配';
-      }
-
-      async function saveSessionState() {
-        if (!supabaseClient || !session) return;
-        const payload = {
-          board_state: gameState.board,
-          next_turn: gameState.turn,
-          black_captures: gameState.blackCaptures,
-          white_captures: gameState.whiteCaptures,
-          moves: gameState.moves
-        };
-        const { error } = await supabaseClient
-          .from('game_sessions')
-          .update(payload)
-          .eq('id', session.id);
-        if (error) console.warn('saveSessionState error:', error.message);
-      }
-
-      async function loadSessionByUser() {
-        if (!supabaseClient || !user) return;
-        const { data, error } = await supabaseClient
-          .from('game_sessions')
-          .select('*')
-          .or(`black_id.eq.${user.id},white_id.eq.${user.id}`)
-          .eq('status', 'active')
-          .order('updated_at', { ascending: false })
-          .limit(1);
-        if (!error && data && data.length) {
-          attachSession(data[0]);
-        }
-      }
-
-      function clearSubscriptions() {
-        if (sessionChannel) {
-          supabaseClient.removeChannel(sessionChannel);
-          sessionChannel = null;
-        }
-        if (waitingChannel) {
-          supabaseClient.removeChannel(waitingChannel);
-          waitingChannel = null;
-        }
-        if (window.GoGameRealtime) {
-          window.GoGameRealtime.unbindMoves(supabaseClient);
-        }
-      }
-
-      function attachSession(row) {
-        session = row;
-        userRole = row.black_id === user.id ? 'black' : 'white';
-        waiting = false;
-        if (row.board_state) {
-          gameState = {
-            board: row.board_state,
-            turn: row.next_turn || 'black',
-            blackCaptures: row.black_captures || 0,
-            whiteCaptures: row.white_captures || 0,
-            moves: row.moves || []
-          };
-        }
-        renderUI();
-        subscribeSession(row.id);
-        if (window.GoGameRealtime) {
-          window.GoGameRealtime.bindMoves({
-            supabaseClient,
-            sessionId: row.id,
-            currentUserId: user.id,
-            onRemoteMove: row => {
-              if (row.x === undefined || row.y === undefined) return;
-              const remotePlayer = row.player === 'black' ? BLACK : WHITE;
-              if (gameState.board[row.y][row.x] !== EMPTY) return;
-              placeStone(row.x, row.y, 'remote', remotePlayer);
-            },
-            onError: err => console.warn('move sync error:', err)
-          });
-        }
-      }
-
-      function subscribeSession(sessionId) {
-        if (!supabaseClient) return;
-        if (sessionChannel) supabaseClient.removeChannel(sessionChannel);
-        sessionChannel = supabaseClient
-          .channel(`game-session-${sessionId}`)
-          .on('postgres_changes', { event: '*', schema: 'public', table: 'game_sessions', filter: `id=eq.${sessionId}` }, payload => {
-            const row = payload.new || payload.old;
-            if (!row) return;
-            if (row.board_state) {
-              gameState = {
-                board: row.board_state,
-                turn: row.next_turn || 'black',
-                blackCaptures: row.black_captures || 0,
-                whiteCaptures: row.white_captures || 0,
-                moves: row.moves || []
-              };
-              renderUI();
-              draw();
-            }
-            if (row.status !== 'active') {
-              session = null;
-              userRole = 'local';
-              renderUI();
-            }
-          })
-          .subscribe();
-      }
-
-      async function findOpponent() {
-        if (!supabaseClient) return alert('请先配置 Supabase Anon Key');
-        if (!user) return alert('请先登录');
-
-        clearSubscriptions();
-        waiting = true;
-        if (window.GoGameUI) window.GoGameUI.showMatchingOverlay();
-        renderUI();
-
-        const { data: waitingRows, error: waitError } = await supabaseClient
-          .from('waiting_room')
-          .select('*')
-          .neq('user_id', user.id)
-          .order('created_at', { ascending: true })
-          .limit(1);
-
-        if (waitError) {
-          waiting = false;
-          if (window.GoGameUI) window.GoGameUI.hideMatchingOverlay();
-          renderUI();
-          return alert(`匹配失败：${waitError.message}`);
-        }
-
-        if (waitingRows && waitingRows.length) {
-          const opponent = waitingRows[0];
-          const blackId = opponent.user_id;
-          const whiteId = user.id;
-          const { data: insertedSession, error: insertError } = await supabaseClient
-            .from('game_sessions')
-            .insert([{ black_id: blackId, white_id: whiteId, board_state: createEmptyBoard(), next_turn: 'black', black_captures: 0, white_captures: 0, moves: [], status: 'active' }])
-            .select('*')
-            .single();
-
-          if (insertError) {
-            waiting = false;
-            renderUI();
-            return alert(`创建对局失败：${insertError.message}`);
-          }
-
-          await supabaseClient.from('waiting_room').delete().or(`user_id.eq.${blackId},user_id.eq.${whiteId}`);
-          attachSession(insertedSession);
-          if (window.GoGameUI) window.GoGameUI.hideMatchingOverlay();
-          return;
-        }
-
-        const { error: waitingError } = await supabaseClient.from('waiting_room').upsert({
-          user_id: user.id,
-          nickname: user.user_metadata?.nickname || user.email || user.id,
-          created_at: new Date().toISOString()
-        }, { onConflict: 'user_id' });
-
-        if (waitingError) {
-          waiting = false;
-          if (window.GoGameUI) window.GoGameUI.hideMatchingOverlay();
-          renderUI();
-          return alert(`进入等待房间失败：${waitingError.message}`);
-        }
-
-        waiting = true;
-        matchHint.textContent = '你已进入 waiting_room，等待其他玩家加入...';
-        renderUI();
-
-        if (sessionChannel) supabaseClient.removeChannel(sessionChannel);
-        sessionChannel = supabaseClient
-          .channel(`my-session-${user.id}`)
-          .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'game_sessions' }, payload => {
-            const row = payload.new;
-            if (row && (row.black_id === user.id || row.white_id === user.id)) {
-              attachSession(row);
-              waiting = false;
-              renderUI();
-            }
-          })
-          .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'game_sessions' }, payload => {
-            const row = payload.new;
-            if (row && (row.black_id === user.id || row.white_id === user.id)) {
-              attachSession(row);
-              waiting = false;
-              renderUI();
-            }
-          })
-          .subscribe();
-      }
-
-      async function leaveMatch() {
-        if (!supabaseClient || !user) {
-          waiting = false;
-          session = null;
-          userRole = 'local';
-          gameState = createGameState();
-          renderUI();
-          draw();
-          if (window.GoGameUI) window.GoGameUI.hideMatchingOverlay();
-          return;
-        }
-
-        if (waiting) {
-          await supabaseClient.from('waiting_room').delete().eq('user_id', user.id);
-          waiting = false;
-        }
-
-        if (session) {
-          await supabaseClient.from('game_sessions').update({ status: 'finished' }).eq('id', session.id);
-          session = null;
-        }
-
-        clearSubscriptions();
-        userRole = 'local';
-        gameState = createGameState();
-        renderUI();
-        draw();
-        if (window.GoGameUI) window.GoGameUI.hideMatchingOverlay();
-      }
-
-      async function placeStone(x, y, source = 'local', forcedPlayer = null) {
-        if (boardLocked) return;
-        const player = forcedPlayer ?? (gameState.turn === 'black' ? BLACK : WHITE);
-        if (session && user) {
-          const myTurn = (userRole === 'black' && gameState.turn === 'black') || (userRole === 'white' && gameState.turn === 'white');
-          if (!myTurn && source !== 'remote') return;
-        }
-
-        if (source !== 'remote' && !session) {
-          moveHistory.push({
-            boardBefore: cloneBoard(gameState.board),
-            turnBefore: gameState.turn,
-            blackCapturesBefore: gameState.blackCaptures,
-            whiteCapturesBefore: gameState.whiteCaptures,
-            movesBefore: gameState.moves.map(m => ({ ...m }))
-          });
-        }
-
-        const result = applyMoveToState(gameState, x, y, player);
-        if (!result.ok) {
-          if (source !== 'remote' && !session) moveHistory.pop();
-          return;
-        }
-
-        gameState = result.state;
-        renderUI();
-        draw();
-
-        if (source !== 'remote' && session && supabaseClient) {
-          const moveRow = {
-            session_id: session.id,
-            user_id: user.id,
-            x,
-            y,
-            player: playerKey(player),
-            turn_number: gameState.moves.length,
-            created_at: new Date().toISOString()
-          };
-          const { error: moveError } = await supabaseClient.from('moves').insert([moveRow]);
-          if (moveError) console.warn('move insert error:', moveError.message);
-          const { error: sessionError } = await supabaseClient
-            .from('game_sessions')
-            .update({
-              board_state: gameState.board,
-              next_turn: gameState.turn,
-              black_captures: gameState.blackCaptures,
-              white_captures: gameState.whiteCaptures,
-              moves: gameState.moves
-            })
-            .eq('id', session.id);
-          if (sessionError) console.warn('session sync error:', sessionError.message);
-        }
-      }
-
-      function getBoardPoint(clientX, clientY) {
-        const rect = canvas.getBoundingClientRect();
-        const localX = clientX - rect.left;
-        const localY = clientY - rect.top;
-        const x = Math.round((localX - margin) / cell);
-        const y = Math.round((localY - margin) / cell);
-        if (x < 0 || y < 0 || x >= SIZE || y >= SIZE) return null;
-        const px = margin + x * cell;
-        const py = margin + y * cell;
-        const hitRadius = cell * 0.42;
-        if (Math.abs(localX - px) > hitRadius || Math.abs(localY - py) > hitRadius) return null;
-        return { x, y };
-      }
-
-      function toggleAuthMode(mode) {
-        const isLogin = mode === 'login';
-        loginTab.classList.toggle('is-active', isLogin);
-        registerTab.classList.toggle('is-active', !isLogin);
-        loginForm.hidden = !isLogin;
-        registerForm.hidden = isLogin;
-      }
-
-      loginTab.addEventListener('click', () => toggleAuthMode('login'));
-      registerTab.addEventListener('click', () => toggleAuthMode('register'));
-
-      loginForm.addEventListener('submit', async e => {
-        e.preventDefault();
-        if (!supabaseClient) return alert('请先配置 Supabase Anon Key');
-        const { error } = await supabaseClient.auth.signInWithPassword({
-          email: loginEmail.value.trim(),
-          password: loginPassword.value
-        });
-        if (error) return alert(error.message);
-      });
-
-      registerForm.addEventListener('submit', async e => {
-        e.preventDefault();
-        if (!supabaseClient) return alert('请先配置 Supabase Anon Key');
-        const { error } = await supabaseClient.auth.signUp({
-          email: registerEmail.value.trim(),
-          password: registerPassword.value,
-          options: { data: { nickname: registerName.value.trim() } }
-        });
-        if (error) return alert(error.message);
-        alert('注册成功，请检查邮箱验证（如已开启）后登录。');
-        toggleAuthMode('login');
-      });
-
-      findOpponentBtn.addEventListener('click', findOpponent);
-      leaveMatchBtn.addEventListener('click', leaveMatch);
-      logoutBtn.addEventListener('click', async () => {
-        if (!supabaseClient) return;
-        await leaveMatch();
-        await supabaseClient.auth.signOut();
-      });
-
-      undoBtn.addEventListener('click', () => {
-        if (session) return alert('在线对局中暂不支持悔棋。');
-        const last = moveHistory.pop();
-        if (!last) return;
-        gameState.board = cloneBoard(last.boardBefore);
-        gameState.turn = last.turnBefore;
-        gameState.blackCaptures = last.blackCapturesBefore;
-        gameState.whiteCaptures = last.whiteCapturesBefore;
-        gameState.moves = last.movesBefore.map(m => ({ ...m }));
-        renderUI();
-        draw();
-      });
-
-      resetBtn.addEventListener('click', async () => {
-        if (session) {
-          const ok = confirm('在线对局正在进行，是否结束当前对局并重新开始？');
-          if (!ok) return;
-          await leaveMatch();
-          return;
-        }
-        gameState = createGameState();
-        moveHistory.length = 0;
-        renderUI();
-        draw();
-      });
-
-      canvas.addEventListener('click', e => {
-        const p = getBoardPoint(e.clientX, e.clientY);
-        if (p) placeStone(p.x, p.y);
-      });
-
-      canvas.addEventListener('touchend', e => {
-        const t = e.changedTouches[0];
-        const p = getBoardPoint(t.clientX, t.clientY);
-        if (p) {
-          e.preventDefault();
-          placeStone(p.x, p.y);
-        }
-      }, { passive: false });
-
-      window.addEventListener('resize', setCanvasSize);
-
-      async function bootstrapAuth() {
-        if (!supabaseClient) {
-          renderUI();
-          return;
-        }
-
-        const { data } = await supabaseClient.auth.getUser();
-        user = data.user || null;
-        renderUI();
-        if (user) {
-          await loadSessionByUser();
-        }
-
-        supabaseClient.auth.onAuthStateChange(async (_event, sessionData) => {
-          user = sessionData?.user || null;
-          if (!user) {
-            await leaveMatch();
-            renderUI();
-            return;
-          }
-          await loadSessionByUser();
-          renderUI();
-        });
-      }
-
-      async function loadWaitingSubscription() {
-        if (!supabaseClient || !user) return;
-        if (waitingChannel) supabaseClient.removeChannel(waitingChannel);
-        waitingChannel = supabaseClient
-          .channel(`waiting-room-${user.id}`)
-          .on('postgres_changes', { event: '*', schema: 'public', table: 'waiting_room' }, payload => {
-            const row = payload.new || payload.old;
-            if (row && row.user_id === user.id && waiting) {
-              matchBadge.textContent = '等待匹配中';
-            }
-          })
-          .subscribe();
-      }
-
-      (async () => {
-        setCanvasSize();
-        toggleAuthMode('login');
-        renderUI();
-        await bootstrapAuth();
-        await loadWaitingSubscription();
-        draw();
-      })();
-    })();
-  </script>
+  <div class="floating-actions">
+    <button class="icon-btn" id="drawerToggle" type="button" aria-label="打开菜单">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+        <path d="M4 7h16M4 12h16M4 17h16" />
+      </svg>
+    </button>
+  </div>
+
+  <div class="drawer" id="drawerPanel">
+    <section class="card">
+      <h3>快捷操作</h3>
+      <div class="stack">
+        <button type="button" id="drawerUndoBtn" class="secondary">悔棋</button>
+        <button type="button" id="drawerSettingsBtn" class="secondary">设置</button>
+        <button type="button" id="drawerResetBtn">重新开始</button>
+      </div>
+    </section>
+  </div>
 </body>
 </html>
