@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>围棋 App</title>
+  <style>
+    :root {
+      --bg: #0f1720;
+      --panel: rgba(16, 24, 32, 0.72);
+      --panel-border: rgba(255, 255, 255, 0.10);
+      --text: #eef4fb;
+      --muted: rgba(238, 244, 251, 0.72);
+      --accent: #f6c453;
+      --accent-2: #6ee7ff;
+      --board: #d7a15f;
+      --board-line: rgba(30, 22, 10, 0.70);
+      --shadow: 0 24px 70px rgba(0, 0, 0, 0.35);
+      --radius: 22px;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at top, rgba(110, 231, 255, 0.16), transparent 34%),
+        radial-gradient(circle at bottom right, rgba(246, 196, 83, 0.14), transparent 28%),
+        linear-gradient(180deg, #0f1720 0%, #111c27 100%);
+    }
+
+    .app {
+      min-height: 100%;
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      gap: 18px;
+      padding: 16px;
+      max-width: 1180px;
+      margin: 0 auto;
+    }
+
+    .topbar,
+    .footer {
+      padding: 14px 16px;
+      border: 1px solid var(--panel-border);
+      background: var(--panel);
+      backdrop-filter: blur(14px);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .brand {
+      display: grid;
+      gap: 4px;
+    }
+
+    .brand h1 {
+      margin: 0;
+      font-size: clamp(1.2rem, 3vw, 1.8rem);
+      letter-spacing: 0.04em;
+    }
+
+    .brand p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.92rem;
+    }
+
+    .status {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      text-align: right;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 36px;
+      padding: 0 14px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.12);
+      background: rgba(255,255,255,0.06);
+      color: var(--text);
+      font-weight: 700;
+      font-size: 0.9rem;
+      white-space: nowrap;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 320px;
+      gap: 18px;
+      align-items: start;
+    }
+
+    .board-shell,
+    .side-panel {
+      border: 1px solid var(--panel-border);
+      background: var(--panel);
+      backdrop-filter: blur(14px);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+    }
+
+    .board-shell {
+      padding: 16px;
+    }
+
+    .board-wrap {
+      width: min(92vw, 760px);
+      aspect-ratio: 1 / 1;
+      margin: 0 auto;
+      position: relative;
+      border-radius: 18px;
+      background:
+        linear-gradient(rgba(255,255,255,0.06), rgba(255,255,255,0.01)),
+        var(--board);
+      box-shadow: inset 0 0 0 1px rgba(80, 52, 18, 0.18);
+      overflow: hidden;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      touch-action: none;
+      cursor: pointer;
+    }
+
+    .side-panel {
+      padding: 16px;
+      display: grid;
+      gap: 14px;
+      position: sticky;
+      top: 16px;
+    }
+
+    .card {
+      border: 1px solid rgba(255,255,255,0.08);
+      background: rgba(255,255,255,0.04);
+      border-radius: 18px;
+      padding: 14px;
+    }
+
+    .card h2,
+    .card h3 {
+      margin: 0 0 10px;
+      font-size: 1rem;
+    }
+
+    .current-player {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-weight: 700;
+      font-size: 1.05rem;
+    }
+
+    .stone-preview {
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      border: 1px solid rgba(0,0,0,0.28);
+      box-shadow: inset 0 2px 7px rgba(255,255,255,0.4), 0 4px 12px rgba(0,0,0,0.25);
+      flex-shrink: 0;
+    }
+
+    .stone-black {
+      background: radial-gradient(circle at 30% 28%, #666, #111 60%);
+    }
+
+    .stone-white {
+      background: radial-gradient(circle at 30% 28%, #fff, #d8dde4 64%, #b1b7c0 100%);
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .metrics {
+      display: grid;
+      gap: 10px;
+    }
+
+    .metric {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      color: var(--muted);
+      font-size: 0.94rem;
+    }
+
+    .metric strong {
+      color: var(--text);
+      font-size: 1rem;
+    }
+
+    .actions {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    button {
+      appearance: none;
+      border: 0;
+      border-radius: 14px;
+      min-height: 44px;
+      padding: 10px 14px;
+      font: inherit;
+      font-weight: 700;
+      color: #0f1720;
+      background: linear-gradient(180deg, #ffe08a 0%, #f6c453 100%);
+      box-shadow: 0 10px 20px rgba(246, 196, 83, 0.18);
+      cursor: pointer;
+      transition: transform 0.15s ease, filter 0.15s ease, opacity 0.15s ease;
+    }
+
+    button:hover { transform: translateY(-1px); filter: brightness(1.03); }
+    button:active { transform: translateY(0); }
+    button.secondary {
+      color: var(--text);
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.10);
+      box-shadow: none;
+    }
+    button:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .tips {
+      color: var(--muted);
+      line-height: 1.75;
+      font-size: 0.94rem;
+      margin: 0;
+    }
+
+    .log {
+      max-height: 260px;
+      overflow: auto;
+      padding-right: 4px;
+    }
+
+    .move-list {
+      display: grid;
+      gap: 6px;
+      margin: 0;
+      padding-left: 18px;
+      color: var(--muted);
+      font-size: 0.92rem;
+    }
+
+    .footer {
+      color: var(--muted);
+      font-size: 0.9rem;
+      text-align: center;
+    }
+
+    @media (max-width: 920px) {
+      .layout {
+        grid-template-columns: 1fr;
+      }
+      .side-panel {
+        position: static;
+      }
+      .board-wrap {
+        width: min(94vw, 760px);
+      }
+    }
+
+    @media (max-width: 520px) {
+      .app { padding: 10px; gap: 12px; }
+      .topbar, .footer, .board-shell, .side-panel { border-radius: 18px; }
+      .board-shell, .side-panel { padding: 12px; }
+      .grid-2, .actions { grid-template-columns: 1fr; }
+      .status { justify-content: flex-start; text-align: left; }
+      .badge { min-height: 34px; padding: 0 12px; font-size: 0.86rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand">
+        <h1>围棋 App</h1>
+        <p>19×19 棋盘 · 黑白交替 · 简单提子 · 悔棋</p>
+      </div>
+      <div class="status">
+        <span class="badge" id="turnBadge">轮到：黑棋</span>
+        <span class="badge" id="captureBadge">提子：黑 0 / 白 0</span>
+      </div>
+    </header>
+
+    <main class="layout">
+      <section class="board-shell">
+        <div class="board-wrap">
+          <canvas id="board" aria-label="围棋棋盘"></canvas>
+        </div>
+      </section>
+
+      <aside class="side-panel">
+        <div class="card">
+          <h2>当前回合</h2>
+          <div class="current-player">
+            <span class="stone-preview stone-black" id="playerStone"></span>
+            <span id="playerText">黑棋先行</span>
+          </div>
+        </div>
+
+        <div class="card metrics">
+          <h3>对局信息</h3>
+          <div class="metric"><span>已落子</span><strong id="moveCount">0</strong></div>
+          <div class="metric"><span>黑棋提子</span><strong id="blackCaptures">0</strong></div>
+          <div class="metric"><span>白棋提子</span><strong id="whiteCaptures">0</strong></div>
+          <div class="metric"><span>最后一步</span><strong id="lastMove">暂无</strong></div>
+        </div>
+
+        <div class="card">
+          <h3>操作</h3>
+          <div class="actions">
+            <button id="undoBtn" class="secondary">悔棋</button>
+            <button id="resetBtn">重新开始</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>规则说明</h3>
+          <p class="tips">
+            1. 点击交叉点落子。<br />
+            2. 被完全包围、无气的棋子会被提掉。<br />
+            3. 默认禁止自杀手。<br />
+            4. 悔棋可撤回最近一步并恢复提子状态。
+          </p>
+        </div>
+
+        <div class="card log">
+          <h3>落子记录</h3>
+          <ol class="move-list" id="moveList"></ol>
+        </div>
+      </aside>
+    </main>
+
+    <footer class="footer">
+      支持手机端与电脑端自适应显示 · HTML5 + CSS3 + JavaScript
+    </footer>
+  </div>
+
+  <script>
+    (() => {
+      const SIZE = 19;
+      const EMPTY = 0;
+      const BLACK = 1;
+      const WHITE = 2;
+      const board = Array.from({ length: SIZE }, () => Array(SIZE).fill(EMPTY));
+      const stateStack = [];
+      const moveHistory = [];
+      let currentPlayer = BLACK;
+      let blackCaptures = 0;
+      let whiteCaptures = 0;
+
+      const canvas = document.getElementById('board');
+      const ctx = canvas.getContext('2d');
+      const turnBadge = document.getElementById('turnBadge');
+      const captureBadge = document.getElementById('captureBadge');
+      const playerStone = document.getElementById('playerStone');
+      const playerText = document.getElementById('playerText');
+      const moveCountEl = document.getElementById('moveCount');
+      const blackCapturesEl = document.getElementById('blackCaptures');
+      const whiteCapturesEl = document.getElementById('whiteCaptures');
+      const lastMoveEl = document.getElementById('lastMove');
+      const moveListEl = document.getElementById('moveList');
+      const undoBtn = document.getElementById('undoBtn');
+      const resetBtn = document.getElementById('resetBtn');
+
+      let boardRect = null;
+      let cell = 0;
+      let margin = 0;
+
+      function cloneBoard(src) {
+        return src.map(row => row.slice());
+      }
+
+      function stoneName(player) {
+        return player === BLACK ? '黑棋' : '白棋';
+      }
+
+      function opponent(player) {
+        return player === BLACK ? WHITE : BLACK;
+      }
+
+      function setCanvasSize() {
+        const wrap = canvas.parentElement;
+        const size = Math.min(wrap.clientWidth, wrap.clientHeight);
+        const dpr = window.devicePixelRatio || 1;
+        canvas.width = Math.floor(size * dpr);
+        canvas.height = Math.floor(size * dpr);
+        canvas.style.width = size + 'px';
+        canvas.style.height = size + 'px';
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        boardRect = canvas.getBoundingClientRect();
+        margin = Math.max(18, size * 0.045);
+        cell = (size - margin * 2) / (SIZE - 1);
+        draw();
+      }
+
+      function drawBoard() {
+        const w = canvas.clientWidth;
+        const h = canvas.clientHeight;
+        const size = Math.min(w, h);
+
+        ctx.clearRect(0, 0, w, h);
+
+        const bg = ctx.createLinearGradient(0, 0, 0, h);
+        bg.addColorStop(0, '#ddb06c');
+        bg.addColorStop(1, '#cc9655');
+        ctx.fillStyle = bg;
+        ctx.fillRect(0, 0, w, h);
+
+        ctx.strokeStyle = 'rgba(50, 34, 15, 0.7)';
+        ctx.lineWidth = 1;
+
+        for (let i = 0; i < SIZE; i++) {
+          const x = margin + i * cell;
+          const y = margin + i * cell;
+          ctx.beginPath();
+          ctx.moveTo(margin, y);
+          ctx.lineTo(size - margin, y);
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(x, margin);
+          ctx.lineTo(x, size - margin);
+          ctx.stroke();
+        }
+
+        const stars = [3, 9, 15];
+        ctx.fillStyle = 'rgba(40, 25, 10, 0.92)';
+        for (const i of stars) {
+          for (const j of stars) {
+            const x = margin + i * cell;
+            const y = margin + j * cell;
+            ctx.beginPath();
+            ctx.arc(x, y, Math.max(2.8, cell * 0.08), 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
+      }
+
+      function drawStone(x, y, player) {
+        const px = margin + x * cell;
+        const py = margin + y * cell;
+        const radius = cell * 0.44;
+        const gradient = ctx.createRadialGradient(px - radius * 0.32, py - radius * 0.32, radius * 0.18, px, py, radius);
+
+        if (player === BLACK) {
+          gradient.addColorStop(0, '#6a6a6a');
+          gradient.addColorStop(0.55, '#1a1a1a');
+          gradient.addColorStop(1, '#050505');
+        } else {
+          gradient.addColorStop(0, '#ffffff');
+          gradient.addColorStop(0.62, '#e2e6eb');
+          gradient.addColorStop(1, '#bcc3cd');
+        }
+
+        ctx.beginPath();
+        ctx.fillStyle = gradient;
+        ctx.arc(px, py, radius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.lineWidth = 1;
+        ctx.strokeStyle = player === BLACK ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.18)';
+        ctx.stroke();
+      }
+
+      function drawHover() {
+        // no hover effect on touch-first UI
+      }
+
+      function draw() {
+        drawBoard();
+        for (let y = 0; y < SIZE; y++) {
+          for (let x = 0; x < SIZE; x++) {
+            if (board[y][x] !== EMPTY) drawStone(x, y, board[y][x]);
+          }
+        }
+      }
+
+      function getGroupAndLiberties(startX, startY, srcBoard = board) {
+        const color = srcBoard[startY][startX];
+        const stack = [[startX, startY]];
+        const visited = new Set();
+        const stones = [];
+        let liberties = 0;
+
+        while (stack.length) {
+          const [x, y] = stack.pop();
+          const key = `${x},${y}`;
+          if (visited.has(key)) continue;
+          visited.add(key);
+          stones.push([x, y]);
+
+          const neighbors = [
+            [x - 1, y],
+            [x + 1, y],
+            [x, y - 1],
+            [x, y + 1],
+          ];
+
+          for (const [nx, ny] of neighbors) {
+            if (nx < 0 || ny < 0 || nx >= SIZE || ny >= SIZE) continue;
+            const value = srcBoard[ny][nx];
+            if (value === EMPTY) {
+              liberties += 1;
+            } else if (value === color && !visited.has(`${nx},${ny}`)) {
+              stack.push([nx, ny]);
+            }
+          }
+        }
+
+        return { stones, liberties };
+      }
+
+      function removeCapturedStones(placeX, placeY, player, workingBoard) {
+        const captured = [];
+        const enemy = opponent(player);
+        const neighbors = [
+          [placeX - 1, placeY],
+          [placeX + 1, placeY],
+          [placeX, placeY - 1],
+          [placeX, placeY + 1],
+        ];
+
+        for (const [nx, ny] of neighbors) {
+          if (nx < 0 || ny < 0 || nx >= SIZE || ny >= SIZE) continue;
+          if (workingBoard[ny][nx] !== enemy) continue;
+          const group = getGroupAndLiberties(nx, ny, workingBoard);
+          if (group.liberties === 0) {
+            for (const [gx, gy] of group.stones) {
+              workingBoard[gy][gx] = EMPTY;
+              captured.push([gx, gy]);
+            }
+          }
+        }
+        return captured;
+      }
+
+      function isLegalMove(x, y, player) {
+        if (board[y][x] !== EMPTY) return { legal: false, reason: '该点已有棋子' };
+
+        const temp = cloneBoard(board);
+        temp[y][x] = player;
+        const captured = removeCapturedStones(x, y, player, temp);
+        const myGroup = getGroupAndLiberties(x, y, temp);
+
+        if (myGroup.liberties === 0) {
+          return { legal: false, reason: '禁止自杀手' };
+        }
+
+        return { legal: true, captured };
+      }
+
+      function recordMove(x, y, player, captured) {
+        moveHistory.push({
+          x,
+          y,
+          player,
+          captured,
+          boardSnapshot: cloneBoard(board),
+          blackCaptures,
+          whiteCaptures,
+          currentPlayer,
+        });
+      }
+
+      function placeStone(x, y) {
+        const result = isLegalMove(x, y, currentPlayer);
+        if (!result.legal) return;
+
+        const snapshot = cloneBoard(board);
+        board[y][x] = currentPlayer;
+        const captured = removeCapturedStones(x, y, currentPlayer, board);
+        const myGroup = getGroupAndLiberties(x, y, board);
+
+        if (myGroup.liberties === 0) {
+          // 理论上不会发生，因为前面已判定，这里兜底恢复
+          for (let iy = 0; iy < SIZE; iy++) board[iy] = snapshot[iy].slice();
+          return;
+        }
+
+        if (captured.length) {
+          if (currentPlayer === BLACK) blackCaptures += captured.length;
+          else whiteCaptures += captured.length;
+        }
+
+        moveHistory.push({
+          x,
+          y,
+          player: currentPlayer,
+          captured,
+          boardBefore: snapshot,
+          blackCapturesBefore: blackCaptures - (currentPlayer === BLACK ? captured.length : 0),
+          whiteCapturesBefore: whiteCaptures - (currentPlayer === WHITE ? captured.length : 0),
+          currentPlayerBefore: currentPlayer,
+        });
+
+        currentPlayer = opponent(currentPlayer);
+        updateUI(x, y);
+        draw();
+      }
+
+      function updateUI(lastX = null, lastY = null) {
+        const playerLabel = stoneName(currentPlayer);
+        turnBadge.textContent = `轮到：${playerLabel}`;
+        captureBadge.textContent = `提子：黑 ${blackCaptures} / 白 ${whiteCaptures}`;
+        playerText.textContent = currentPlayer === BLACK ? '黑棋落子' : '白棋落子';
+        playerStone.className = `stone-preview ${currentPlayer === BLACK ? 'stone-black' : 'stone-white'}`;
+        moveCountEl.textContent = String(moveHistory.length);
+        blackCapturesEl.textContent = String(blackCaptures);
+        whiteCapturesEl.textContent = String(whiteCaptures);
+        lastMoveEl.textContent = lastX === null ? '暂无' : `${stoneName(moveHistory[moveHistory.length - 1].player)} @ (${lastX + 1}, ${lastY + 1})`;
+        undoBtn.disabled = moveHistory.length === 0;
+
+        moveListEl.innerHTML = moveHistory.map((m, idx) => {
+          const coord = `(${m.x + 1}, ${m.y + 1})`;
+          const cap = m.captured.length ? `，提 ${m.captured.length} 子` : '';
+          return `<li>${idx + 1}. ${stoneName(m.player)} ${coord}${cap}</li>`;
+        }).join('');
+      }
+
+      function undoMove() {
+        const last = moveHistory.pop();
+        if (!last) return;
+
+        for (let y = 0; y < SIZE; y++) {
+          board[y] = last.boardBefore[y].slice();
+        }
+        blackCaptures = last.blackCapturesBefore;
+        whiteCaptures = last.whiteCapturesBefore;
+        currentPlayer = last.currentPlayerBefore;
+        updateUI();
+        draw();
+      }
+
+      function resetGame() {
+        for (let y = 0; y < SIZE; y++) board[y].fill(EMPTY);
+        moveHistory.length = 0;
+        currentPlayer = BLACK;
+        blackCaptures = 0;
+        whiteCaptures = 0;
+        updateUI();
+        draw();
+      }
+
+      function getBoardPoint(clientX, clientY) {
+        const rect = canvas.getBoundingClientRect();
+        const size = rect.width;
+        const localX = clientX - rect.left;
+        const localY = clientY - rect.top;
+        const max = size - margin;
+        const min = margin;
+        const x = Math.round((localX - margin) / cell);
+        const y = Math.round((localY - margin) / cell);
+        if (x < 0 || y < 0 || x >= SIZE || y >= SIZE) return null;
+        const px = margin + x * cell;
+        const py = margin + y * cell;
+        const hitRadius = cell * 0.42;
+        if (Math.abs(localX - px) > hitRadius || Math.abs(localY - py) > hitRadius) return null;
+        return { x, y };
+      }
+
+      canvas.addEventListener('click', (e) => {
+        const point = getBoardPoint(e.clientX, e.clientY);
+        if (point) placeStone(point.x, point.y);
+      });
+
+      canvas.addEventListener('touchend', (e) => {
+        const t = e.changedTouches[0];
+        const point = getBoardPoint(t.clientX, t.clientY);
+        if (point) {
+          e.preventDefault();
+          placeStone(point.x, point.y);
+        }
+      }, { passive: false });
+
+      undoBtn.addEventListener('click', undoMove);
+      resetBtn.addEventListener('click', resetGame);
+      window.addEventListener('resize', setCanvasSize);
+
+      setCanvasSize();
+      updateUI();
+      draw();
+    })();
+  </script>
+</body>
+</html>
