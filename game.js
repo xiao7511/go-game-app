@@ -4,125 +4,83 @@
   let movesChannel = null;
   let authOverlay = null;
   let matchOverlay = null;
+  let isLoggedIn = false;
 
-  function applyImmersiveState(isLoggedIn) {
-    document.body.classList.toggle('is-locked', !isLoggedIn);
-    document.body.classList.toggle('is-immersive', isLoggedIn);
+  const boardStage = () => document.getElementById('boardStage');
+  const boardShell = () => document.querySelector('.board-shell');
+  const topbar = () => document.querySelector('.topbar');
+  const footer = () => document.querySelector('.footer');
+  const sidebar = () => document.querySelector('.sidebar');
+
+  function applyImmersiveState(loggedIn) {
+    isLoggedIn = loggedIn;
+    document.body.classList.toggle('is-immersive', loggedIn);
+    document.body.classList.toggle('is-locked', !loggedIn);
+
+    const shell = boardShell();
+    const stage = boardStage();
+    if (shell) shell.style.display = loggedIn ? 'grid' : 'none';
+    if (stage) stage.style.display = loggedIn ? 'grid' : 'none';
+    if (topbar()) topbar().style.display = loggedIn ? '' : '';
+    if (footer()) footer().style.display = loggedIn ? '' : '';
+    if (sidebar()) sidebar().style.display = loggedIn ? '' : 'none';
+  }
+
+  function hideAuthOverlay() {
+    if (!authOverlay) return;
+    authOverlay.style.display = 'none';
+  }
+
+  function showAuthOverlay() {
+    ensureAuthOverlay();
+    authOverlay.style.display = 'grid';
+  }
+
+  function setLoggedIn(loggedIn) {
+    applyImmersiveState(loggedIn);
+    if (loggedIn) {
+      hideAuthOverlay();
+      console.log('游客登录成功');
+    } else {
+      showAuthOverlay();
+    }
+  }
+
+  function handleAuthSuccess() {
+    setLoggedIn(true);
   }
 
   function ensureAuthOverlay() {
     if (authOverlay) return authOverlay;
     authOverlay = document.createElement('div');
     authOverlay.id = AUTH_OVERLAY_ID;
-    authOverlay.hidden = true;
+    authOverlay.style.cssText = 'position:fixed;inset:0;z-index:10000;display:grid;place-items:center;padding:18px;background:linear-gradient(180deg, rgba(12,18,24,.88), rgba(7,10,14,.92)),radial-gradient(circle at top, rgba(110,231,255,.18), transparent 30%),radial-gradient(circle at bottom right, rgba(246,196,83,.12), transparent 28%);backdrop-filter:blur(12px);';
     authOverlay.innerHTML = `
-      <style>
-        #${AUTH_OVERLAY_ID} {
-          position: fixed;
-          inset: 0;
-          z-index: 10000;
-          display: grid;
-          place-items: center;
-          padding: 18px;
-          background:
-            linear-gradient(180deg, rgba(12, 18, 24, 0.88), rgba(7, 10, 14, 0.92)),
-            radial-gradient(circle at top, rgba(110, 231, 255, 0.18), transparent 30%),
-            radial-gradient(circle at bottom right, rgba(246, 196, 83, 0.12), transparent 28%);
-          backdrop-filter: blur(12px);
-        }
-        #${AUTH_OVERLAY_ID}[hidden] { display: none; }
-        #${AUTH_OVERLAY_ID} .panel {
-          width: min(94vw, 460px);
-          padding: 24px;
-          border-radius: 28px;
-          border: 1px solid rgba(255,255,255,0.12);
-          background: rgba(16, 24, 32, 0.94);
-          box-shadow: 0 30px 80px rgba(0,0,0,0.42);
-        }
-        #${AUTH_OVERLAY_ID} h2 { margin: 0 0 8px; font-size: 1.4rem; }
-        #${AUTH_OVERLAY_ID} p { margin: 0 0 16px; color: rgba(238,244,251,0.72); line-height: 1.6; }
-        #${AUTH_OVERLAY_ID} .tabs { display: flex; gap: 10px; margin-bottom: 14px; }
-        #${AUTH_OVERLAY_ID} .tab {
-          flex: 1;
-          min-height: 42px;
-          border-radius: 999px;
-          border: 1px solid rgba(255,255,255,0.12);
-          background: rgba(255,255,255,0.06);
-          color: #eef4fb;
-          font-weight: 700;
-          cursor: pointer;
-        }
-        #${AUTH_OVERLAY_ID} .tab.is-active {
-          background: linear-gradient(180deg, #ffe08a 0%, #f6c453 100%);
-          color: #0f1720;
-          border-color: transparent;
-        }
-        #${AUTH_OVERLAY_ID} .form {
-          display: grid;
-          gap: 10px;
-        }
-        #${AUTH_OVERLAY_ID} .form[hidden] { display: none; }
-        #${AUTH_OVERLAY_ID} input {
-          width: 100%;
-          min-height: 44px;
-          padding: 10px 14px;
-          border-radius: 14px;
-          border: 1px solid rgba(255,255,255,0.12);
-          background: rgba(7, 11, 16, 0.82);
-          color: #eef4fb;
-          outline: none;
-        }
-        #${AUTH_OVERLAY_ID} .actions {
-          display: grid;
-          gap: 10px;
-          margin-top: 6px;
-        }
-        #${AUTH_OVERLAY_ID} .btn {
-          min-height: 44px;
-          border: 0;
-          border-radius: 14px;
-          font-weight: 700;
-          cursor: pointer;
-          color: #0f1720;
-          background: linear-gradient(180deg, #ffe08a 0%, #f6c453 100%);
-        }
-        #${AUTH_OVERLAY_ID} .btn.secondary {
-          color: #eef4fb;
-          background: rgba(255,255,255,0.08);
-          border: 1px solid rgba(255,255,255,0.10);
-        }
-        #${AUTH_OVERLAY_ID} .note {
-          margin-top: 14px;
-          font-size: 0.88rem;
-          color: rgba(238,244,251,0.68);
-          line-height: 1.6;
-        }
-      </style>
-      <div class="panel" role="dialog" aria-modal="true" aria-labelledby="auth-title">
-        <h2 id="auth-title">围棋 Pro</h2>
-        <p>请先登录或注册，然后进入全屏棋盘模式。当前先使用 <strong>isLoggedIn</strong> 模拟，后续可接 Supabase。</p>
-        <div class="tabs">
-          <button class="tab is-active" type="button" data-auth-tab="login">登录</button>
-          <button class="tab" type="button" data-auth-tab="register">注册</button>
+      <div class="panel" role="dialog" aria-modal="true" aria-labelledby="auth-title" style="width:min(94vw,460px);padding:24px;border-radius:28px;border:1px solid rgba(255,255,255,.12);background:rgba(16,24,32,.94);box-shadow:0 30px 80px rgba(0,0,0,.42);">
+        <h2 id="auth-title" style="margin:0 0 8px;font-size:1.4rem;">围棋 Pro</h2>
+        <p style="margin:0 0 16px;color:rgba(238,244,251,.72);line-height:1.6;">请先登录或注册，然后进入全屏棋盘模式。当前先使用 <strong>isLoggedIn</strong> 模拟，后续可接 Supabase。</p>
+        <div class="tabs" style="display:flex;gap:10px;margin-bottom:14px;">
+          <button class="tab is-active" type="button" data-auth-tab="login" style="flex:1;min-height:42px;border-radius:999px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.06);color:#eef4fb;font-weight:700;cursor:pointer;">登录</button>
+          <button class="tab" type="button" data-auth-tab="register" style="flex:1;min-height:42px;border-radius:999px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.06);color:#eef4fb;font-weight:700;cursor:pointer;">注册</button>
         </div>
-        <form class="form" data-auth-form="login">
-          <input type="email" placeholder="邮箱" autocomplete="email">
-          <input type="password" placeholder="密码" autocomplete="current-password">
-          <div class="actions">
-            <button class="btn" type="button" data-auth-action="login">登录并进入</button>
-            <button class="btn secondary" type="button" data-auth-action="guest">游客试玩</button>
+        <form class="form" data-auth-form="login" style="display:grid;gap:10px;">
+          <input type="email" placeholder="邮箱" autocomplete="email" style="width:100%;min-height:44px;padding:10px 14px;border-radius:14px;border:1px solid rgba(255,255,255,.12);background:rgba(7,11,16,.82);color:#eef4fb;outline:none;">
+          <input type="password" placeholder="密码" autocomplete="current-password" style="width:100%;min-height:44px;padding:10px 14px;border-radius:14px;border:1px solid rgba(255,255,255,.12);background:rgba(7,11,16,.82);color:#eef4fb;outline:none;">
+          <div class="actions" style="display:grid;gap:10px;margin-top:6px;">
+            <button class="btn" type="button" data-auth-action="login" style="min-height:44px;border:0;border-radius:14px;font-weight:700;cursor:pointer;color:#0f1720;background:linear-gradient(180deg,#ffe08a 0%,#f6c453 100%);">登录并进入</button>
+            <button class="btn secondary" type="button" data-auth-action="guest" style="min-height:44px;border-radius:14px;font-weight:700;cursor:pointer;color:#eef4fb;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.10);">游客登录</button>
           </div>
         </form>
-        <form class="form" data-auth-form="register" hidden>
-          <input type="text" placeholder="昵称" autocomplete="nickname">
-          <input type="email" placeholder="邮箱" autocomplete="email">
-          <input type="password" placeholder="密码" autocomplete="new-password">
-          <div class="actions">
-            <button class="btn" type="button" data-auth-action="register">注册并进入</button>
-            <button class="btn secondary" type="button" data-auth-action="guest">直接体验</button>
+        <form class="form" data-auth-form="register" hidden style="display:grid;gap:10px;">
+          <input type="text" placeholder="昵称" autocomplete="nickname" style="width:100%;min-height:44px;padding:10px 14px;border-radius:14px;border:1px solid rgba(255,255,255,.12);background:rgba(7,11,16,.82);color:#eef4fb;outline:none;">
+          <input type="email" placeholder="邮箱" autocomplete="email" style="width:100%;min-height:44px;padding:10px 14px;border-radius:14px;border:1px solid rgba(255,255,255,.12);background:rgba(7,11,16,.82);color:#eef4fb;outline:none;">
+          <input type="password" placeholder="密码" autocomplete="new-password" style="width:100%;min-height:44px;padding:10px 14px;border-radius:14px;border:1px solid rgba(255,255,255,.12);background:rgba(7,11,16,.82);color:#eef4fb;outline:none;">
+          <div class="actions" style="display:grid;gap:10px;margin-top:6px;">
+            <button class="btn" type="button" data-auth-action="register" style="min-height:44px;border:0;border-radius:14px;font-weight:700;cursor:pointer;color:#0f1720;background:linear-gradient(180deg,#ffe08a 0%,#f6c453 100%);">注册并进入</button>
+            <button class="btn secondary" type="button" data-auth-action="guest" style="min-height:44px;border-radius:14px;font-weight:700;cursor:pointer;color:#eef4fb;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.10);">游客登录</button>
           </div>
         </form>
-        <div class="note">提示：此覆盖层会在登录成功后自动隐藏，并切换到边到边棋盘视图。</div>
+        <div class="note" style="margin-top:14px;font-size:.88rem;color:rgba(238,244,251,.68);line-height:1.6;">提示：此覆盖层会在登录成功后自动隐藏，并切换到边到边棋盘视图。</div>
       </div>
     `;
 
@@ -146,29 +104,19 @@
     authOverlay.querySelectorAll('[data-auth-action]').forEach(btn => {
       btn.addEventListener('click', () => {
         const action = btn.dataset.authAction;
-        window.dispatchEvent(new CustomEvent(action === 'register' ? 'goauth:register' : 'goauth:login', {
-          detail: { source: action }
-        }));
+        if (action === 'guest') {
+          setLoggedIn(true);
+          return;
+        }
+        if (action === 'login' || action === 'register') {
+          handleAuthSuccess();
+        }
       });
     });
 
     switchTab('login');
     document.body.appendChild(authOverlay);
     return authOverlay;
-  }
-
-  function showAuthOverlay() {
-    ensureAuthOverlay().hidden = false;
-  }
-
-  function hideAuthOverlay() {
-    if (authOverlay) authOverlay.hidden = true;
-  }
-
-  function setLoggedIn(isLoggedIn) {
-    applyImmersiveState(isLoggedIn);
-    if (isLoggedIn) hideAuthOverlay();
-    else showAuthOverlay();
   }
 
   function ensureMatchOverlay() {
@@ -178,49 +126,14 @@
     matchOverlay.hidden = true;
     matchOverlay.innerHTML = `
       <style>
-        #${MATCH_OVERLAY_ID} {
-          position: fixed;
-          inset: 0;
-          z-index: 9999;
-          display: grid;
-          place-items: center;
-          background: rgba(7, 12, 18, 0.74);
-          backdrop-filter: blur(10px);
-        }
+        #${MATCH_OVERLAY_ID} { position: fixed; inset: 0; z-index: 9999; display: grid; place-items: center; background: rgba(7, 12, 18, 0.74); backdrop-filter: blur(10px); }
         #${MATCH_OVERLAY_ID}[hidden] { display: none; }
-        #${MATCH_OVERLAY_ID} .panel {
-          width: min(92vw, 420px);
-          padding: 28px 24px;
-          border-radius: 24px;
-          border: 1px solid rgba(255,255,255,0.12);
-          background: linear-gradient(180deg, rgba(18,24,33,0.96), rgba(10,16,22,0.96));
-          text-align: center;
-          box-shadow: 0 28px 72px rgba(0,0,0,0.45);
-        }
+        #${MATCH_OVERLAY_ID} .panel { width: min(92vw, 420px); padding: 28px 24px; border-radius: 24px; border: 1px solid rgba(255,255,255,0.12); background: linear-gradient(180deg, rgba(18,24,33,0.96), rgba(10,16,22,0.96)); text-align: center; box-shadow: 0 28px 72px rgba(0,0,0,0.45); }
         #${MATCH_OVERLAY_ID} h2 { margin: 0 0 10px; font-size: 1.25rem; }
         #${MATCH_OVERLAY_ID} p { margin: 0; color: rgba(238,244,251,0.76); }
-        #${MATCH_OVERLAY_ID} .spinner {
-          width: 72px;
-          height: 72px;
-          margin: 0 auto 18px;
-          border-radius: 50%;
-          border: 5px solid rgba(255,255,255,0.10);
-          border-top-color: #f6c453;
-          animation: go-spin 1s linear infinite;
-        }
-        #${MATCH_OVERLAY_ID} .dots {
-          display: inline-flex;
-          gap: 6px;
-          margin-left: 6px;
-          vertical-align: middle;
-        }
-        #${MATCH_OVERLAY_ID} .dots span {
-          width: 8px;
-          height: 8px;
-          border-radius: 50%;
-          background: #6ee7ff;
-          animation: go-bounce 1.1s infinite ease-in-out;
-        }
+        #${MATCH_OVERLAY_ID} .spinner { width: 72px; height: 72px; margin: 0 auto 18px; border-radius: 50%; border: 5px solid rgba(255,255,255,0.10); border-top-color: #f6c453; animation: go-spin 1s linear infinite; }
+        #${MATCH_OVERLAY_ID} .dots { display: inline-flex; gap: 6px; margin-left: 6px; vertical-align: middle; }
+        #${MATCH_OVERLAY_ID} .dots span { width: 8px; height: 8px; border-radius: 50%; background: #6ee7ff; animation: go-bounce 1.1s infinite ease-in-out; }
         #${MATCH_OVERLAY_ID} .dots span:nth-child(2) { animation-delay: 0.15s; }
         #${MATCH_OVERLAY_ID} .dots span:nth-child(3) { animation-delay: 0.3s; }
         @keyframes go-spin { to { transform: rotate(360deg); } }
@@ -236,13 +149,8 @@
     return matchOverlay;
   }
 
-  function showMatchingOverlay() {
-    ensureMatchOverlay().hidden = false;
-  }
-
-  function hideMatchingOverlay() {
-    if (matchOverlay) matchOverlay.hidden = true;
-  }
+  function showMatchingOverlay() { ensureMatchOverlay().hidden = false; }
+  function hideMatchingOverlay() { if (matchOverlay) matchOverlay.hidden = true; }
 
   function bindMoves({ supabaseClient, sessionId, currentUserId, onRemoteMove, onError }) {
     if (!supabaseClient || !sessionId) return;
@@ -252,39 +160,20 @@
     }
     movesChannel = supabaseClient
       .channel(`moves-${sessionId}`)
-      .on('postgres_changes', {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'moves',
-        filter: `session_id=eq.${sessionId}`
-      }, payload => {
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'moves', filter: `session_id=eq.${sessionId}` }, payload => {
         const row = payload.new;
         if (!row || row.user_id === currentUserId) return;
-        try {
-          onRemoteMove?.(row);
-        } catch (err) {
-          onError?.(err);
-        }
+        try { onRemoteMove?.(row); } catch (err) { onError?.(err); }
       })
       .subscribe();
   }
 
   function unbindMoves(supabaseClient) {
-    if (movesChannel && supabaseClient) {
-      supabaseClient.removeChannel(movesChannel);
-    }
+    if (movesChannel && supabaseClient) supabaseClient.removeChannel(movesChannel);
     movesChannel = null;
   }
 
-  window.GoGameUI = {
-    setLoggedIn,
-    showAuthOverlay,
-    hideAuthOverlay,
-    showMatchingOverlay,
-    hideMatchingOverlay,
-    bindMoves,
-    unbindMoves
-  };
+  window.GoGameUI = { setLoggedIn, showAuthOverlay, hideAuthOverlay, showMatchingOverlay, hideMatchingOverlay, bindMoves, unbindMoves };
 
   document.addEventListener('DOMContentLoaded', () => {
     applyImmersiveState(false);
