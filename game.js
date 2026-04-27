@@ -40,6 +40,10 @@
     applyImmersiveState(loggedIn);
     if (loggedIn) {
       hideAuthOverlay();
+      const shell = boardShell();
+      const stage = boardStage();
+      if (shell) shell.style.display = 'grid';
+      if (stage) stage.style.display = 'grid';
       console.log('游客登录成功');
     } else {
       showAuthOverlay();
@@ -68,7 +72,7 @@
           <input type="password" placeholder="密码" autocomplete="current-password" style="width:100%;min-height:44px;padding:10px 14px;border-radius:14px;border:1px solid rgba(255,255,255,.12);background:rgba(7,11,16,.82);color:#eef4fb;outline:none;">
           <div class="actions" style="display:grid;gap:10px;margin-top:6px;">
             <button class="btn" type="button" data-auth-action="login" style="min-height:44px;border:0;border-radius:14px;font-weight:700;cursor:pointer;color:#0f1720;background:linear-gradient(180deg,#ffe08a 0%,#f6c453 100%);">登录并进入</button>
-            <button class="btn secondary" type="button" data-auth-action="guest" style="min-height:44px;border-radius:14px;font-weight:700;cursor:pointer;color:#eef4fb;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.10);">游客登录</button>
+            <button class="btn secondary" type="button" data-auth-action="guest" id="guest-login-btn" style="min-height:44px;border-radius:14px;font-weight:700;cursor:pointer;color:#eef4fb;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.10);">游客登录</button>
           </div>
         </form>
         <form class="form" data-auth-form="register" hidden style="display:grid;gap:10px;">
@@ -77,7 +81,7 @@
           <input type="password" placeholder="密码" autocomplete="new-password" style="width:100%;min-height:44px;padding:10px 14px;border-radius:14px;border:1px solid rgba(255,255,255,.12);background:rgba(7,11,16,.82);color:#eef4fb;outline:none;">
           <div class="actions" style="display:grid;gap:10px;margin-top:6px;">
             <button class="btn" type="button" data-auth-action="register" style="min-height:44px;border:0;border-radius:14px;font-weight:700;cursor:pointer;color:#0f1720;background:linear-gradient(180deg,#ffe08a 0%,#f6c453 100%);">注册并进入</button>
-            <button class="btn secondary" type="button" data-auth-action="guest" style="min-height:44px;border-radius:14px;font-weight:700;cursor:pointer;color:#eef4fb;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.10);">游客登录</button>
+            <button class="btn secondary" type="button" data-auth-action="guest" id="guest-login-btn" style="min-height:44px;border-radius:14px;font-weight:700;cursor:pointer;color:#eef4fb;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.10);">游客登录</button>
           </div>
         </form>
         <div class="note" style="margin-top:14px;font-size:.88rem;color:rgba(238,244,251,.68);line-height:1.6;">提示：此覆盖层会在登录成功后自动隐藏，并切换到边到边棋盘视图。</div>
@@ -104,6 +108,7 @@
     authOverlay.querySelectorAll('[data-auth-action]').forEach(btn => {
       btn.addEventListener('click', () => {
         const action = btn.dataset.authAction;
+        console.log('Login Clicked', action);
         if (action === 'guest') {
           setLoggedIn(true);
           return;
