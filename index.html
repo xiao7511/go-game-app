@@ -8,7 +8,8 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <link rel="manifest" href="manifest.json" />
   <link rel="apple-touch-icon" href="icon.svg" />
-  <title>围棋 App</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <title>围棋 Pro</title>
   <style>
     :root {
       --bg: #0f1720;
@@ -19,9 +20,10 @@
       --accent: #f6c453;
       --accent-2: #6ee7ff;
       --board: #d7a15f;
-      --board-line: rgba(30, 22, 10, 0.70);
       --shadow: 0 24px 70px rgba(0, 0, 0, 0.35);
       --radius: 22px;
+      --ok: #71e5a7;
+      --danger: #ff7f9b;
     }
 
     * { box-sizing: border-box; }
@@ -39,21 +41,27 @@
     .app {
       min-height: 100%;
       display: grid;
-      grid-template-rows: auto 1fr auto;
-      gap: 18px;
+      grid-template-rows: auto auto 1fr auto;
+      gap: 16px;
       padding: 16px;
-      max-width: 1180px;
+      max-width: 1300px;
       margin: 0 auto;
     }
 
     .topbar,
-    .footer {
-      padding: 14px 16px;
+    .footer,
+    .card,
+    .board-shell {
       border: 1px solid var(--panel-border);
       background: var(--panel);
       backdrop-filter: blur(14px);
       border-radius: var(--radius);
       box-shadow: var(--shadow);
+    }
+
+    .topbar,
+    .footer {
+      padding: 14px 16px;
     }
 
     .topbar {
@@ -107,121 +115,79 @@
 
     .layout {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) 320px;
-      gap: 18px;
+      grid-template-columns: 340px minmax(0, 1fr);
+      gap: 16px;
       align-items: start;
     }
 
-    .board-shell,
-    .side-panel {
-      border: 1px solid var(--panel-border);
-      background: var(--panel);
-      backdrop-filter: blur(14px);
-      border-radius: var(--radius);
-      box-shadow: var(--shadow);
-    }
-
-    .board-shell {
-      padding: 16px;
-    }
-
-    .board-wrap {
-      width: min(92vw, 760px);
-      aspect-ratio: 1 / 1;
-      margin: 0 auto;
-      position: relative;
-      border-radius: 18px;
-      background:
-        linear-gradient(rgba(255,255,255,0.06), rgba(255,255,255,0.01)),
-        var(--board);
-      box-shadow: inset 0 0 0 1px rgba(80, 52, 18, 0.18);
-      overflow: hidden;
-    }
-
-    canvas {
-      display: block;
-      width: 100%;
-      height: 100%;
-      touch-action: none;
-      cursor: pointer;
-    }
-
-    .side-panel {
-      padding: 16px;
+    .sidebar {
       display: grid;
-      gap: 14px;
-      position: sticky;
-      top: 16px;
+      gap: 16px;
     }
 
     .card {
-      border: 1px solid rgba(255,255,255,0.08);
-      background: rgba(255,255,255,0.04);
-      border-radius: 18px;
-      padding: 14px;
+      padding: 16px;
     }
 
     .card h2,
     .card h3 {
-      margin: 0 0 10px;
+      margin: 0 0 12px;
       font-size: 1rem;
     }
 
-    .current-player {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      font-weight: 700;
-      font-size: 1.05rem;
-    }
-
-    .stone-preview {
-      width: 34px;
-      height: 34px;
-      border-radius: 50%;
-      border: 1px solid rgba(0,0,0,0.28);
-      box-shadow: inset 0 2px 7px rgba(255,255,255,0.4), 0 4px 12px rgba(0,0,0,0.25);
-      flex-shrink: 0;
-    }
-
-    .stone-black {
-      background: radial-gradient(circle at 30% 28%, #666, #111 60%);
-    }
-
-    .stone-white {
-      background: radial-gradient(circle at 30% 28%, #fff, #d8dde4 64%, #b1b7c0 100%);
-    }
-
-    .grid-2 {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 10px;
-    }
-
-    .metrics {
-      display: grid;
-      gap: 10px;
-    }
-
-    .metric {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 12px;
+    .muted {
       color: var(--muted);
-      font-size: 0.94rem;
+      font-size: 0.92rem;
+      line-height: 1.7;
+      margin: 0;
     }
 
-    .metric strong {
+    .auth-tabs {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .tab {
+      flex: 1;
+      min-height: 40px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.10);
+      background: rgba(255,255,255,0.05);
       color: var(--text);
-      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
     }
 
-    .actions {
+    .tab.is-active {
+      background: linear-gradient(180deg, #ffe08a 0%, #f6c453 100%);
+      color: #0f1720;
+      border-color: transparent;
+    }
+
+    .form {
       display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 10px;
     }
+
+    .form[hidden] { display: none; }
+
+    input, button, textarea {
+      font: inherit;
+    }
+
+    input {
+      width: 100%;
+      min-height: 44px;
+      padding: 10px 14px;
+      border-radius: 14px;
+      border: 1px solid rgba(255,255,255,0.12);
+      background: rgba(10, 16, 22, 0.7);
+      color: var(--text);
+      outline: none;
+    }
+
+    input::placeholder { color: rgba(238,244,251,0.4); }
 
     button {
       appearance: none;
@@ -239,66 +205,119 @@
     }
 
     button:hover { transform: translateY(-1px); filter: brightness(1.03); }
-    button:active { transform: translateY(0); }
+    button:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
     button.secondary {
       color: var(--text);
       background: rgba(255,255,255,0.08);
       border: 1px solid rgba(255,255,255,0.10);
       box-shadow: none;
     }
-    button:disabled {
-      opacity: 0.45;
-      cursor: not-allowed;
-      transform: none;
+    button.danger {
+      color: #fff;
+      background: linear-gradient(180deg, #ff8da2 0%, #e95c7c 100%);
     }
 
-    .tips {
-      color: var(--muted);
-      line-height: 1.75;
-      font-size: 0.94rem;
-      margin: 0;
-    }
-
-    .log {
-      max-height: 260px;
-      overflow: auto;
-      padding-right: 4px;
-    }
-
-    .move-list {
+    .stack {
       display: grid;
-      gap: 6px;
-      margin: 0;
-      padding-left: 18px;
+      gap: 10px;
+    }
+
+    .user-box {
+      display: grid;
+      gap: 8px;
+      margin-top: 12px;
+      padding: 12px;
+      border-radius: 16px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+
+    .user-box strong { font-size: 1rem; }
+    .user-box small { color: var(--muted); }
+
+    .board-shell {
+      padding: 16px;
+    }
+
+    .board-wrap {
+      width: min(92vw, 760px);
+      aspect-ratio: 1 / 1;
+      margin: 0 auto;
+      position: relative;
+      border-radius: 18px;
+      background: linear-gradient(rgba(255,255,255,0.06), rgba(255,255,255,0.01)), var(--board);
+      box-shadow: inset 0 0 0 1px rgba(80, 52, 18, 0.18);
+      overflow: hidden;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      touch-action: none;
+      cursor: pointer;
+    }
+
+    .panel-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .metric {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
       color: var(--muted);
       font-size: 0.92rem;
     }
 
-    .footer {
+    .metric strong { color: var(--text); }
+
+    .move-list {
+      margin: 0;
+      padding-left: 18px;
       color: var(--muted);
-      font-size: 0.9rem;
-      text-align: center;
+      display: grid;
+      gap: 6px;
+      max-height: 240px;
+      overflow: auto;
     }
 
-    @media (max-width: 920px) {
-      .layout {
-        grid-template-columns: 1fr;
-      }
-      .side-panel {
-        position: static;
-      }
-      .board-wrap {
-        width: min(94vw, 760px);
-      }
+    .hint {
+      margin: 10px 0 0;
+      color: var(--muted);
+      font-size: 0.88rem;
+      line-height: 1.6;
+    }
+
+    .footer {
+      text-align: center;
+      font-size: 0.9rem;
+      color: var(--muted);
+    }
+
+    .auth-note {
+      padding: 10px 12px;
+      border-radius: 14px;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.08);
+      color: var(--muted);
+      font-size: 0.86rem;
+      line-height: 1.6;
+    }
+
+    @media (max-width: 960px) {
+      .layout { grid-template-columns: 1fr; }
+      .board-wrap { width: min(94vw, 760px); }
     }
 
     @media (max-width: 520px) {
       .app { padding: 10px; gap: 12px; }
-      .topbar, .footer, .board-shell, .side-panel { border-radius: 18px; }
-      .board-shell, .side-panel { padding: 12px; }
-      .grid-2, .actions { grid-template-columns: 1fr; }
+      .topbar, .footer, .card, .board-shell { border-radius: 18px; }
+      .panel-grid { grid-template-columns: 1fr; }
       .status { justify-content: flex-start; text-align: left; }
-      .badge { min-height: 34px; padding: 0 12px; font-size: 0.86rem; }
     }
   </style>
 </head>
@@ -306,107 +325,174 @@
   <div class="app">
     <header class="topbar">
       <div class="brand">
-        <h1>围棋 App</h1>
-        <p>19×19 棋盘 · 黑白交替 · 简单提子 · 悔棋</p>
+        <h1>围棋 Pro</h1>
+        <p>19×19 · 注册登录 · 在线匹配 · 实时同步 · 断网可离线</p>
       </div>
       <div class="status">
+        <span class="badge" id="authBadge">未登录</span>
+        <span class="badge" id="matchBadge">本地模式</span>
         <span class="badge" id="turnBadge">轮到：黑棋</span>
-        <span class="badge" id="captureBadge">提子：黑 0 / 白 0</span>
       </div>
     </header>
 
     <main class="layout">
+      <aside class="sidebar">
+        <section class="card">
+          <h2>账户系统</h2>
+          <div class="auth-tabs">
+            <button class="tab is-active" id="loginTab" type="button">登录</button>
+            <button class="tab" id="registerTab" type="button">注册</button>
+          </div>
+
+          <form class="form" id="loginForm">
+            <input id="loginEmail" type="email" placeholder="邮箱" autocomplete="email" required>
+            <input id="loginPassword" type="password" placeholder="密码" autocomplete="current-password" required>
+            <button type="submit">登录</button>
+          </form>
+
+          <form class="form" id="registerForm" hidden>
+            <input id="registerName" type="text" placeholder="昵称" autocomplete="nickname" required>
+            <input id="registerEmail" type="email" placeholder="邮箱" autocomplete="email" required>
+            <input id="registerPassword" type="password" placeholder="密码（至少 6 位）" autocomplete="new-password" required>
+            <button type="submit">注册</button>
+          </form>
+
+          <div class="user-box" id="userBox">
+            <strong id="userName">游客</strong>
+            <small id="userEmail">请先登录后开启在线匹配</small>
+          </div>
+
+          <div class="auth-note">
+            说明：请将 Supabase 的 URL 与 Anon Key 填入代码中的配置项后使用。
+          </div>
+        </section>
+
+        <section class="card">
+          <h2>在线匹配</h2>
+          <div class="stack">
+            <button type="button" id="findOpponentBtn">寻找对手</button>
+            <button type="button" class="secondary" id="leaveMatchBtn" disabled>离开房间</button>
+            <button type="button" class="danger" id="logoutBtn">退出登录</button>
+          </div>
+          <p class="hint" id="matchHint">点击“寻找对手”后，系统会把你放进 waiting_room；若发现其他等待玩家，会自动创建 game_session。</p>
+        </section>
+
+        <section class="card">
+          <h2>对局信息</h2>
+          <div class="panel-grid">
+            <div class="metric"><span>已落子</span><strong id="moveCount">0</strong></div>
+            <div class="metric"><span>黑棋提子</span><strong id="blackCaptures">0</strong></div>
+            <div class="metric"><span>白棋提子</span><strong id="whiteCaptures">0</strong></div>
+            <div class="metric"><span>角色</span><strong id="roleText">本地</strong></div>
+          </div>
+        </section>
+
+        <section class="card">
+          <h2>操作</h2>
+          <div class="stack">
+            <button type="button" class="secondary" id="undoBtn">悔棋</button>
+            <button type="button" id="resetBtn">重新开始</button>
+          </div>
+          <p class="hint">在线模式下为避免冲突，默认暂不启用悔棋。</p>
+        </section>
+
+        <section class="card">
+          <h2>落子记录</h2>
+          <ol class="move-list" id="moveList"></ol>
+        </section>
+      </aside>
+
       <section class="board-shell">
         <div class="board-wrap">
           <canvas id="board" aria-label="围棋棋盘"></canvas>
         </div>
       </section>
-
-      <aside class="side-panel">
-        <div class="card">
-          <h2>当前回合</h2>
-          <div class="current-player">
-            <span class="stone-preview stone-black" id="playerStone"></span>
-            <span id="playerText">黑棋先行</span>
-          </div>
-        </div>
-
-        <div class="card metrics">
-          <h3>对局信息</h3>
-          <div class="metric"><span>已落子</span><strong id="moveCount">0</strong></div>
-          <div class="metric"><span>黑棋提子</span><strong id="blackCaptures">0</strong></div>
-          <div class="metric"><span>白棋提子</span><strong id="whiteCaptures">0</strong></div>
-          <div class="metric"><span>最后一步</span><strong id="lastMove">暂无</strong></div>
-        </div>
-
-        <div class="card">
-          <h3>操作</h3>
-          <div class="actions">
-            <button id="undoBtn" class="secondary">悔棋</button>
-            <button id="resetBtn">重新开始</button>
-          </div>
-        </div>
-
-        <div class="card">
-          <h3>规则说明</h3>
-          <p class="tips">
-            1. 点击交叉点落子。<br />
-            2. 被完全包围、无气的棋子会被提掉。<br />
-            3. 默认禁止自杀手。<br />
-            4. 悔棋可撤回最近一步并恢复提子状态。
-          </p>
-        </div>
-
-        <div class="card log">
-          <h3>落子记录</h3>
-          <ol class="move-list" id="moveList"></ol>
-        </div>
-      </aside>
     </main>
 
     <footer class="footer">
-      支持手机端与电脑端自适应显示 · HTML5 + CSS3 + JavaScript
+      HTML5 + CSS3 + JavaScript · Supabase 实时匹配与同步 · PWA 离线可用
     </footer>
   </div>
 
   <script>
     (() => {
+      const SUPABASE_URL = 'https://kogjjfccyncdszuuwlun.supabase.co';
+      const SUPABASE_ANON_KEY = 'PASTE_SUPABASE_ANON_KEY_HERE';
+
+      const hasSupabase = typeof window.supabase !== 'undefined' && SUPABASE_ANON_KEY && !SUPABASE_ANON_KEY.includes('PASTE_');
+      const supabaseClient = hasSupabase ? supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
+
       const SIZE = 19;
       const EMPTY = 0;
       const BLACK = 1;
       const WHITE = 2;
+      const MOVE_LIMIT = 200;
+
       const board = Array.from({ length: SIZE }, () => Array(SIZE).fill(EMPTY));
-      const stateStack = [];
       const moveHistory = [];
       let currentPlayer = BLACK;
       let blackCaptures = 0;
       let whiteCaptures = 0;
 
-      const canvas = document.getElementById('board');
-      const ctx = canvas.getContext('2d');
+      const authBadge = document.getElementById('authBadge');
+      const matchBadge = document.getElementById('matchBadge');
       const turnBadge = document.getElementById('turnBadge');
-      const captureBadge = document.getElementById('captureBadge');
-      const playerStone = document.getElementById('playerStone');
-      const playerText = document.getElementById('playerText');
+      const roleText = document.getElementById('roleText');
+      const userName = document.getElementById('userName');
+      const userEmail = document.getElementById('userEmail');
+      const matchHint = document.getElementById('matchHint');
       const moveCountEl = document.getElementById('moveCount');
       const blackCapturesEl = document.getElementById('blackCaptures');
       const whiteCapturesEl = document.getElementById('whiteCaptures');
-      const lastMoveEl = document.getElementById('lastMove');
       const moveListEl = document.getElementById('moveList');
       const undoBtn = document.getElementById('undoBtn');
       const resetBtn = document.getElementById('resetBtn');
+      const findOpponentBtn = document.getElementById('findOpponentBtn');
+      const leaveMatchBtn = document.getElementById('leaveMatchBtn');
+      const logoutBtn = document.getElementById('logoutBtn');
+      const loginTab = document.getElementById('loginTab');
+      const registerTab = document.getElementById('registerTab');
+      const loginForm = document.getElementById('loginForm');
+      const registerForm = document.getElementById('registerForm');
+      const loginEmail = document.getElementById('loginEmail');
+      const loginPassword = document.getElementById('loginPassword');
+      const registerName = document.getElementById('registerName');
+      const registerEmail = document.getElementById('registerEmail');
+      const registerPassword = document.getElementById('registerPassword');
+
+      const canvas = document.getElementById('board');
+      const ctx = canvas.getContext('2d');
+      let cell = 0;
+      let margin = 0;
+      let session = null;
+      let user = null;
+      let userRole = 'local';
+      let sessionChannel = null;
+      let waitingChannel = null;
+      let waiting = false;
+      let boardLocked = false;
 
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
-          navigator.serviceWorker.register('./sw.js').catch(err => {
-            console.warn('Service Worker registration failed:', err);
-          });
+          navigator.serviceWorker.register('./sw.js').catch(err => console.warn('SW registration failed', err));
         });
       }
 
-      let boardRect = null;
-      let cell = 0;
-      let margin = 0;
+      function createEmptyBoard() {
+        return Array.from({ length: SIZE }, () => Array(SIZE).fill(EMPTY));
+      }
+
+      function createGameState() {
+        return {
+          board: createEmptyBoard(),
+          turn: 'black',
+          blackCaptures: 0,
+          whiteCaptures: 0,
+          moves: []
+        };
+      }
+
+      let gameState = createGameState();
 
       function cloneBoard(src) {
         return src.map(row => row.slice());
@@ -420,6 +506,20 @@
         return player === BLACK ? WHITE : BLACK;
       }
 
+      function playerKey(player) {
+        return player === BLACK ? 'black' : 'white';
+      }
+
+      function deepCloneState(state) {
+        return {
+          board: cloneBoard(state.board),
+          turn: state.turn,
+          blackCaptures: state.blackCaptures,
+          whiteCaptures: state.whiteCaptures,
+          moves: state.moves.map(m => ({ ...m }))
+        };
+      }
+
       function setCanvasSize() {
         const wrap = canvas.parentElement;
         const size = Math.min(wrap.clientWidth, wrap.clientHeight);
@@ -429,7 +529,6 @@
         canvas.style.width = size + 'px';
         canvas.style.height = size + 'px';
         ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-        boardRect = canvas.getBoundingClientRect();
         margin = Math.max(18, size * 0.045);
         cell = (size - margin * 2) / (SIZE - 1);
         draw();
@@ -448,33 +547,29 @@
         ctx.fillStyle = bg;
         ctx.fillRect(0, 0, w, h);
 
-        ctx.strokeStyle = 'rgba(50, 34, 15, 0.7)';
+        ctx.strokeStyle = 'rgba(50, 34, 15, 0.72)';
         ctx.lineWidth = 1;
-
         for (let i = 0; i < SIZE; i++) {
-          const x = margin + i * cell;
-          const y = margin + i * cell;
+          const p = margin + i * cell;
           ctx.beginPath();
-          ctx.moveTo(margin, y);
-          ctx.lineTo(size - margin, y);
+          ctx.moveTo(margin, p);
+          ctx.lineTo(size - margin, p);
           ctx.stroke();
           ctx.beginPath();
-          ctx.moveTo(x, margin);
-          ctx.lineTo(x, size - margin);
+          ctx.moveTo(p, margin);
+          ctx.lineTo(p, size - margin);
           ctx.stroke();
         }
 
         const stars = [3, 9, 15];
         ctx.fillStyle = 'rgba(40, 25, 10, 0.92)';
-        for (const i of stars) {
-          for (const j of stars) {
-            const x = margin + i * cell;
-            const y = margin + j * cell;
-            ctx.beginPath();
-            ctx.arc(x, y, Math.max(2.8, cell * 0.08), 0, Math.PI * 2);
-            ctx.fill();
-          }
-        }
+        stars.forEach(x => stars.forEach(y => {
+          const px = margin + x * cell;
+          const py = margin + y * cell;
+          ctx.beginPath();
+          ctx.arc(px, py, Math.max(2.8, cell * 0.08), 0, Math.PI * 2);
+          ctx.fill();
+        }));
       }
 
       function drawStone(x, y, player) {
@@ -482,7 +577,6 @@
         const py = margin + y * cell;
         const radius = cell * 0.44;
         const gradient = ctx.createRadialGradient(px - radius * 0.32, py - radius * 0.32, radius * 0.18, px, py, radius);
-
         if (player === BLACK) {
           gradient.addColorStop(0, '#6a6a6a');
           gradient.addColorStop(0.55, '#1a1a1a');
@@ -492,7 +586,6 @@
           gradient.addColorStop(0.62, '#e2e6eb');
           gradient.addColorStop(1, '#bcc3cd');
         }
-
         ctx.beginPath();
         ctx.fillStyle = gradient;
         ctx.arc(px, py, radius, 0, Math.PI * 2);
@@ -502,20 +595,16 @@
         ctx.stroke();
       }
 
-      function drawHover() {
-        // no hover effect on touch-first UI
-      }
-
       function draw() {
         drawBoard();
         for (let y = 0; y < SIZE; y++) {
           for (let x = 0; x < SIZE; x++) {
-            if (board[y][x] !== EMPTY) drawStone(x, y, board[y][x]);
+            if (gameState.board[y][x] !== EMPTY) drawStone(x, y, gameState.board[y][x]);
           }
         }
       }
 
-      function getGroupAndLiberties(startX, startY, srcBoard = board) {
+      function getGroupAndLiberties(startX, startY, srcBoard) {
         const color = srcBoard[startY][startX];
         const stack = [[startX, startY]];
         const visited = new Set();
@@ -530,20 +619,14 @@
           stones.push([x, y]);
 
           const neighbors = [
-            [x - 1, y],
-            [x + 1, y],
-            [x, y - 1],
-            [x, y + 1],
+            [x - 1, y], [x + 1, y], [x, y - 1], [x, y + 1]
           ];
 
           for (const [nx, ny] of neighbors) {
             if (nx < 0 || ny < 0 || nx >= SIZE || ny >= SIZE) continue;
             const value = srcBoard[ny][nx];
-            if (value === EMPTY) {
-              liberties += 1;
-            } else if (value === color && !visited.has(`${nx},${ny}`)) {
-              stack.push([nx, ny]);
-            }
+            if (value === EMPTY) liberties += 1;
+            else if (value === color && !visited.has(`${nx},${ny}`)) stack.push([nx, ny]);
           }
         }
 
@@ -554,10 +637,7 @@
         const captured = [];
         const enemy = opponent(player);
         const neighbors = [
-          [placeX - 1, placeY],
-          [placeX + 1, placeY],
-          [placeX, placeY - 1],
-          [placeX, placeY + 1],
+          [placeX - 1, placeY], [placeX + 1, placeY], [placeX, placeY - 1], [placeX, placeY + 1]
         ];
 
         for (const [nx, ny] of neighbors) {
@@ -574,120 +654,291 @@
         return captured;
       }
 
-      function isLegalMove(x, y, player) {
-        if (board[y][x] !== EMPTY) return { legal: false, reason: '该点已有棋子' };
-
-        const temp = cloneBoard(board);
-        temp[y][x] = player;
-        const captured = removeCapturedStones(x, y, player, temp);
-        const myGroup = getGroupAndLiberties(x, y, temp);
-
-        if (myGroup.liberties === 0) {
-          return { legal: false, reason: '禁止自杀手' };
+      function applyMoveToState(state, x, y, player) {
+        if (state.board[y][x] !== EMPTY) {
+          return { ok: false, reason: '该点已有棋子' };
         }
 
-        return { legal: true, captured };
-      }
-
-      function recordMove(x, y, player, captured) {
-        moveHistory.push({
-          x,
-          y,
-          player,
-          captured,
-          boardSnapshot: cloneBoard(board),
-          blackCaptures,
-          whiteCaptures,
-          currentPlayer,
-        });
-      }
-
-      function placeStone(x, y) {
-        const result = isLegalMove(x, y, currentPlayer);
-        if (!result.legal) return;
-
-        const snapshot = cloneBoard(board);
-        board[y][x] = currentPlayer;
-        const captured = removeCapturedStones(x, y, currentPlayer, board);
-        const myGroup = getGroupAndLiberties(x, y, board);
+        const nextState = deepCloneState(state);
+        nextState.board[y][x] = player;
+        const captured = removeCapturedStones(x, y, player, nextState.board);
+        const myGroup = getGroupAndLiberties(x, y, nextState.board);
 
         if (myGroup.liberties === 0) {
-          // 理论上不会发生，因为前面已判定，这里兜底恢复
-          for (let iy = 0; iy < SIZE; iy++) board[iy] = snapshot[iy].slice();
-          return;
+          return { ok: false, reason: '禁止自杀手' };
         }
 
         if (captured.length) {
-          if (currentPlayer === BLACK) blackCaptures += captured.length;
-          else whiteCaptures += captured.length;
+          if (player === BLACK) nextState.blackCaptures += captured.length;
+          else nextState.whiteCaptures += captured.length;
         }
 
-        moveHistory.push({
-          x,
-          y,
-          player: currentPlayer,
-          captured,
-          boardBefore: snapshot,
-          blackCapturesBefore: blackCaptures - (currentPlayer === BLACK ? captured.length : 0),
-          whiteCapturesBefore: whiteCaptures - (currentPlayer === WHITE ? captured.length : 0),
-          currentPlayerBefore: currentPlayer,
-        });
+        nextState.turn = player === BLACK ? 'white' : 'black';
+        nextState.moves.push({ x, y, player: playerKey(player), captured: captured.length });
+        if (nextState.moves.length > MOVE_LIMIT) nextState.moves.shift();
+        return { ok: true, state: nextState };
+      }
 
-        currentPlayer = opponent(currentPlayer);
-        updateUI(x, y);
+      function updateBoardFromState(state) {
+        gameState = deepCloneState(state);
+        currentPlayerFromState();
+        renderUI();
         draw();
       }
 
-      function updateUI(lastX = null, lastY = null) {
-        const playerLabel = stoneName(currentPlayer);
-        turnBadge.textContent = `轮到：${playerLabel}`;
-        captureBadge.textContent = `提子：黑 ${blackCaptures} / 白 ${whiteCaptures}`;
-        playerText.textContent = currentPlayer === BLACK ? '黑棋落子' : '白棋落子';
-        playerStone.className = `stone-preview ${currentPlayer === BLACK ? 'stone-black' : 'stone-white'}`;
-        moveCountEl.textContent = String(moveHistory.length);
-        blackCapturesEl.textContent = String(blackCaptures);
-        whiteCapturesEl.textContent = String(whiteCaptures);
-        lastMoveEl.textContent = lastX === null ? '暂无' : `${stoneName(moveHistory[moveHistory.length - 1].player)} @ (${lastX + 1}, ${lastY + 1})`;
-        undoBtn.disabled = moveHistory.length === 0;
-
-        moveListEl.innerHTML = moveHistory.map((m, idx) => {
-          const coord = `(${m.x + 1}, ${m.y + 1})`;
-          const cap = m.captured.length ? `，提 ${m.captured.length} 子` : '';
-          return `<li>${idx + 1}. ${stoneName(m.player)} ${coord}${cap}</li>`;
-        }).join('');
+      function currentPlayerFromState() {
+        currentPlayer = gameState.turn === 'black' ? BLACK : WHITE;
       }
 
-      function undoMove() {
-        const last = moveHistory.pop();
-        if (!last) return;
-
-        for (let y = 0; y < SIZE; y++) {
-          board[y] = last.boardBefore[y].slice();
+      function renderUI() {
+        currentPlayerFromState();
+        turnBadge.textContent = `轮到：${stoneName(currentPlayer)}`;
+        matchBadge.textContent = session ? `对局中 · ${userRole === 'black' ? '黑方' : '白方'}` : (waiting ? '等待匹配中' : '本地模式');
+        roleText.textContent = session ? (userRole === 'black' ? '黑方' : '白方') : '本地';
+        moveCountEl.textContent = String(gameState.moves.length);
+        blackCapturesEl.textContent = String(gameState.blackCaptures);
+        whiteCapturesEl.textContent = String(gameState.whiteCaptures);
+        moveListEl.innerHTML = gameState.moves.map((m, i) => `<li>${i + 1}. ${m.player === 'black' ? '黑棋' : '白棋'} (${m.x + 1}, ${m.y + 1})${m.captured ? `，提 ${m.captured} 子` : ''}</li>`).join('');
+        undoBtn.disabled = !!session;
+        findOpponentBtn.disabled = !user || !hasSupabase;
+        leaveMatchBtn.disabled = !(session || waiting);
+        logoutBtn.disabled = !user || !hasSupabase;
+        if (!hasSupabase) {
+          matchHint.textContent = '当前未配置 Supabase Anon Key，系统处于本地模式。';
         }
-        blackCaptures = last.blackCapturesBefore;
-        whiteCaptures = last.whiteCapturesBefore;
-        currentPlayer = last.currentPlayerBefore;
-        updateUI();
+        authBadge.textContent = user ? '已登录' : '未登录';
+        userName.textContent = user ? (user.user_metadata?.nickname || user.email || user.id) : '游客';
+        userEmail.textContent = user ? `ID: ${user.id}` : '请先登录后开启在线匹配';
+      }
+
+      async function saveSessionState() {
+        if (!supabaseClient || !session) return;
+        const payload = {
+          board_state: gameState.board,
+          next_turn: gameState.turn,
+          black_captures: gameState.blackCaptures,
+          white_captures: gameState.whiteCaptures,
+          moves: gameState.moves
+        };
+        const { error } = await supabaseClient
+          .from('game_sessions')
+          .update(payload)
+          .eq('id', session.id);
+        if (error) console.warn('saveSessionState error:', error.message);
+      }
+
+      async function loadSessionByUser() {
+        if (!supabaseClient || !user) return;
+        const { data, error } = await supabaseClient
+          .from('game_sessions')
+          .select('*')
+          .or(`black_id.eq.${user.id},white_id.eq.${user.id}`)
+          .eq('status', 'active')
+          .order('updated_at', { ascending: false })
+          .limit(1);
+        if (!error && data && data.length) {
+          attachSession(data[0]);
+        }
+      }
+
+      function clearSubscriptions() {
+        if (sessionChannel) {
+          supabaseClient.removeChannel(sessionChannel);
+          sessionChannel = null;
+        }
+        if (waitingChannel) {
+          supabaseClient.removeChannel(waitingChannel);
+          waitingChannel = null;
+        }
+      }
+
+      function attachSession(row) {
+        session = row;
+        userRole = row.black_id === user.id ? 'black' : 'white';
+        waiting = false;
+        if (row.board_state) {
+          gameState = {
+            board: row.board_state,
+            turn: row.next_turn || 'black',
+            blackCaptures: row.black_captures || 0,
+            whiteCaptures: row.white_captures || 0,
+            moves: row.moves || []
+          };
+        }
+        renderUI();
+        subscribeSession(row.id);
+      }
+
+      function subscribeSession(sessionId) {
+        if (!supabaseClient) return;
+        if (sessionChannel) supabaseClient.removeChannel(sessionChannel);
+        sessionChannel = supabaseClient
+          .channel(`game-session-${sessionId}`)
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'game_sessions', filter: `id=eq.${sessionId}` }, payload => {
+            const row = payload.new || payload.old;
+            if (!row) return;
+            if (row.board_state) {
+              gameState = {
+                board: row.board_state,
+                turn: row.next_turn || 'black',
+                blackCaptures: row.black_captures || 0,
+                whiteCaptures: row.white_captures || 0,
+                moves: row.moves || []
+              };
+              renderUI();
+              draw();
+            }
+            if (row.status !== 'active') {
+              session = null;
+              userRole = 'local';
+              renderUI();
+            }
+          })
+          .subscribe();
+      }
+
+      async function findOpponent() {
+        if (!supabaseClient) return alert('请先配置 Supabase Anon Key');
+        if (!user) return alert('请先登录');
+
+        clearSubscriptions();
+        waiting = true;
+        renderUI();
+
+        const { data: waitingRows, error: waitError } = await supabaseClient
+          .from('waiting_room')
+          .select('*')
+          .neq('user_id', user.id)
+          .order('created_at', { ascending: true })
+          .limit(1);
+
+        if (waitError) {
+          waiting = false;
+          renderUI();
+          return alert(`匹配失败：${waitError.message}`);
+        }
+
+        if (waitingRows && waitingRows.length) {
+          const opponent = waitingRows[0];
+          const blackId = opponent.user_id;
+          const whiteId = user.id;
+          const { data: insertedSession, error: insertError } = await supabaseClient
+            .from('game_sessions')
+            .insert([{ black_id: blackId, white_id: whiteId, board_state: createEmptyBoard(), next_turn: 'black', black_captures: 0, white_captures: 0, moves: [], status: 'active' }])
+            .select('*')
+            .single();
+
+          if (insertError) {
+            waiting = false;
+            renderUI();
+            return alert(`创建对局失败：${insertError.message}`);
+          }
+
+          await supabaseClient.from('waiting_room').delete().or(`user_id.eq.${blackId},user_id.eq.${whiteId}`);
+          attachSession(insertedSession);
+          return;
+        }
+
+        const { error: waitingError } = await supabaseClient.from('waiting_room').upsert({
+          user_id: user.id,
+          nickname: user.user_metadata?.nickname || user.email || user.id,
+          created_at: new Date().toISOString()
+        }, { onConflict: 'user_id' });
+
+        if (waitingError) {
+          waiting = false;
+          renderUI();
+          return alert(`进入等待房间失败：${waitingError.message}`);
+        }
+
+        waiting = true;
+        matchHint.textContent = '你已进入 waiting_room，等待其他玩家加入...';
+        renderUI();
+
+        if (sessionChannel) supabaseClient.removeChannel(sessionChannel);
+        sessionChannel = supabaseClient
+          .channel(`my-session-${user.id}`)
+          .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'game_sessions' }, payload => {
+            const row = payload.new;
+            if (row && (row.black_id === user.id || row.white_id === user.id)) {
+              attachSession(row);
+              waiting = false;
+              renderUI();
+            }
+          })
+          .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'game_sessions' }, payload => {
+            const row = payload.new;
+            if (row && (row.black_id === user.id || row.white_id === user.id)) {
+              attachSession(row);
+              waiting = false;
+              renderUI();
+            }
+          })
+          .subscribe();
+      }
+
+      async function leaveMatch() {
+        if (!supabaseClient || !user) {
+          waiting = false;
+          session = null;
+          userRole = 'local';
+          gameState = createGameState();
+          renderUI();
+          draw();
+          return;
+        }
+
+        if (waiting) {
+          await supabaseClient.from('waiting_room').delete().eq('user_id', user.id);
+          waiting = false;
+        }
+
+        if (session) {
+          await supabaseClient.from('game_sessions').update({ status: 'finished' }).eq('id', session.id);
+          session = null;
+        }
+
+        clearSubscriptions();
+        userRole = 'local';
+        gameState = createGameState();
+        renderUI();
         draw();
       }
 
-      function resetGame() {
-        for (let y = 0; y < SIZE; y++) board[y].fill(EMPTY);
-        moveHistory.length = 0;
-        currentPlayer = BLACK;
-        blackCaptures = 0;
-        whiteCaptures = 0;
-        updateUI();
+      async function handleMove(x, y) {
+        if (boardLocked) return;
+        const player = gameState.turn === 'black' ? BLACK : WHITE;
+        if (session && user) {
+          const myTurn = (userRole === 'black' && gameState.turn === 'black') || (userRole === 'white' && gameState.turn === 'white');
+          if (!myTurn) return;
+        }
+
+        if (!session) {
+          moveHistory.push({
+            boardBefore: cloneBoard(gameState.board),
+            turnBefore: gameState.turn,
+            blackCapturesBefore: gameState.blackCaptures,
+            whiteCapturesBefore: gameState.whiteCaptures,
+            movesBefore: gameState.moves.map(m => ({ ...m }))
+          });
+        }
+
+        const result = applyMoveToState(gameState, x, y, player);
+        if (!result.ok) {
+          if (!session) moveHistory.pop();
+          return;
+        }
+
+        gameState = result.state;
+        renderUI();
         draw();
+        if (session) await saveSessionState();
       }
 
       function getBoardPoint(clientX, clientY) {
         const rect = canvas.getBoundingClientRect();
-        const size = rect.width;
         const localX = clientX - rect.left;
         const localY = clientY - rect.top;
-        const max = size - margin;
-        const min = margin;
         const x = Math.round((localX - margin) / cell);
         const y = Math.round((localY - margin) / cell);
         if (x < 0 || y < 0 || x >= SIZE || y >= SIZE) return null;
@@ -698,27 +949,137 @@
         return { x, y };
       }
 
-      canvas.addEventListener('click', (e) => {
-        const point = getBoardPoint(e.clientX, e.clientY);
-        if (point) placeStone(point.x, point.y);
+      function toggleAuthMode(mode) {
+        const isLogin = mode === 'login';
+        loginTab.classList.toggle('is-active', isLogin);
+        registerTab.classList.toggle('is-active', !isLogin);
+        loginForm.hidden = !isLogin;
+        registerForm.hidden = isLogin;
+      }
+
+      loginTab.addEventListener('click', () => toggleAuthMode('login'));
+      registerTab.addEventListener('click', () => toggleAuthMode('register'));
+
+      loginForm.addEventListener('submit', async e => {
+        e.preventDefault();
+        if (!supabaseClient) return alert('请先配置 Supabase Anon Key');
+        const { error } = await supabaseClient.auth.signInWithPassword({
+          email: loginEmail.value.trim(),
+          password: loginPassword.value
+        });
+        if (error) return alert(error.message);
       });
 
-      canvas.addEventListener('touchend', (e) => {
+      registerForm.addEventListener('submit', async e => {
+        e.preventDefault();
+        if (!supabaseClient) return alert('请先配置 Supabase Anon Key');
+        const { error } = await supabaseClient.auth.signUp({
+          email: registerEmail.value.trim(),
+          password: registerPassword.value,
+          options: { data: { nickname: registerName.value.trim() } }
+        });
+        if (error) return alert(error.message);
+        alert('注册成功，请检查邮箱验证（如已开启）后登录。');
+        toggleAuthMode('login');
+      });
+
+      findOpponentBtn.addEventListener('click', findOpponent);
+      leaveMatchBtn.addEventListener('click', leaveMatch);
+      logoutBtn.addEventListener('click', async () => {
+        if (!supabaseClient) return;
+        await leaveMatch();
+        await supabaseClient.auth.signOut();
+      });
+
+      undoBtn.addEventListener('click', () => {
+        if (session) return alert('在线对局中暂不支持悔棋。');
+        const last = moveHistory.pop();
+        if (!last) return;
+        gameState.board = cloneBoard(last.boardBefore);
+        gameState.turn = last.turnBefore;
+        gameState.blackCaptures = last.blackCapturesBefore;
+        gameState.whiteCaptures = last.whiteCapturesBefore;
+        gameState.moves = last.movesBefore.map(m => ({ ...m }));
+        renderUI();
+        draw();
+      });
+
+      resetBtn.addEventListener('click', async () => {
+        if (session) {
+          const ok = confirm('在线对局正在进行，是否结束当前对局并重新开始？');
+          if (!ok) return;
+          await leaveMatch();
+          return;
+        }
+        gameState = createGameState();
+        moveHistory.length = 0;
+        renderUI();
+        draw();
+      });
+
+      canvas.addEventListener('click', e => {
+        const p = getBoardPoint(e.clientX, e.clientY);
+        if (p) handleMove(p.x, p.y);
+      });
+
+      canvas.addEventListener('touchend', e => {
         const t = e.changedTouches[0];
-        const point = getBoardPoint(t.clientX, t.clientY);
-        if (point) {
+        const p = getBoardPoint(t.clientX, t.clientY);
+        if (p) {
           e.preventDefault();
-          placeStone(point.x, point.y);
+          handleMove(p.x, p.y);
         }
       }, { passive: false });
 
-      undoBtn.addEventListener('click', undoMove);
-      resetBtn.addEventListener('click', resetGame);
       window.addEventListener('resize', setCanvasSize);
 
-      setCanvasSize();
-      updateUI();
-      draw();
+      async function bootstrapAuth() {
+        if (!supabaseClient) {
+          renderUI();
+          return;
+        }
+
+        const { data } = await supabaseClient.auth.getUser();
+        user = data.user || null;
+        renderUI();
+        if (user) {
+          await loadSessionByUser();
+        }
+
+        supabaseClient.auth.onAuthStateChange(async (_event, sessionData) => {
+          user = sessionData?.user || null;
+          if (!user) {
+            await leaveMatch();
+            renderUI();
+            return;
+          }
+          await loadSessionByUser();
+          renderUI();
+        });
+      }
+
+      async function loadWaitingSubscription() {
+        if (!supabaseClient || !user) return;
+        if (waitingChannel) supabaseClient.removeChannel(waitingChannel);
+        waitingChannel = supabaseClient
+          .channel(`waiting-room-${user.id}`)
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'waiting_room' }, payload => {
+            const row = payload.new || payload.old;
+            if (row && row.user_id === user.id && waiting) {
+              matchBadge.textContent = '等待匹配中';
+            }
+          })
+          .subscribe();
+      }
+
+      (async () => {
+        setCanvasSize();
+        toggleAuthMode('login');
+        renderUI();
+        await bootstrapAuth();
+        await loadWaitingSubscription();
+        draw();
+      })();
     })();
   </script>
 </body>
