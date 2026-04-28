@@ -26,10 +26,13 @@
   let blackCaptures = 0;
   let whiteCaptures = 0;
   let audioCtx = null;
+  let bgmAudio = null;
+  let isBgmPlaying = false;
   const sounds = {
     click: 'https://assets.mixkit.co/sfx/download/mixkit-game-click-1114.mp3',
     undo: 'https://assets.mixkit.co/sfx/download/mixkit-positive-interface-beep-221.mp3',
-    capture: 'https://assets.mixkit.co/sfx/download/mixkit-achievement-bell-600.mp3'
+    capture: 'https://assets.mixkit.co/sfx/download/mixkit-achievement-bell-600.mp3',
+    bgm: 'https://assets.mixkit.co/music/738/738.mp3'
   };
   const buffers = {};
 
@@ -60,6 +63,22 @@
       source.connect(audioCtx.destination);
       source.start(0);
     } catch (err) {}
+  }
+
+  function toggleBgm() {
+    if (!audioCtx || !buffers.bgm) return;
+    if (isBgmPlaying && bgmAudio) {
+      bgmAudio.stop();
+      bgmAudio = null;
+      isBgmPlaying = false;
+    } else {
+      bgmAudio = audioCtx.createBufferSource();
+      bgmAudio.buffer = buffers.bgm;
+      bgmAudio.loop = true;
+      bgmAudio.connect(audioCtx.destination);
+      bgmAudio.start(0);
+      isBgmPlaying = true;
+    }
   }
 
 
@@ -568,6 +587,7 @@
     document.getElementById('drawerResetBtn')?.addEventListener('click', resetGame);
     document.getElementById('drawerSettingsBtn')?.addEventListener('click', () => drawerPanel?.classList.toggle('is-open'));
     drawerToggle?.addEventListener('click', () => drawerPanel?.classList.toggle('is-open'));
+    document.getElementById('bgmToggleBtn')?.addEventListener('click', toggleBgm);
 
     updateUI();
   }

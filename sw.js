@@ -1,4 +1,4 @@
-const CACHE_NAME = 'go-game-pro-v11';
+const CACHE_NAME = 'go-game-pro-v12';
 const ASSETS = [
   '/go-game-app/',
   '/go-game-app/index.html',
