@@ -46,10 +46,11 @@
   }
 
   function hideAuthOverlay() {
-    if (!authOverlay) return;
-    authOverlay.style.display = 'none';
-    authOverlay.remove();
-    authOverlay = null;
+    const overlay = document.getElementById('login-overlay') || authOverlay;
+    if (!overlay) return;
+    overlay.style.display = 'none';
+    overlay.remove();
+    if (authOverlay === overlay) authOverlay = null;
   }
 
   function showAuthOverlay() {
@@ -65,6 +66,11 @@
       hideAuthOverlay();
       if (shell) shell.style.display = 'grid';
       if (stage) stage.style.display = 'grid';
+      const overlay = document.getElementById('login-overlay');
+      if (overlay) {
+        overlay.style.display = 'none';
+        overlay.remove();
+      }
       if (authOverlay) {
         authOverlay.style.display = 'none';
         authOverlay.remove();
@@ -167,6 +173,11 @@
 
     authOverlay.querySelector('#guest-login-btn')?.addEventListener('click', () => {
       console.log('Login Clicked');
+      const overlay = document.getElementById('login-overlay');
+      if (overlay) {
+        overlay.style.display = 'none';
+        overlay.remove();
+      }
       setLoggedIn(true);
     });
     authOverlay.querySelector('#guest-login-btn-secondary')?.addEventListener('click', () => {
