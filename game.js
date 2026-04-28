@@ -25,6 +25,43 @@
   let currentPlayer = BLACK;
   let blackCaptures = 0;
   let whiteCaptures = 0;
+  let audioCtx = null;
+  const sounds = {
+    click: 'https://assets.mixkit.co/sfx/download/mixkit-game-click-1114.mp3',
+    undo: 'https://assets.mixkit.co/sfx/download/mixkit-positive-interface-beep-221.mp3',
+    capture: 'https://assets.mixkit.co/sfx/download/mixkit-achievement-bell-600.mp3'
+  };
+  const buffers = {};
+
+  async function initAudio() {
+    if (audioCtx) return;
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContext) return;
+    audioCtx = new AudioContext();
+    if (audioCtx.state === 'suspended') {
+      await audioCtx.resume();
+    }
+    for (const [name, url] of Object.entries(sounds)) {
+      try {
+        const res = await fetch(url);
+        const arrayBuffer = await res.arrayBuffer();
+        buffers[name] = await audioCtx.decodeAudioData(arrayBuffer);
+      } catch (err) {
+        console.warn('Failed to load sound:', name, err);
+      }
+    }
+  }
+
+  function playSound(name) {
+    if (!audioCtx || !buffers[name]) return;
+    try {
+      const source = audioCtx.createBufferSource();
+      source.buffer = buffers[name];
+      source.connect(audioCtx.destination);
+      source.start(0);
+    } catch (err) {}
+  }
+
 
   const boardStage = () => document.getElementById('boardStage');
   const boardShell = () => document.querySelector('.board-shell');
@@ -107,6 +144,11 @@
         authOverlay = null;
       }
       console.log('游客登录成功');
+      try {
+        if (document.documentElement.requestFullscreen) {
+          document.documentElement.requestFullscreen().catch(() => {});
+        }
+      } catch(e) {}
       initBoard();
       resizeBoard();
       drawBoard();
@@ -164,15 +206,12 @@
       <div class="panel" role="dialog" aria-modal="true" aria-labelledby="auth-title" style="width:min(94vw,460px);padding:24px;border-radius:28px;border:1px solid rgba(255,255,255,.12);background:rgba(16,24,32,.94);box-shadow:0 30px 80px rgba(0,0,0,.42);">
         <h2 id="auth-title" style="margin:0 0 8px;font-size:1.4rem;">围棋 Pro</h2>
         <p style="margin:0 0 16px;color:rgba(238,244,251,.72);line-height:1.6;">请先登录或注册，然后进入全屏棋盘模式。支持 Supabase 登录 + 游客模式双入口。</p>
-        <div class="tabs" style="display:flex;gap:10px;margin-bottom:14px;">
-          <button class="tab is-active" type="button" data-auth-tab="login" style="flex:1;min-height:42px;border-radius:999px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.06);color:#eef4fb;font-weight:700;cursor:pointer;">登录</button>
-          <button class="tab" type="button" data-auth-tab="register" style="flex:1;min-height:42px;border-radius:999px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.06);color:#eef4fb;font-weight:700;cursor:pointer;">注册</button>
-        </div>
         <form class="form" data-auth-form="login" style="display:grid;gap:10px;">
           <input id="login-email" type="email" placeholder="邮箱" autocomplete="email" style="width:100%;min-height:44px;padding:10px 14px;border-radius:14px;border:1px solid rgba(255,255,255,.12);background:rgba(7,11,16,.82);color:#eef4fb;outline:none;">
           <input id="login-password" type="password" placeholder="密码" autocomplete="current-password" style="width:100%;min-height:44px;padding:10px 14px;border-radius:14px;border:1px solid rgba(255,255,255,.12);background:rgba(7,11,16,.82);color:#eef4fb;outline:none;">
           <div class="actions" style="display:grid;gap:10px;margin-top:6px;">
-            <button class="btn" type="button" id="login-btn" data-auth-action="login" style="min-height:44px;border:0;border-radius:14px;font-weight:700;cursor:pointer;color:#0f1720;background:linear-gradient(180deg,#ffe08a 0%,#f6c453 100%);">登录并进入</button>
+            <button class="btn" type="button" id="login-btn" data-auth-action="login" style="min-height:44px;border:0;border-radius:14px;font-weight:700;cursor:pointer;color:#0f1720;background:linear-gradient(180deg,#ffe08a 0%,#f6c453 100%);">登录</button>
+            <button class="btn secondary" type="button" data-auth-tab="register" style="min-height:44px;border-radius:14px;font-weight:700;cursor:pointer;color:#eef4fb;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.10);">注册</button>
             <button class="btn secondary" type="button" data-auth-action="guest" id="guest-login-btn" style="min-height:44px;border-radius:14px;font-weight:700;cursor:pointer;color:#eef4fb;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.10);">游客登录</button>
           </div>
         </form>
@@ -181,18 +220,17 @@
           <input id="register-email" type="email" placeholder="邮箱" autocomplete="email" style="width:100%;min-height:44px;padding:10px 14px;border-radius:14px;border:1px solid rgba(255,255,255,.12);background:rgba(7,11,16,.82);color:#eef4fb;outline:none;">
           <input id="register-password" type="password" placeholder="密码" autocomplete="new-password" style="width:100%;min-height:44px;padding:10px 14px;border-radius:14px;border:1px solid rgba(255,255,255,.12);background:rgba(7,11,16,.82);color:#eef4fb;outline:none;">
           <div class="actions" style="display:grid;gap:10px;margin-top:6px;">
-            <button class="btn" type="button" id="register-btn" data-auth-action="register" style="min-height:44px;border:0;border-radius:14px;font-weight:700;cursor:pointer;color:#0f1720;background:linear-gradient(180deg,#ffe08a 0%,#f6c453 100%);">注册并进入</button>
-            <button class="btn secondary" type="button" data-auth-action="guest" id="guest-login-btn-secondary" style="min-height:44px;border-radius:14px;font-weight:700;cursor:pointer;color:#eef4fb;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.10);">游客登录</button>
+            <button class="btn" type="button" id="register-btn" data-auth-action="register" style="min-height:44px;border:0;border-radius:14px;font-weight:700;cursor:pointer;color:#0f1720;background:linear-gradient(180deg,#ffe08a 0%,#f6c453 100%);">完成注册并登录</button>
+            <button class="btn secondary" type="button" data-auth-tab="login" style="min-height:44px;border-radius:14px;font-weight:700;cursor:pointer;color:#eef4fb;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.10);">返回</button>
           </div>
         </form>
+
         <div class="note" style="margin-top:14px;font-size:.88rem;color:rgba(238,244,251,.68);line-height:1.6;">提示：此覆盖层会在登录成功后自动隐藏，并切换到边到边棋盘视图。</div>
       </div>
     `;
 
     const switchTab = tab => {
       const isLogin = tab === 'login';
-      loginTab().classList.toggle('is-active', isLogin);
-      registerTab().classList.toggle('is-active', !isLogin);
       loginForm().hidden = !isLogin;
       registerForm().hidden = isLogin;
     };
@@ -474,6 +512,8 @@
     currentPlayer = opponent(currentPlayer);
     updateUI(x, y);
     drawBoard();
+    if (result.captured.length) playSound('capture');
+    else playSound('click');
   }
 
   function undoMove() {
@@ -485,6 +525,7 @@
     currentPlayer = last.player;
     updateUI();
     drawBoard();
+    playSound('undo');
   }
 
   function resetGame() {
@@ -549,6 +590,7 @@
         overlay.style.display = 'none';
         overlay.remove();
       }
+      initAudio();
       setLoggedIn(true);
     });
 
@@ -559,16 +601,19 @@
         overlay.style.display = 'none';
         overlay.remove();
       }
+      initAudio();
       setLoggedIn(true);
     });
 
     authOverlay.querySelector('#login-btn')?.addEventListener('click', () => {
       console.log('Login Clicked');
+      initAudio();
       loginWithSupabase();
     });
 
     authOverlay.querySelector('#register-btn')?.addEventListener('click', () => {
       console.log('Login Clicked');
+      initAudio();
       registerWithSupabase();
     });
 
