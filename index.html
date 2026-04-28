@@ -39,8 +39,7 @@
         radial-gradient(circle at bottom right, rgba(246, 196, 83, 0.10), transparent 25%),
         var(--wood-image);
       background-attachment: fixed;
-      overflow-x: visible;
-      overflow-y: auto;
+      overflow: hidden;
     }
 
     body.is-immersive .topbar,
@@ -256,7 +255,7 @@
       height: 90vmin;
       max-width: 95vw;
       max-height: 95vw;
-      transform: perspective(1000px) rotateX(15deg);
+      transform: perspective(1000px) rotateX(0deg);
       transform-origin: center center;
       display: grid;
       place-items: center;

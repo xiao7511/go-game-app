@@ -303,7 +303,7 @@
         if (nx < 0 || ny < 0 || nx >= SIZE || ny >= SIZE) continue;
         const value = srcBoard[ny][nx];
         if (value === EMPTY) liberties += 1;
-        else if (value === color && !visited.has(`${nx},${ny}`)) stack.push([nx,ny]);
+        else if (value === color && !visited.has(`${nx},${ny}`)) stack.push([nx, ny]);
       }
     }
 
