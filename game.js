@@ -1,16 +1,30 @@
 (() => {
-  const AUTH_OVERLAY_ID = 'auth-overlay';
+  const AUTH_OVERLAY_ID = 'login-overlay';
   const MATCH_OVERLAY_ID = 'match-overlay';
   const SUPABASE_URL = window.APP_CONFIG?.SUPABASE_URL || '';
   const SUPABASE_ANON_KEY = window.APP_CONFIG?.SUPABASE_ANON_KEY || '';
   const hasSupabase = Boolean(window.supabase && SUPABASE_URL && SUPABASE_ANON_KEY);
   const supabaseClient = hasSupabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
 
+  const SIZE = 19;
+  const EMPTY = 0;
+  const BLACK = 1;
+  const WHITE = 2;
+
   let movesChannel = null;
   let authOverlay = null;
   let matchOverlay = null;
   let isLoggedIn = false;
   let authUser = null;
+  let canvas = null;
+  let ctx = null;
+  let cell = 0;
+  let margin = 0;
+  const board = Array.from({ length: SIZE }, () => Array(SIZE).fill(EMPTY));
+  const moveHistory = [];
+  let currentPlayer = BLACK;
+  let blackCaptures = 0;
+  let whiteCaptures = 0;
 
   const boardStage = () => document.getElementById('boardStage');
   const boardShell = () => document.querySelector('.board-shell');
@@ -26,16 +40,32 @@
   const registerName = () => authOverlay?.querySelector('#register-name');
   const registerEmail = () => authOverlay?.querySelector('#register-email');
   const registerPassword = () => authOverlay?.querySelector('#register-password');
+  const moveCountEl = () => document.getElementById('moveCount');
+  const blackCapturesEl = () => document.getElementById('blackCaptures');
+  const whiteCapturesEl = () => document.getElementById('whiteCaptures');
+  const turnBadge = () => document.getElementById('turnBadge');
+  const authBadge = () => document.getElementById('authBadge');
+  const matchBadge = () => document.getElementById('matchBadge');
+  const roleText = () => document.getElementById('roleText');
+  const userName = () => document.getElementById('userName');
+  const userEmail = () => document.getElementById('userEmail');
+  const moveListEl = () => document.getElementById('moveList');
+  const undoBtn = () => document.getElementById('undoBtn');
+  const resetBtn = () => document.getElementById('resetBtn');
+  const findOpponentBtn = () => document.getElementById('findOpponentBtn');
+  const leaveMatchBtn = () => document.getElementById('leaveMatchBtn');
+  const logoutBtn = () => document.getElementById('logoutBtn');
 
   function applyImmersiveState(loggedIn) {
     isLoggedIn = loggedIn;
     document.body.classList.toggle('is-immersive', loggedIn);
     document.body.classList.toggle('is-locked', !loggedIn);
+    document.body.style.overflow = loggedIn ? 'hidden' : 'auto';
 
     const shell = boardShell();
     const stage = boardStage();
     if (shell) {
-      shell.style.display = loggedIn ? 'grid' : 'none';
+      shell.style.display = loggedIn ? 'flex' : 'none';
       shell.classList.toggle('is-active', loggedIn);
       shell.style.pointerEvents = loggedIn ? 'auto' : 'none';
     }
@@ -46,7 +76,7 @@
   }
 
   function hideAuthOverlay() {
-    const overlay = document.getElementById('login-overlay') || authOverlay;
+    const overlay = document.getElementById(AUTH_OVERLAY_ID) || authOverlay;
     if (!overlay) return;
     overlay.style.display = 'none';
     overlay.remove();
@@ -64,9 +94,9 @@
     const stage = boardStage();
     if (loggedIn) {
       hideAuthOverlay();
-      if (shell) shell.style.display = 'grid';
+      if (shell) shell.style.display = 'flex';
       if (stage) stage.style.display = 'grid';
-      const overlay = document.getElementById('login-overlay');
+      const overlay = document.getElementById(AUTH_OVERLAY_ID);
       if (overlay) {
         overlay.style.display = 'none';
         overlay.remove();
@@ -77,6 +107,10 @@
         authOverlay = null;
       }
       console.log('游客登录成功');
+      initBoard();
+      resizeBoard();
+      drawBoard();
+      updateUI();
     } else {
       showAuthOverlay();
     }
@@ -119,10 +153,6 @@
     authUser = data.user || null;
     setLoggedIn(true);
     console.log('Supabase 注册成功');
-  }
-
-  function handleAuthSuccess() {
-    setLoggedIn(true);
   }
 
   function ensureAuthOverlay() {
@@ -173,7 +203,7 @@
 
     authOverlay.querySelector('#guest-login-btn')?.addEventListener('click', () => {
       console.log('Login Clicked');
-      const overlay = document.getElementById('login-overlay');
+      const overlay = document.getElementById(AUTH_OVERLAY_ID);
       if (overlay) {
         overlay.style.display = 'none';
         overlay.remove();
@@ -182,6 +212,11 @@
     });
     authOverlay.querySelector('#guest-login-btn-secondary')?.addEventListener('click', () => {
       console.log('Login Clicked');
+      const overlay = document.getElementById(AUTH_OVERLAY_ID);
+      if (overlay) {
+        overlay.style.display = 'none';
+        overlay.remove();
+      }
       setLoggedIn(true);
     });
     authOverlay.querySelector('#login-btn')?.addEventListener('click', () => {
@@ -191,17 +226,6 @@
     authOverlay.querySelector('#register-btn')?.addEventListener('click', () => {
       console.log('Login Clicked');
       registerWithSupabase();
-    });
-
-    authOverlay.querySelectorAll('[data-auth-action]').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const action = btn.dataset.authAction;
-        console.log('Login Clicked', action);
-        if (action === 'guest') {
-          setLoggedIn(true);
-          return;
-        }
-      });
     });
 
     switchTab('login');
@@ -242,32 +266,333 @@
   function showMatchingOverlay() { ensureMatchOverlay().hidden = false; }
   function hideMatchingOverlay() { if (matchOverlay) matchOverlay.hidden = true; }
 
-  function bindMoves({ supabaseClient, sessionId, currentUserId, onRemoteMove, onError }) {
-    if (!supabaseClient || !sessionId) return;
-    if (movesChannel) {
-      supabaseClient.removeChannel(movesChannel);
-      movesChannel = null;
+  function stoneName(player) {
+    return player === BLACK ? '黑棋' : '白棋';
+  }
+
+  function opponent(player) {
+    return player === BLACK ? WHITE : BLACK;
+  }
+
+  function cloneBoard(src) {
+    return src.map(row => row.slice());
+  }
+
+  function getGroupAndLiberties(startX, startY, srcBoard = board) {
+    const color = srcBoard[startY][startX];
+    const stack = [[startX, startY]];
+    const visited = new Set();
+    const stones = [];
+    let liberties = 0;
+
+    while (stack.length) {
+      const [x, y] = stack.pop();
+      const key = `${x},${y}`;
+      if (visited.has(key)) continue;
+      visited.add(key);
+      stones.push([x, y]);
+
+      const neighbors = [
+        [x - 1, y],
+        [x + 1, y],
+        [x, y - 1],
+        [x, y + 1],
+      ];
+
+      for (const [nx, ny] of neighbors) {
+        if (nx < 0 || ny < 0 || nx >= SIZE || ny >= SIZE) continue;
+        const value = srcBoard[ny][nx];
+        if (value === EMPTY) liberties += 1;
+        else if (value === color && !visited.has(`${nx},${ny}`)) stack.push([nx,ny]);
+      }
     }
-    movesChannel = supabaseClient
-      .channel(`moves-${sessionId}`)
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'moves', filter: `session_id=eq.${sessionId}` }, payload => {
-        const row = payload.new;
-        if (!row || row.user_id === currentUserId) return;
-        try { onRemoteMove?.(row); } catch (err) { onError?.(err); }
-      })
-      .subscribe();
+
+    return { stones, liberties };
   }
 
-  function unbindMoves(supabaseClient) {
-    if (movesChannel && supabaseClient) supabaseClient.removeChannel(movesChannel);
-    movesChannel = null;
+  function removeCapturedStones(placeX, placeY, player, workingBoard) {
+    const captured = [];
+    const enemy = opponent(player);
+    const neighbors = [
+      [placeX - 1, placeY], [placeX + 1, placeY], [placeX, placeY - 1], [placeX, placeY + 1]
+    ];
+
+    for (const [nx, ny] of neighbors) {
+      if (nx < 0 || ny < 0 || nx >= SIZE || ny >= SIZE) continue;
+      if (workingBoard[ny][nx] !== enemy) continue;
+      const group = getGroupAndLiberties(nx, ny, workingBoard);
+      if (group.liberties === 0) {
+        for (const [gx, gy] of group.stones) {
+          workingBoard[gy][gx] = EMPTY;
+          captured.push([gx, gy]);
+        }
+      }
+    }
+    return captured;
   }
 
-  window.GoGameUI = { setLoggedIn, showAuthOverlay, hideAuthOverlay, showMatchingOverlay, hideMatchingOverlay, bindMoves, unbindMoves };
+  function applyMoveToState(stateBoard, x, y, player) {
+    if (stateBoard[y][x] !== EMPTY) {
+      return { ok: false, reason: '该点已有棋子' };
+    }
+    const temp = cloneBoard(stateBoard);
+    temp[y][x] = player;
+    const captured = removeCapturedStones(x, y, player, temp);
+    const myGroup = getGroupAndLiberties(x, y, temp);
+    if (myGroup.liberties === 0) return { ok: false, reason: '禁止自杀手' };
+    return { ok: true, board: temp, captured };
+  }
+
+  function updateUI(lastX = null, lastY = null) {
+    if (authBadge()) authBadge().textContent = isLoggedIn ? '已登录' : '未登录';
+    if (matchBadge()) matchBadge().textContent = isLoggedIn ? '本地/在线' : '登录中';
+    if (turnBadge()) turnBadge().textContent = `轮到：${stoneName(currentPlayer)}`;
+    if (roleText()) roleText().textContent = '本地';
+    if (userName()) userName().textContent = isLoggedIn ? '玩家' : '游客';
+    if (userEmail()) userEmail().textContent = isLoggedIn ? '已进入棋盘' : '请先登录后开启在线匹配';
+    if (moveCountEl()) moveCountEl().textContent = String(moveHistory.length);
+    if (blackCapturesEl()) blackCapturesEl().textContent = String(blackCaptures);
+    if (whiteCapturesEl()) whiteCapturesEl().textContent = String(whiteCaptures);
+    if (moveListEl()) {
+      moveListEl().innerHTML = moveHistory.map((m, idx) => `<li>${idx + 1}. ${stoneName(m.player)} (${m.x + 1}, ${m.y + 1})${m.captured.length ? `，提 ${m.captured.length} 子` : ''}</li>`).join('');
+    }
+    if (undoBtn()) undoBtn().disabled = false;
+    if (leaveMatchBtn()) leaveMatchBtn().disabled = true;
+    if (findOpponentBtn()) findOpponentBtn().disabled = !isLoggedIn;
+    if (logoutBtn()) logoutBtn().disabled = !isLoggedIn;
+  }
+
+  function resizeBoard() {
+    if (!canvas || !canvas.parentElement) return;
+    const size = Math.min(canvas.parentElement.clientWidth, canvas.parentElement.clientHeight);
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = Math.floor(size * dpr);
+    canvas.height = Math.floor(size * dpr);
+    canvas.style.width = size + 'px';
+    canvas.style.height = size + 'px';
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    margin = Math.max(18, size * 0.045);
+    cell = (size - margin * 2) / (SIZE - 1);
+    drawBoard();
+  }
+
+  function drawBoard() {
+    if (!ctx || !canvas) return;
+    const w = canvas.clientWidth;
+    const h = canvas.clientHeight;
+    const size = Math.min(w, h);
+
+    ctx.clearRect(0, 0, w, h);
+
+    const bg = ctx.createLinearGradient(0, 0, 0, h);
+    bg.addColorStop(0, '#ddb06c');
+    bg.addColorStop(1, '#cc9655');
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, w, h);
+
+    ctx.strokeStyle = '#000';
+    ctx.lineWidth = Math.max(1, size * 0.002);
+    for (let i = 0; i < SIZE; i++) {
+      const p = margin + i * cell;
+      ctx.beginPath();
+      ctx.moveTo(margin, p);
+      ctx.lineTo(size - margin, p);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(p, margin);
+      ctx.lineTo(p, size - margin);
+      ctx.stroke();
+    }
+
+    const stars = [3, 9, 15];
+    ctx.fillStyle = '#000';
+    for (const x of stars) {
+      for (const y of stars) {
+        const px = margin + x * cell;
+        const py = margin + y * cell;
+        ctx.beginPath();
+        ctx.arc(px, py, Math.max(2.5, cell * 0.08), 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    for (let y = 0; y < SIZE; y++) {
+      for (let x = 0; x < SIZE; x++) {
+        if (board[y][x] !== EMPTY) drawStone(x, y, board[y][x]);
+      }
+    }
+  }
+
+  function drawStone(x, y, player) {
+    const px = margin + x * cell;
+    const py = margin + y * cell;
+    const radius = cell * 0.44;
+    const gradient = ctx.createRadialGradient(px - radius * 0.32, py - radius * 0.32, radius * 0.18, px, py, radius);
+    if (player === BLACK) {
+      gradient.addColorStop(0, '#777');
+      gradient.addColorStop(0.55, '#111');
+      gradient.addColorStop(1, '#000');
+    } else {
+      gradient.addColorStop(0, '#fff');
+      gradient.addColorStop(0.62, '#e2e6eb');
+      gradient.addColorStop(1, '#bcc3cd');
+    }
+
+    ctx.beginPath();
+    ctx.fillStyle = gradient;
+    ctx.arc(px, py, radius, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = player === BLACK ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.18)';
+    ctx.stroke();
+  }
+
+  function getBoardPoint(clientX, clientY) {
+    const rect = canvas.getBoundingClientRect();
+    const localX = clientX - rect.left;
+    const localY = clientY - rect.top;
+    const x = Math.round((localX - margin) / cell);
+    const y = Math.round((localY - margin) / cell);
+    if (x < 0 || y < 0 || x >= SIZE || y >= SIZE) return null;
+    const px = margin + x * cell;
+    const py = margin + y * cell;
+    const hitRadius = cell * 0.42;
+    if (Math.abs(localX - px) > hitRadius || Math.abs(localY - py) > hitRadius) return null;
+    return { x, y };
+  }
+
+  function placeStone(x, y) {
+    const result = applyMoveToState(board, x, y, currentPlayer);
+    if (!result.ok) return;
+
+    moveHistory.push({ x, y, player: currentPlayer, captured: result.captured, boardBefore: cloneBoard(board) });
+    for (let iy = 0; iy < SIZE; iy++) board[iy] = result.board[iy].slice();
+    if (result.captured.length) {
+      if (currentPlayer === BLACK) blackCaptures += result.captured.length;
+      else whiteCaptures += result.captured.length;
+    }
+    currentPlayer = opponent(currentPlayer);
+    updateUI(x, y);
+    drawBoard();
+  }
+
+  function undoMove() {
+    const last = moveHistory.pop();
+    if (!last) return;
+    for (let y = 0; y < SIZE; y++) board[y] = last.boardBefore[y].slice();
+    if (last.player === BLACK) blackCaptures -= last.captured.length;
+    else whiteCaptures -= last.captured.length;
+    currentPlayer = last.player;
+    updateUI();
+    drawBoard();
+  }
+
+  function resetGame() {
+    for (let y = 0; y < SIZE; y++) board[y].fill(EMPTY);
+    moveHistory.length = 0;
+    currentPlayer = BLACK;
+    blackCaptures = 0;
+    whiteCaptures = 0;
+    updateUI();
+    drawBoard();
+  }
+
+  function initBoard() {
+    if (canvas && ctx) return;
+    canvas = document.getElementById('board');
+    if (!canvas) return;
+    ctx = canvas.getContext('2d');
+
+    canvas.addEventListener('click', e => {
+      if (!isLoggedIn) return;
+      const point = getBoardPoint(e.clientX, e.clientY);
+      if (point) placeStone(point.x, point.y);
+    });
+
+    canvas.addEventListener('touchend', e => {
+      if (!isLoggedIn) return;
+      const t = e.changedTouches[0];
+      const point = getBoardPoint(t.clientX, t.clientY);
+      if (point) {
+        e.preventDefault();
+        placeStone(point.x, point.y);
+      }
+    }, { passive: false });
+
+    window.addEventListener('resize', resizeBoard);
+
+    const drawerToggle = document.getElementById('drawerToggle');
+    const drawerPanel = document.getElementById('drawerPanel');
+    document.getElementById('drawerUndoBtn')?.addEventListener('click', undoMove);
+    document.getElementById('drawerResetBtn')?.addEventListener('click', resetGame);
+    document.getElementById('drawerSettingsBtn')?.addEventListener('click', () => drawerPanel?.classList.toggle('is-open'));
+    drawerToggle?.addEventListener('click', () => drawerPanel?.classList.toggle('is-open'));
+
+    updateUI();
+  }
+
+  function bindClicks() {
+    authOverlay.querySelectorAll('[data-auth-tab]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const isLogin = btn.dataset.authTab === 'login';
+        loginTab().classList.toggle('is-active', isLogin);
+        registerTab().classList.toggle('is-active', !isLogin);
+        loginForm().hidden = !isLogin;
+        registerForm().hidden = isLogin;
+      });
+    });
+
+    authOverlay.querySelector('#guest-login-btn')?.addEventListener('click', () => {
+      console.log('Login Clicked');
+      const overlay = document.getElementById(AUTH_OVERLAY_ID);
+      if (overlay) {
+        overlay.style.display = 'none';
+        overlay.remove();
+      }
+      setLoggedIn(true);
+    });
+
+    authOverlay.querySelector('#guest-login-btn-secondary')?.addEventListener('click', () => {
+      console.log('Login Clicked');
+      const overlay = document.getElementById(AUTH_OVERLAY_ID);
+      if (overlay) {
+        overlay.style.display = 'none';
+        overlay.remove();
+      }
+      setLoggedIn(true);
+    });
+
+    authOverlay.querySelector('#login-btn')?.addEventListener('click', () => {
+      console.log('Login Clicked');
+      loginWithSupabase();
+    });
+
+    authOverlay.querySelector('#register-btn')?.addEventListener('click', () => {
+      console.log('Login Clicked');
+      registerWithSupabase();
+    });
+
+    if (undoBtn()) undoBtn().addEventListener('click', undoMove);
+    if (resetBtn()) resetBtn().addEventListener('click', resetGame);
+    if (findOpponentBtn()) findOpponentBtn().addEventListener('click', () => alert('当前为本地演示模式。Supabase 对接可继续沿用已有逻辑。'));
+    if (leaveMatchBtn()) leaveMatchBtn().addEventListener('click', () => alert('当前未进入在线对局。'));
+    if (logoutBtn()) logoutBtn().addEventListener('click', () => {
+      setLoggedIn(false);
+      resetGame();
+    });
+  }
+
+  function initAuth() {
+    ensureAuthOverlay();
+    bindClicks();
+    showAuthOverlay();
+    applyImmersiveState(false);
+  }
 
   document.addEventListener('DOMContentLoaded', () => {
-    applyImmersiveState(false);
-    ensureAuthOverlay();
-    showAuthOverlay();
+    initBoard();
+    initAuth();
+    resizeBoard();
+    drawBoard();
   });
 })();

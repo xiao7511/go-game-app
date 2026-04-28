@@ -238,7 +238,8 @@
       width: 100%;
       height: 100%;
       display: none;
-      place-items: center;
+      justify-content: center;
+      align-items: center;
       overflow: visible;
       padding: 0;
       transform-style: preserve-3d;
@@ -246,15 +247,16 @@
     }
 
     .board-shell.is-active {
+      display: flex;
       pointer-events: auto;
     }
 
     .board-stage {
-      width: min(95vw, 95vw);
-      height: min(95vw, 95vw);
+      width: 90vmin;
+      height: 90vmin;
       max-width: 95vw;
       max-height: 95vw;
-      transform: perspective(1000px) rotateX(0deg);
+      transform: perspective(1000px) rotateX(15deg);
       transform-origin: center center;
       display: grid;
       place-items: center;
