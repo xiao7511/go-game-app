@@ -134,7 +134,13 @@
 
     try {
         // 这里使用匿名登录作为示例，也可以改用 signInWithOAuth (GitHub/Google)
-        const { data, error } = await supabase.auth.signInAnonymously();
+       // const { data, error } = await supabase.auth.signInAnonymously();
+        const { data, error } = await supabase.auth.signInWithOAuth({
+            provider: 'github',
+            options: {
+              redirectTo: window.location.origin // 登录完跳回当前首页
+            }
+          })
 
         if (error) throw error;
 
