@@ -3,8 +3,15 @@
   const AUTH_OVERLAY_ID = 'login-overlay';
   const SUPABASE_URL = window.APP_CONFIG?.SUPABASE_URL || '';
   const SUPABASE_ANON_KEY = window.APP_CONFIG?.SUPABASE_ANON_KEY || '';
+  
+  // 关键修复：确保调用了 createClient
   const hasSupabase = Boolean(window.supabase && SUPABASE_URL && SUPABASE_ANON_KEY);
-  const supabaseClient = hasSupabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
+  const supabaseClient = hasSupabase 
+    ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) 
+    : null;
+
+  console.log("Supabase 状态:", hasSupabase ? "初始化成功" : "配置缺失或加载失败");
+
 
   const SIZE = 19;
   const EMPTY = 0, BLACK = 1, WHITE = 2;
@@ -99,10 +106,35 @@
   }
 
   // --- 5. 事件绑定 ---
+  // --- 5. 事件绑定 ---
   function initEventListeners() {
-    // 围棋按钮点击：进入游戏
+    
+    // 1. 【新增】处理登录/进入按钮
+    // 请确保 HTML 中那个黄色按钮的 ID 是 'auth-btn'
+    document.getElementById('auth-btn')?.addEventListener('click', async () => {
+      console.log("正在尝试进入...");
+      
+      // 如果 Supabase 初始化成功，尝试匿名登录
+      if (supabaseClient) {
+        try {
+          const { data, error } = await supabaseClient.auth.signInAnonymously();
+          if (error) throw error;
+          console.log("Supabase 登录成功:", data.user.id);
+        } catch (err) {
+          console.warn("Supabase 登录失败，将以离线模式进入:", err.message);
+        }
+      } else {
+        console.warn("Supabase 未配置，启用本地模式");
+      }
+      
+      // 无论登录成功与否，都允许进入游戏选择界面
+      setLoggedIn(true); 
+    });
+
+    // 2. 围棋按钮点击：进入游戏
     document.getElementById('go-game-btn')?.addEventListener('click', async () => {
-      await initAudio(); // 用户交互后启动音频
+      // 检查是否已初始化音频环境
+      await initAudio(); 
       playSound('click');
       document.getElementById('game-selection').style.display = 'none';
       document.querySelector('.app').style.display = 'grid';
@@ -110,7 +142,7 @@
       updateUI();
     });
 
-    // 退出按钮点击：返回选项
+    // 3. 退出按钮点击：返回选项
     document.getElementById('quit-game-btn')?.addEventListener('click', () => {
       if (confirm('确定要退出当前对局吗？')) {
         applyImmersiveState(false);
@@ -118,15 +150,13 @@
         document.getElementById('game-selection').style.display = 'flex';
       }
     });
-
-    // 模拟登录成功后的跳转（实际应在 loginWithSupabase 回调中调用）
-    // setLoggedIn(true); 
   }
 
   // 初始化执行
   window.addEventListener('DOMContentLoaded', () => {
     initEventListeners();
-    // 初始进入先弹出登录或检测状态
-    setLoggedIn(false); // 演示用途：默认已登录显示选项页面
+    // 保持 false，这样页面刷新后会先显示你截图中的“在线游戏 Pro”登录卡片
+    setLoggedIn(false); 
   });
+
 })();
