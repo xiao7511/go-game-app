@@ -7,7 +7,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="config.js"></script>
   <script src="game.js"></script>
-  <title>围棋 Pro</title>
+  <title>在线游戏 Pro</title>
   <style>
     :root {
       --bg: #0f1720;
@@ -80,14 +80,15 @@
 <body>
 
   <!-- 登录流程第一步：强制登录框 -->
-  <div id="login-overlay">
-    <div class="card">
-      <h1>围棋 Pro</h1>
-      <p style="color: var(--muted); margin-bottom: 20px;">请登录以开启您的对局</p>
-      <!-- 此处点击后触发 game.js 中的 loginWithSupabase -->
-      <button onclick="loginWithSupabase()">授权登录 / 游客进入</button>
-    </div>
+ <!-- 找到这个 ID，确保 style 里有 display: flex !important -->
+<div id="login-overlay" style="display: flex !important; position: fixed; inset: 0; z-index: 9999; background: rgba(0,0,0,0.95); align-items: center; justify-content: center;">
+  <div class="card">
+    <h1>围棋 Pro</h1>
+    <p>请先登录以开启您的对局</p>
+    <button onclick="loginWithSupabase()">授权登录 / 游客进入</button>
   </div>
+</div>
+
 
   <!-- 登录流程第二步：游戏选项 -->
   <div id="game-selection">
