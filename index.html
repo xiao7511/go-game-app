@@ -127,6 +127,44 @@
         initEventListeners();
       }
     };
+    async function loginWithSupabase() {
+    const btn = event.target;
+    btn.disabled = true;
+    btn.innerText = "正在连接...";
+
+    try {
+        // 这里使用匿名登录作为示例，也可以改用 signInWithOAuth (GitHub/Google)
+        const { data, error } = await supabase.auth.signInAnonymously();
+
+        if (error) throw error;
+
+        console.log("登录成功:", data.user);
+
+        // 1. 隐藏登录遮罩层
+        const overlay = document.getElementById('login-overlay');
+        overlay.style.setProperty('display', 'none', 'important');
+
+        // 2. 显示游戏模式选择页面
+        const selection = document.getElementById('game-selection');
+        selection.style.display = 'flex';
+
+    } catch (error) {
+        console.error("登录失败:", error.message);
+        alert("连接失败: " + error.message);
+    } finally {
+        btn.disabled = false;
+        btn.innerText = "授权登录 / 游客进入";
+    }
+}
+
+// 监听游戏选择按钮，进入真正的游戏界面
+document.getElementById('go-game-btn').addEventListener('click', () => {
+    document.getElementById('game-selection').style.display = 'none';
+    document.querySelector('.app').style.display = 'grid';
+    // 这里调用 game.js 里的初始化函数
+    if (typeof initGame === 'function') initGame(); 
+});
+
   </script>
 </body>
 </html>
