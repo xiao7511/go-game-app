@@ -3,10 +3,11 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>围棋 Pro</title>
-  <script src="https://jsdelivr.net"></script>
+  <meta name="theme-color" content="#0f1720" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="config.js"></script>
   <script src="game.js"></script>
+  <title>围棋 Pro</title>
   <style>
     :root {
       --bg: #0f1720;
@@ -22,152 +23,109 @@
     }
 
     * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      font-family: -apple-system, sans-serif;
-      color: var(--text);
-      background: var(--bg);
-      background-attachment: fixed;
-      overflow: hidden;
-      height: 100vh;
+    body, html { margin: 0; padding: 0; height: 100%; font-family: sans-serif; background: var(--bg); color: var(--text); overflow: hidden; }
+
+    /* 1. 登录覆盖层 */
+    #login-overlay {
+      position: fixed; inset: 0; z-index: 1000;
+      background: rgba(0,0,0,0.9); display: flex; align-items: center; justify-content: center;
     }
 
-    /* 游戏选项页面（登录后显示） */
+    /* 2. 游戏选择页面 */
     #game-selection {
-      position: fixed;
-      inset: 0;
-      display: none; /* 初始隐藏，由 JS 控制 */
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      z-index: 100;
-      background: radial-gradient(circle, #1a2635 0%, #0f1720 100%);
+      position: fixed; inset: 0; z-index: 500;
+      display: none; flex-direction: column; align-items: center; justify-content: center;
+      background: radial-gradient(circle at center, #1a2635, #0f1720);
     }
 
-    .menu-card {
-      background: var(--panel);
-      padding: 40px;
-      border-radius: var(--radius);
-      border: 1px solid var(--panel-border);
-      text-align: center;
-      box-shadow: 0 20px 50px rgba(0,0,0,0.5);
-    }
+    /* 3. 游戏主界面容器 */
+    .app { display: none; height: 100vh; grid-template-rows: auto 1fr; }
 
-    /* 游戏主容器 */
-    .app {
-      display: none; /* 初始隐藏 */
-      height: 100vh;
-      grid-template-rows: auto 1fr;
+    .card {
+      background: var(--panel); border: 1px solid var(--panel-border);
+      padding: 30px; border-radius: var(--radius); text-align: center;
+      backdrop-filter: blur(10px); box-shadow: 0 20px 50px rgba(0,0,0,0.5);
     }
 
     .topbar {
-      padding: 15px 20px;
-      background: rgba(13, 20, 28, 0.8);
-      backdrop-filter: blur(10px);
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      border-bottom: 1px solid var(--panel-border);
+      padding: 12px 20px; background: rgba(13, 20, 28, 0.8);
+      display: flex; justify-content: space-between; align-items: center;
+      border-bottom: 1px solid var(--panel-border); z-index: 100;
     }
 
     .badge {
-      padding: 6px 15px;
-      background: rgba(255,255,255,0.1);
-      border-radius: 20px;
-      font-size: 0.9rem;
-      margin-left: 10px;
+      padding: 6px 14px; background: rgba(255,255,255,0.06);
+      border: 1px solid var(--panel-border); border-radius: 999px; font-size: 0.85rem; margin-left: 8px;
     }
 
     .board-shell {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      background: var(--wood-image);
+      display: flex; justify-content: center; align-items: center;
+      background: var(--wood-image); position: relative;
     }
 
-    canvas {
-      max-width: 95vmin;
-      max-height: 95vmin;
-      box-shadow: 0 10px 40px rgba(0,0,0,0.6);
-      cursor: crosshair;
-    }
+    canvas { max-width: 90vmin; max-height: 90vmin; box-shadow: 0 20px 60px rgba(0,0,0,0.4); cursor: pointer; }
 
-    .floating-actions {
-      position: fixed;
-      right: 20px;
-      bottom: 20px;
-      display: flex;
-      gap: 15px;
-    }
+    .floating-actions { position: fixed; right: 20px; bottom: 20px; z-index: 900; }
 
     button {
-      padding: 12px 25px;
-      border-radius: 12px;
-      border: none;
-      font-weight: bold;
-      cursor: pointer;
-      transition: 0.2s;
+      padding: 12px 24px; border-radius: 12px; border: none; font-weight: bold;
+      cursor: pointer; transition: 0.2s; background: var(--accent); color: #000;
     }
+    button.danger { background: #ff4d4f; color: white; }
+    button:hover { transform: translateY(-2px); opacity: 0.9; }
 
-    .btn-primary { background: var(--accent); color: #000; }
-    .btn-danger { background: #ff4d4f; color: #fff; }
-    button:hover { opacity: 0.9; transform: scale(1.05); }
-
-    #login-overlay {
-      position: fixed; inset: 0; z-index: 999;
-      background: rgba(0,0,0,0.85); display: grid; place-items: center;
-    }
+    h1 { margin-bottom: 20px; letter-spacing: 2px; }
   </style>
 </head>
 <body>
 
-  <!-- 1. 登录层 (由 JS 管理显示隐藏) -->
+  <!-- 登录流程第一步：强制登录框 -->
   <div id="login-overlay">
-    <div class="menu-card">
-      <h2>欢迎来到围棋 Pro</h2>
-      <p>请先登录以开始游戏</p>
-      <button class="btn-primary" onclick="loginWithSupabase()">游客登录 / 账号登录</button>
+    <div class="card">
+      <h1>围棋 Pro</h1>
+      <p style="color: var(--muted); margin-bottom: 20px;">请登录以开启您的对局</p>
+      <!-- 此处点击后触发 game.js 中的 loginWithSupabase -->
+      <button onclick="loginWithSupabase()">授权登录 / 游客进入</button>
     </div>
   </div>
 
-  <!-- 2. 游戏选项页面 -->
+  <!-- 登录流程第二步：游戏选项 -->
   <div id="game-selection">
-    <div class="menu-card">
-      <h1>选择游戏模式</h1>
-      <div style="margin-top: 20px;">
-        <button id="go-game-btn" class="btn-primary" style="font-size: 1.2rem;">经典围棋 (19x19)</button>
-      </div>
+    <div class="card">
+      <h1>选择模式</h1>
+      <button id="go-game-btn" style="font-size: 1.2rem; padding: 15px 40px;">经典围棋 19x19</button>
+      <p style="margin-top: 15px; font-size: 0.8rem; color: var(--muted);">在线对战模式即将开启</p>
     </div>
   </div>
 
-  <!-- 3. 游戏对战容器 -->
+  <!-- 登录流程第三步：对战界面 -->
   <div class="app">
     <header class="topbar">
-      <div class="brand">
-        <strong>围棋 Pro</strong>
-      </div>
+      <div class="brand"><strong>围棋 Pro</strong></div>
       <div class="status">
-        <span class="badge">当前落子: <b id="currentPlayer" style="color: var(--accent);">黑棋</b></span>
-        <span class="badge">黑方提子: <b id="blackCaptures">0</b></span>
-        <span class="badge">白方提子: <b id="whiteCaptures">0</b></span>
+        <span class="badge">轮到：<b id="currentPlayer" style="color:var(--accent)">黑子</b></span>
+        <span class="badge">黑提：<b id="blackCaptures">0</b></span>
+        <span class="badge">白提：<b id="whiteCaptures">0</b></span>
       </div>
     </header>
 
     <main class="board-shell">
-      <div class="board-stage">
-        <canvas id="goBoard"></canvas>
-      </div>
+      <canvas id="goBoard"></canvas>
     </main>
 
-    <div class="sidebar" style="display:none;">
-      <!-- 侧边栏内容 -->
-    </div>
-
-    <!-- 底部悬浮按钮 -->
     <div class="floating-actions">
-      <button id="quit-game-btn" class="btn-danger">退出游戏</button>
+      <!-- 退出按钮 -->
+      <button id="quit-game-btn" class="danger">退出游戏</button>
     </div>
   </div>
 
+  <script>
+    // 确保页面加载后，Canvas 能正确获取到（用于 game.js 初始化）
+    window.onload = () => {
+      if (typeof initEventListeners === 'function') {
+        initEventListeners();
+      }
+    };
+  </script>
 </body>
 </html>
