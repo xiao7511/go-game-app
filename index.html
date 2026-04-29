@@ -483,6 +483,7 @@
         <section class="card">
           <h2>对局信息</h2>
           <div class="panel-grid">
+            <div class="metric"><span>当前落子</span><strong id="currentPlayerTurn">黑棋</strong></div>
             <div class="metric"><span>已落子</span><strong id="moveCount">0</strong></div>
             <div class="metric"><span>黑棋提子</span><strong id="blackCaptures">0</strong></div>
             <div class="metric"><span>白棋提子</span><strong id="whiteCaptures">0</strong></div>
@@ -493,6 +494,7 @@
         <section class="card">
           <h2>操作</h2>
           <div class="stack">
+            <button type="button" class="secondary" id="exitBtn">退出游戏</button>
             <button type="button" class="secondary" id="undoBtn">悔棋</button>
             <button type="button" id="resetBtn">重新开始</button>
           </div>

@@ -30,6 +30,9 @@
   let isBgmPlaying = false;
   const sounds = {
     click: 'https://www.soundjay.com/buttons/sounds/button-16.mp3',
+    placeStone: 'https://www.soundjay.com/buttons/sounds/button-16.mp3', // Placeholder
+    yourTurn: 'https://www.soundjay.com/misc/sounds/magic-chime-01.mp3', // Placeholder
+    invalidMove: 'https://www.soundjay.com/buttons/sounds/button-10.mp3', // Placeholder
     undo: 'https://www.soundjay.com/buttons/sounds/button-7.mp3',
     capture: 'https://www.soundjay.com/misc/sounds/magic-chime-01.mp3',
     bgm: 'https://soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3' 
@@ -392,7 +395,7 @@
     if (authBadge()) authBadge().textContent = isLoggedIn ? '已登录' : '未登录';
     if (matchBadge()) matchBadge().textContent = isLoggedIn ? '本地/在线' : '登录中';
     if (turnBadge()) turnBadge().textContent = `轮到：${stoneName(currentPlayer)}`;
-    if (roleText()) roleText().textContent = '本地';
+    if (document.getElementById('currentPlayerTurn')) document.getElementById('currentPlayerTurn').textContent = stoneName(currentPlayer);
     if (userName()) userName().textContent = isLoggedIn ? '玩家' : '游客';
     if (userEmail()) userEmail().textContent = isLoggedIn ? '已进入棋盘' : '请先登录后开启在线匹配';
     if (moveCountEl()) moveCountEl().textContent = String(moveHistory.length);
@@ -517,6 +520,7 @@
       else whiteCaptures += result.captured.length;
     }
     currentPlayer = opponent(currentPlayer);
+      playSound('yourTurn');
     updateUI(x, y);
     drawBoard();
     if (result.captured.length) playSound('capture');
@@ -650,6 +654,15 @@
 
 document.addEventListener('DOMContentLoaded', () => {
     initAuth();
+
+    if (document.getElementById('exitBtn')) {
+        document.getElementById('exitBtn').addEventListener('click', () => {
+            if (confirm('您确定要退出游戏吗？')) {
+                document.querySelector('.app').style.display = 'none';
+                document.getElementById('game-selection').style.display = 'flex';
+            }
+        });
+    }
 
     document.querySelector('.game-choice[data-game="go"]').addEventListener('click', () => {
         document.getElementById('game-selection').style.display = 'none';
