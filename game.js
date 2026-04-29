@@ -127,6 +127,6 @@
   window.addEventListener('DOMContentLoaded', () => {
     initEventListeners();
     // 初始进入先弹出登录或检测状态
-    setLoggedIn(true); // 演示用途：默认已登录显示选项页面
+    setLoggedIn(false); // 演示用途：默认已登录显示选项页面
   });
 })();
