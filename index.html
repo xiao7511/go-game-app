@@ -255,7 +255,7 @@
       height: 90vmin;
       max-width: 95vw;
       max-height: 95vw;
-      transform: perspective(1000px) rotateX(0deg);
+      
       transform-origin: center center;
       display: grid;
       place-items: center;
@@ -279,6 +279,8 @@
       height: 100%;
       touch-action: none;
       cursor: pointer;
+      transform: none !important;
+      perspective: none !important;
     }
 
     .footer {
@@ -328,7 +330,7 @@
       width: min(320px, calc(100vw - 24px));
       display: grid;
       gap: 12px;
-      transform: translateY(130%);
+      
       opacity: 0;
       pointer-events: none;
       transition: transform 0.22s ease, opacity 0.22s ease;
@@ -397,9 +399,10 @@
         display: none;
       }
       .board-stage {
-        width: 100vw;
-        height: 100vh;
-        transform: perspective(1000px) rotateX(25deg) translateY(-2vh);
+        width: 95vmin;
+        height: 95vmin;
+        transform: none !important;
+        perspective: none !important;
       }
       .floating-actions { left: 10px; bottom: 10px; }
       .drawer { left: 10px; bottom: 72px; }
@@ -411,6 +414,23 @@
   </style>
 </head>
 <body>
+  <div id="game-selection" style="display: none; position: fixed; inset: 0; z-index: 1000; background: rgba(0,0,0,0.8); display: flex; flex-direction: column; justify-content: center; align-items: center; color: white; text-align: center;">
+      <h1 style="font-size: 2.5rem; margin-bottom: 2rem;">选择您的游戏</h1>
+      <div style="display: flex; gap: 2rem;">
+        <button class="game-choice" data-game="go">
+          <img src="icon.svg" alt="围棋" style="width: 150px; height: 150px; object-fit: cover; border-radius: 15px;">
+          <span style="margin-top: 1rem; font-size: 1.5rem;">围棋</span>
+        </button>
+        <button class="game-choice" data-game="guandan" disabled>
+          <img src="https://via.placeholder.com/150" alt="掼蛋" style="width: 150px; height: 150px; object-fit: cover; border-radius: 15px; filter: grayscale(1);">
+          <span style="margin-top: 1rem; font-size: 1.5rem;">掼蛋 (敬请期待)</span>
+        </button>
+        <button class="game-choice" data-game="shanghai-mahjong" disabled>
+          <img src="https://via.placeholder.com/150" alt="上海麻将" style="width: 150px; height: 150px; object-fit: cover; border-radius: 15px; filter: grayscale(1);">
+          <span style="margin-top: 1rem; font-size: 1.5rem;">上海麻将 (敬请期待)</span>
+        </button>
+      </div>
+    </div>
   <div class="app">
     <header class="topbar">
       <div class="brand">
@@ -495,6 +515,7 @@
 
     <footer class="footer">
       HTML5 + CSS3 + JavaScript · Supabase 实时匹配与同步 · PWA 离线可用
+      <br>Version: v20-Fixed
     </footer>
   </div>
 

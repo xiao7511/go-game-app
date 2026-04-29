@@ -29,10 +29,10 @@
   let bgmAudio = null;
   let isBgmPlaying = false;
   const sounds = {
-    click: 'https://assets.mixkit.co/sfx/download/mixkit-game-click-1114.mp3',
-    undo: 'https://assets.mixkit.co/sfx/download/mixkit-positive-interface-beep-221.mp3',
-    capture: 'https://assets.mixkit.co/sfx/download/mixkit-achievement-bell-600.mp3',
-    bgm: 'https://assets.mixkit.co/music/738/738.mp3'
+    click: 'https://www.soundjay.com/buttons/sounds/button-16.mp3',
+    undo: 'https://www.soundjay.com/buttons/sounds/button-7.mp3',
+    capture: 'https://www.soundjay.com/misc/sounds/magic-chime-01.mp3',
+    bgm: 'https://soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3' 
   };
   const buffers = {};
 
@@ -75,7 +75,9 @@
       bgmAudio = audioCtx.createBufferSource();
       bgmAudio.buffer = buffers.bgm;
       bgmAudio.loop = true;
-      bgmAudio.connect(audioCtx.destination);
+      const gainNode = audioCtx.createGain();
+      gainNode.gain.value = 0.3;
+      bgmAudio.connect(gainNode).connect(audioCtx.destination);
       bgmAudio.start(0);
       isBgmPlaying = true;
     }
@@ -145,37 +147,14 @@
   }
 
   function setLoggedIn(loggedIn) {
-    applyImmersiveState(loggedIn);
-    const shell = boardShell();
-    const stage = boardStage();
     if (loggedIn) {
-      hideAuthOverlay();
-      if (shell) shell.style.display = 'flex';
-      if (stage) stage.style.display = 'grid';
-      const overlay = document.getElementById(AUTH_OVERLAY_ID);
-      if (overlay) {
-        overlay.style.display = 'none';
-        overlay.remove();
-      }
-      if (authOverlay) {
-        authOverlay.style.display = 'none';
-        authOverlay.remove();
-        authOverlay = null;
-      }
-      console.log('游客登录成功');
-      try {
-        if (document.documentElement.requestFullscreen) {
-          document.documentElement.requestFullscreen().catch(() => {});
-        }
-      } catch(e) {}
-      initBoard();
-      resizeBoard();
-      drawBoard();
-      updateUI();
+        document.getElementById('game-selection').style.display = 'flex';
+        hideAuthOverlay();
     } else {
-      showAuthOverlay();
+        showAuthOverlay();
+        document.getElementById('game-selection').style.display = 'none';
     }
-  }
+}
 
   async function loginWithSupabase() {
     if (!supabaseClient) {
@@ -259,6 +238,12 @@
     });
 
     authOverlay.querySelector('#guest-login-btn')?.addEventListener('click', () => {
+      if (audioCtx && audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+      if (!isBgmPlaying) {
+        toggleBgm();
+      }
       console.log('Login Clicked');
       const overlay = document.getElementById(AUTH_OVERLAY_ID);
       if (overlay) {
@@ -604,6 +589,12 @@
     });
 
     authOverlay.querySelector('#guest-login-btn')?.addEventListener('click', () => {
+      if (audioCtx && audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+      if (!isBgmPlaying) {
+        toggleBgm();
+      }
       console.log('Login Clicked');
       const overlay = document.getElementById(AUTH_OVERLAY_ID);
       if (overlay) {
@@ -655,6 +646,26 @@
   }
 
   document.addEventListener('DOMContentLoaded', () => {
+    if (hasSupabase) {
+      console.log('Supabase client initialized');
+    }
+
+    document.querySelector(".game-choice[data-game='go']").addEventListener('click', () => {
+        document.getElementById('game-selection').style.display = 'none';
+        applyImmersiveState(true);
+        initBoard();
+        resizeBoard();
+        drawBoard();
+        updateUI();
+    });
+
+    const guestButton = document.getElementById('guest-login-btn');
+    if (guestButton) {
+        guestButton.addEventListener('click', () => setLoggedIn(true));
+    }
+
+    // ... (rest of the original DOMContentLoaded listener)
+});
     initBoard();
     initAuth();
     resizeBoard();
