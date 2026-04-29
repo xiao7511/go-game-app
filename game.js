@@ -147,12 +147,15 @@
   }
 
   function setLoggedIn(loggedIn) {
+    isLoggedIn = loggedIn;
     if (loggedIn) {
-        document.getElementById('game-selection').style.display = 'flex';
         hideAuthOverlay();
+        document.getElementById('game-selection').style.display = 'flex';
+        document.querySelector('.app').style.display = 'none';
     } else {
         showAuthOverlay();
         document.getElementById('game-selection').style.display = 'none';
+        document.querySelector('.app').style.display = 'none';
     }
 }
 
@@ -645,30 +648,17 @@
     applyImmersiveState(false);
   }
 
-  document.addEventListener('DOMContentLoaded', () => {
-    if (hasSupabase) {
-      console.log('Supabase client initialized');
-    }
+document.addEventListener('DOMContentLoaded', () => {
+    initAuth();
 
-    document.querySelector(".game-choice[data-game='go']").addEventListener('click', () => {
+    document.querySelector('.game-choice[data-game="go"]').addEventListener('click', () => {
         document.getElementById('game-selection').style.display = 'none';
+        document.querySelector('.app').style.display = 'grid';
         applyImmersiveState(true);
         initBoard();
         resizeBoard();
         drawBoard();
         updateUI();
     });
-
-    const guestButton = document.getElementById('guest-login-btn');
-    if (guestButton) {
-        guestButton.addEventListener('click', () => setLoggedIn(true));
-    }
-
-    // ... (rest of the original DOMContentLoaded listener)
 });
-    initBoard();
-    initAuth();
-    resizeBoard();
-    drawBoard();
-  });
 })();
