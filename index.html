@@ -85,6 +85,12 @@
   <div class="card">
     <h1>在线游戏 Pro</h1>
     <p>请先登录以开启您的对局</p>
+    <div>
+      <input type="text" id="username" placeholder="账号" style="padding: 10px; margin-bottom: 10px; width: 100%; border-radius: 8px; border: 1px solid var(--panel-border); background: rgba(0,0,0,0.3); color: var(--text);">
+      <input type="password" id="password" placeholder="密码" style="padding: 10px; margin-bottom: 20px; width: 100%; border-radius: 8px; border: 1px solid var(--panel-border); background: rgba(0,0,0,0.3); color: var(--text);">
+      <button onclick="mockLogin()">登录</button>
+    </div>
+    <p style="margin-top: 20px; color: var(--muted);">或</p>
     <button onclick="loginWithSupabase()">授权登录 / 游客进入</button>
   </div>
 </div>
@@ -94,7 +100,11 @@
   <div id="game-selection">
     <div class="card">
       <h1>选择模式</h1>
-      <button id="go-game-btn" style="font-size: 1.2rem; padding: 15px 40px;">经典围棋 19x19</button>
+      <div style="display: flex; flex-direction: column; gap: 15px; margin-top: 20px;">
+        <button id="go-game-btn" style="font-size: 1.2rem; padding: 15px 40px; justify-content: space-between; display: flex; align-items: center;">经典围棋 19x19 <span class="badge" style="margin-left: auto; background: #4caf50; color: white;">已上线</span></button>
+        <button disabled style="font-size: 1.2rem; padding: 15px 40px; justify-content: space-between; display: flex; align-items: center; opacity: 0.6; cursor: not-allowed;">掼蛋 (Guandan) <span class="badge" style="margin-left: auto;">开发中</span></button>
+        <button disabled style="font-size: 1.2rem; padding: 15px 40px; justify-content: space-between; display: flex; align-items: center; opacity: 0.6; cursor: not-allowed;">上海麻将 <span class="badge" style="margin-left: auto;">待开发</span></button>
+      </div>
       <p style="margin-top: 15px; font-size: 0.8rem; color: var(--muted);">在线对战模式即将开启</p>
     </div>
   </div>
@@ -103,7 +113,15 @@
   <div class="app">
     <header class="topbar">
       <div class="brand"><strong>围棋 Pro</strong></div>
+      <div id="user-info" style="display: flex; align-items: center;">
+        <img id="user-avatar" src="" alt="" style="width: 30px; height: 30px; border-radius: 50%; margin-right: 10px;"/>
+        <span id="user-nickname"></span>
+        <span id="user-rank" class="badge" style="margin-left: 10px;"></span>
+        <button id="invite-button" style="margin-left: 20px; padding: 8px 15px; font-size: 0.9rem;">邀请</button>
+      </div>
       <div class="status">
+        <span class="badge">当前步数：<b id="current-moves" style="color:var(--accent)">0</b></span>
+        <span class="badge">剩余时间：<b id="remaining-time" style="color:var(--accent)">00:00</b></span>
         <span class="badge">轮到：<b id="currentPlayer" style="color:var(--accent)">黑子</b></span>
         <span class="badge">黑提：<b id="blackCaptures">0</b></span>
         <span class="badge">白提：<b id="whiteCaptures">0</b></span>
@@ -121,12 +139,38 @@
   </div>
 
   <script>
-    // 确保页面加载后，Canvas 能正确获取到（用于 game.js 初始化）
+        // 确保页面加载后，Canvas 能正确获取到（用于 game.js 初始化）
     window.onload = () => {
       if (typeof initEventListeners === 'function') {
         initEventListeners();
       }
     };
+
+    async function mockLogin() {
+      const usernameInput = document.getElementById('username');
+      const passwordInput = document.getElementById('password');
+      const username = usernameInput.value;
+      const password = passwordInput.value;
+
+      // Mock validation
+      if (username === "test" && password === "test") {
+        const userInfo = {
+          uid: "mock-user-123",
+          nickname: "TestPlayer",
+          avatar: "https://api.dicebear.com/7.x/pixel-art/svg?seed=TestPlayer",
+          rank: "9 Dan"
+        };
+        sessionStorage.setItem('userInfo', JSON.stringify(userInfo));
+        console.log("Mock Login Successful:", userInfo);
+        
+        // Transition to game selection
+        document.getElementById('login-overlay').style.setProperty('display', 'none', 'important');
+        document.getElementById('game-selection').style.display = 'flex';
+      } else {
+        alert("无效的账号或密码");
+      }
+    }
+
     async function loginWithSupabase() {
     const btn = event.target;
     btn.disabled = true;
@@ -169,13 +213,63 @@
     }
 }
 
-// 监听游戏选择按钮，进入真正的游戏界面
-document.getElementById('go-game-btn').addEventListener('click', () => {
-    document.getElementById('game-selection').style.display = 'none';
-    document.querySelector('.app').style.display = 'grid';
-    // 这里调用 game.js 里的初始化函数
-    if (typeof initGame === 'function') initGame(); 
-});
+
+    // Function to update User Info display
+    function updateUserInfoDisplay() {
+      const userInfoString = sessionStorage.getItem('userInfo');
+      if (userInfoString) {
+        const userInfo = JSON.parse(userInfoString);
+        document.getElementById('user-avatar').src = userInfo.avatar;
+        document.getElementById('user-nickname').textContent = userInfo.nickname;
+        document.getElementById('user-rank').textContent = userInfo.rank;
+      }
+    }
+
+    // Call updateUserInfoDisplay when the game app is shown
+    document.getElementById('go-game-btn').addEventListener('click', () => {
+        document.getElementById('game-selection').style.display = 'none';
+        document.querySelector('.app').style.display = 'grid';
+        updateUserInfoDisplay(); // Update user info when entering Go game
+        // Here we can also start mock game state updates if needed
+        updateGameStateDisplay();
+        // Here call game.js initialization
+        if (typeof initGame === 'function') initGame(); 
+    });
+
+    // Invite button logic
+    document.getElementById('invite-button').addEventListener('click', () => {
+      console.log("邀请链接已生成: http://mock-invite.link/", Math.random().toString(36).substring(7));
+      alert("邀请请求已发送！");
+    });
+
+    // Mock function to update game state - to be replaced by real-time updates
+    function updateGameStateDisplay() {
+      let moves = 0;
+      let time = 300; // 5 minutes
+
+      document.getElementById('current-moves').textContent = moves;
+      document.getElementById('remaining-time').textContent = formatTime(time);
+
+      setInterval(() => {
+        // Simulate game progress
+        if (Math.random() < 0.5) { // 50% chance to increment moves
+          moves++;
+          document.getElementById('current-moves').textContent = moves;
+        }
+
+        if (time > 0) {
+          time--;
+          document.getElementById('remaining-time').textContent = formatTime(time);
+        }
+      }, 1000); // Update every second
+    }
+
+    function formatTime(seconds) {
+      const minutes = Math.floor(seconds / 60);
+      const remainingSeconds = seconds % 60;
+      return `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
+    }
+
 
   </script>
 </body>
