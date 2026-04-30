@@ -105,6 +105,55 @@
     }
   }
 
+  function initGame() {
+    const canvas = document.getElementById('goBoard');
+    const ctx = canvas.getContext('2d');
+
+    // 动态调整 Canvas 大小以填充其父容器
+    const parent = canvas.parentElement;
+    const size = Math.min(parent.clientWidth, parent.clientHeight);
+    canvas.width = size;
+    canvas.height = size;
+
+    const cellSize = size / (SIZE - 1);
+
+    // 清除画布
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // 绘制棋盘线
+    ctx.strokeStyle = '#333';
+    ctx.lineWidth = 1;
+    for (let i = 0; i < SIZE; i++) {
+      // 横线
+      ctx.beginPath();
+      ctx.moveTo(cellSize / 2, i * cellSize + cellSize / 2);
+      ctx.lineTo(size - cellSize / 2, i * cellSize + cellSize / 2);
+      ctx.stroke();
+
+      // 竖线
+      ctx.beginPath();
+      ctx.moveTo(i * cellSize + cellSize / 2, cellSize / 2);
+      ctx.lineTo(i * cellSize + cellSize / 2, size - cellSize / 2);
+      ctx.stroke();
+    }
+
+    // 绘制星位 (以 19x19 为例)
+    const starPoints = [
+      [3, 3], [3, 9], [3, 15],
+      [9, 3], [9, 9], [9, 15],
+      [15, 3], [15, 9], [15, 15]
+    ];
+
+    starPoints.forEach(([row, col]) => {
+      const x = col * cellSize + cellSize / 2;
+      const y = row * cellSize + cellSize / 2;
+      ctx.beginPath();
+      ctx.arc(x, y, 4, 0, 2 * Math.PI);
+      ctx.fillStyle = '#333';
+      ctx.fill();
+    });
+  }
+
   // --- 5. 事件绑定 ---
   // --- 5. 事件绑定 ---
   function initEventListeners() {
