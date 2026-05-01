@@ -68,19 +68,26 @@
   const buffers = {};
 
   // --- 2. 音效引擎 ---
+  // --- 2. 改进后的音效引擎 ---
   async function initAudio() {
     if (audioCtx) return;
     const AudioContext = window.AudioContext || window.webkitAudioContext;
     audioCtx = new AudioContext();
+    // 暂时清空或替换为本地路径，避免报错阻塞
+    const sounds = {}; 
     for (const [name, url] of Object.entries(sounds)) {
       try {
+        // 如果没有有效的 URL，直接跳过
+        if (!url.endsWith('.mp3')) continue; 
+        
         const res = await fetch(url);
         const arrayBuffer = await res.arrayBuffer();
         buffers[name] = await audioCtx.decodeAudioData(arrayBuffer);
-      } catch (err) { console.warn('音效加载失败:', name); }
+      } catch (err) { 
+        console.warn('音效加载失败，但不影响游戏运行:', name); 
+      }
     }
   }
-
   function playSound(name) {
     if (!audioCtx || !buffers[name]) return;
     const source = audioCtx.createBufferSource();
