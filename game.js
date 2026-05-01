@@ -1,16 +1,51 @@
 (() => {
   // --- 1. 配置与状态 ---
-  const AUTH_OVERLAY_ID = 'login-overlay';
-  const SUPABASE_URL = window.APP_CONFIG?.SUPABASE_URL || '';
-  const SUPABASE_ANON_KEY = window.APP_CONFIG?.SUPABASE_ANON_KEY || '';
-  
-  // 关键修复：确保调用了 createClient
-  const hasSupabase = Boolean(window.supabase && SUPABASE_URL && SUPABASE_ANON_KEY);
-  const supabaseClient = hasSupabase 
-    ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) 
-    : null;
+  const AUTH_OVERLAY_ID='***';
 
-  console.log("Supabase 状态:", hasSupabase ? "初始化成功" : "配置缺失或加载失败");
+  /**
+   * Supabase 客户端单例（懒初始化）
+   * 首次调用时从 window.APP_CONFIG 读取凭据并创建客户端。
+   * 后续调用直接返回缓存的实例。
+   * @returns {object|null} Supabase 客户端或 null（配置缺失时）
+   */
+  let _supabaseInstance = undefined; // undefined = 尚未初始化, null = 初始化但配置缺失
+  function getSupabaseClient() {
+    if (_supabaseInstance !== undefined) {
+      return _supabaseInstance;
+    }
+
+    const url = (window.APP_CONFIG?.SUPABASE_URL || '').trim();
+    const key = (window.APP_CONFIG?.SUPABASE_ANON_KEY || '').trim();
+
+    if (!url || !key) {
+      console.warn(
+        '[game.js] Supabase 配置缺失。' +
+        '本地开发请创建 config.local.js（参考 .env.example）。' +
+        '将以离线模式运行。'
+      );
+      _supabaseInstance = null;
+      return null;
+    }
+
+    if (!window.supabase || typeof window.supabase.createClient !== 'function') {
+      console.error('[game.js] Supabase CDN 脚本未加载。请检查 index.html 中 supabase-js CDN 引用。');
+      _supabaseInstance = null;
+      return null;
+    }
+
+    try {
+      _supabaseInstance = window.supabase.createClient(url, key);
+      console.log('[game.js] Supabase 客户端初始化成功');
+    } catch (err) {
+      console.error('[game.js] Supabase 客户端创建失败:', err);
+      _supabaseInstance = null;
+    }
+
+    return _supabaseInstance;
+  }
+
+  // 向后兼容的别名
+  const supabaseClient = getSupabaseClient();
 
 
   const SIZE = 19;

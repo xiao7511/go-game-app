@@ -1,0 +1,25 @@
+/**
+ * ============================================================================
+ *  config.local.js.example — 本地前端运行时配置模板
+ * ============================================================================
+ *
+ *  使用方式:
+ *    1. 复制此文件为 config.local.js
+ *    2. 填入你的 Supabase 项目凭据
+ *    3. 确保 config.local.js 已在 .gitignore 中排除
+ *
+ *  ⚠️  严禁将 config.local.js 提交到 Git !
+ *     git status 确认文件已 gitignore 后再 commit。
+ *
+ *  凭据获取路径:
+ *    Supabase Dashboard → Settings → API
+ *    - Project URL        → SUPABASE_URL
+ *    - Anon/Public Key    → SUPABASE_ANON_KEY（以 sb_publishable_ 开头）
+ *    - Service Role Key   → 后端专用，严禁放在前端 !
+ * ============================================================================
+ */
+
+window.APP_CONFIG_LOCAL = {
+  SUPABASE_URL: 'https://your-project-id.supabase.co',
+  SUPABASE_ANON_KEY: 'sb_publishable_your_anon_key_here'
+};

@@ -154,17 +154,14 @@
     
       try {
         // 1. 调用真实的 Supabase 身份验证
-        // 2. 初始化客户端（确保这两个值换成你自己的）
-       // const SUPABASE_URL = 'https://kogjjfccyncdszuuwlun.supabase.co/rest/v1/'
-       // const SUPABASE_ANON_KEY = 'sb_publishable_sUhEUYYHIr7hQl6A_iE4zQ_F-P3KENr'
-        
-        // 关键：将创建的实例挂载到 window 对象，确保全局可用
-        //window.supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
-        const {createClient} = window.supabase
-        const supabase = createClient(
-          'https://kogjjfccyncdszuuwlun.supabase.co',
-          'sb_publishable_sUhEUYYHIr7hQl6A_iE4zQ_F-P3KENr'
-        )
+        // 从统一配置读取凭据（无硬编码密钥）
+        const cfg = window.APP_CONFIG || {};
+        if (!cfg.SUPABASE_URL || !cfg.SUPABASE_ANON_KEY) {
+          alert('配置错误: 缺少 Supabase 连接信息，请检查 config.local.js');
+          return;
+        }
+        const {createClient} = window.supabase;
+        const supabase = createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY);
         const { data, error } = await supabase.auth.signInWithPassword({
           email: email,
           password: password,
@@ -201,15 +198,20 @@
     btn.innerText = "正在连接...";
 
     try {
-        // 2. 初始化客户端（确保这两个值换成你自己的）
-        const SUPABASE_URL = 'https://kogjjfccyncdszuuwlun.supabase.co'
-        const SUPABASE_ANON_KEY = 'sb_publishable_sUhEUYYHIr7hQl6A_iE4zQ_F-P3KENr'
-        
-        // 关键：将创建的实例挂载到 window 对象，确保全局可用
-        window.supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
-        // 这里使用匿名登录作为示例，也可以改用 signInWithOAuth (GitHub/Google)
-       // const { data, error } = await supabase.auth.signInAnonymously();
-        const { data, error } = await supabase.auth.signInWithOAuth({
+        // 从统一配置读取凭据（无硬编码密钥）
+        const cfg = window.APP_CONFIG || {};
+        if (!cfg.SUPABASE_URL || !cfg.SUPABASE_ANON_KEY) {
+          alert('配置错误: 缺少 Supabase 连接信息，请检查 config.local.js');
+          btn.disabled = false;
+          btn.innerText = '授权登录 / 游客进入';
+          return;
+        }
+
+        // 初始化 Supabase 客户端并挂载到全局
+        const client = supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY);
+        window.supabaseClient = client;
+        // 这里使用 OAuth 登录（GitHub），也可以改用 signInAnonymously()
+        const { data, error } = await client.auth.signInWithOAuth({
             provider: 'github',
             options: {
               redirectTo: window.location.origin // 登录完跳回当前首页
