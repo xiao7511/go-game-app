@@ -154,6 +154,13 @@
     
       try {
         // 1. 调用真实的 Supabase 身份验证
+        // 2. 初始化客户端（确保这两个值换成你自己的）
+        const SUPABASE_URL = 'https://kogjjfccyncdszuuwlun.supabase.co/rest/v1/'
+        const SUPABASE_ANON_KEY = 'sb_publishable_sUhEUYYHIr7hQl6A_iE4zQ_F-P3KENr'
+        
+        // 关键：将创建的实例挂载到 window 对象，确保全局可用
+        window.supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+        
         const { data, error } = await supabase.auth.signInWithPassword({
           email: email,
           password: password,
