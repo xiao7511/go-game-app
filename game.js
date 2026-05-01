@@ -1,12 +1,20 @@
 (() => {
   // 确保这段代码只在全局出现一次
-  const supabase = supabase.createClient('URL', 'KEY');
   
   // 任务 1 的新逻辑
-  async function checkUser() {
-      const { data: { session } } = await supabase.auth.getSession();
+ async function checkUser() {
+      // 通过你后面定义的函数获取实例
+      const client = getSupabaseClient(); 
+      
+      if (!client) {
+          console.error("Supabase 配置缺失！");
+          return;
+      }
+
+      const { data: { session } } = await client.auth.getSession();
       if (!session) {
-          window.location.href = '/register.html'; // 强制跳转
+          // 既然你现在有了独立的 login.html，建议跳转到 login.html
+          window.location.href = 'login.html'; 
       } else {
           console.log("已登录:", session.user.email);
           // 初始化棋盘逻辑...
@@ -146,6 +154,7 @@
     
     // 2. 先检查四周敌方棋子的气，执行提子
     let totalCaptured = 0;
+    let capturedList = [];  // 记录被提坐标（供 broadcast 使用）
     for (const [dr, dc] of DIRECTIONS) {
       const nr = row + dr;
       const nc = col + dc;
@@ -154,6 +163,7 @@
         if (liberties === 0) {
           // 气数为 0，移除该棋串
           for (const [r, c] of group) {
+            capturedList.push([r, c]);
             board[r][c] = EMPTY;
           }
           totalCaptured += group.length;
@@ -178,7 +188,7 @@
       whiteCaptures += totalCaptured;
     }
     
-    return { success: true, captured: totalCaptured };
+    return { success: true, captured: totalCaptured, capturedGroup: capturedList };
   }
   
   // 音效资源 — 映射到实际文件
@@ -229,6 +239,60 @@
   }
 
   // --- 4. 核心游戏逻辑 ---
+
+  // Supabase 实时通道（broadcast 落子坐标 / presence 同步回合）
+  let channel = null;
+  let myColor = null;           // BLACK 或 WHITE，由 presence join 顺序决定
+
+  async function initRealtime() {
+    const client = getSupabaseClient();
+    if (!client) return;
+
+    channel = client.channel('go-game-room', {
+      config: { broadcast: { self: false }, presence: { key: '' } }
+    });
+
+    // 监听对手落子
+    channel.on('broadcast', { event: 'move' }, ({ payload }) => {
+      if (payload.color !== myColor) {
+        board[payload.row][payload.col] = payload.color;
+        if (payload.captured && payload.captured.length) {
+          for (const [r, c] of payload.captured) board[r][c] = EMPTY;
+        }
+        if (payload.color === BLACK) blackCaptures += payload.captured?.length || 0;
+        else whiteCaptures += payload.captured?.length || 0;
+        currentPlayer = myColor;
+        drawBoard();
+        updateUI();
+        new Audio(SOUNDS[payload.captured?.length ? 'capture' : 'placeStone']).play();
+      }
+    });
+
+    // Presence：首个加入者执黑，次个执白
+    channel.on('presence', { event: 'sync' }, () => {
+      const state = channel.presenceState();
+      const ids = Object.keys(state);
+      myColor = ids[0] === channel.memberId ? BLACK : WHITE;
+      const turnEl = document.getElementById('currentPlayer');
+      if (turnEl) turnEl.textContent = myColor === BLACK ? '黑棋（我方）' : '白棋（我方）';
+    });
+
+    await channel.subscribe(async (status) => {
+      if (status === 'SUBSCRIBED') {
+        await channel.track({ online: true });
+      }
+    });
+  }
+
+  async function broadcastMove(row, col, color, capturedList) {
+    if (!channel) return;
+    await channel.send({
+      type: 'broadcast',
+      event: 'move',
+      payload: { row, col, color, captured: capturedList }
+    });
+  }
+
   function updateUI() {
     const turnEl = document.getElementById('currentPlayer');
     if (turnEl) turnEl.textContent = currentPlayer === BLACK ? '黑棋' : '白棋';
@@ -239,11 +303,13 @@
   }
 
   function handlePlaceStone(row, col) {
-    // 动画锁检查：防止动画期间重复落子
-    if (animating) {
-      console.log('动画进行中，请稍候...');
+    // 回合守卫：仅当前颜色可落子
+    if (myColor !== null && currentPlayer !== myColor) {
+      new Audio(SOUNDS.invalidMove).play();
       return;
     }
+    // 动画锁检查：防止动画期间重复落子
+    if (animating) return;
     
     const result = placeStone(row, col);
     
@@ -251,23 +317,27 @@
       // 锁定动画：添加 CSS class 触发 pointer-events: none
       animating = true;
       if (canvas) canvas.classList.add('animating');
-      playSound(result.captured > 0 ? 'capture' : 'placeStone');
+      new Audio(SOUNDS[result.captured > 0 ? 'capture' : 'placeStone']).play();
       
       // 重绘棋盘（含 transition 效果由 CSS 控制）
       drawBoard();
       
       // 切换选手
+      const prevColor = currentPlayer;
       currentPlayer = currentPlayer === BLACK ? WHITE : BLACK;
       updateUI();
       
+      // 同步坐标到对手
+      broadcastMove(row, col, prevColor, result.capturedGroup || null);
+
       // 解锁动画（300ms 后，配合 CSS transition 时长）
       setTimeout(() => {
         animating = false;
         if (canvas) canvas.classList.remove('animating');
-        playSound('yourTurn');
+        new Audio(SOUNDS.yourTurn).play();
       }, 300);
     } else {
-      playSound('invalidMove');
+      new Audio(SOUNDS.invalidMove).play();
     }
   }
 
@@ -376,6 +446,9 @@
 
     // 初始绘制
     drawBoard();
+
+    // 初始化 Supabase 实时同步
+    initRealtime();
 
     // 3. Canvas 点击事件：坐标转换并落子
     canvas.addEventListener('click', (e) => {
