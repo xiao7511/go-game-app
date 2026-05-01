@@ -246,7 +246,11 @@
 
   async function initRealtime() {
     const client = getSupabaseClient();
-    if (!client) return;
+    if (!client) {
+      // 离线模式：允许立刻落子（默认执黑）
+      myColor = BLACK;
+      return;
+    }
 
     channel = client.channel('go-game-room', {
       config: { broadcast: { self: false }, presence: { key: '' } }

@@ -1,8 +1,10 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <meta name="theme-color" content="#0f1720" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="config.js"></script>
@@ -41,7 +43,7 @@
     }
 
     /* ── 游戏主界面 ── */
-    .app { display: none; height: 100vh; display: none; grid-template-rows: auto 1fr; }
+    .app { display: none; height: 100vh; grid-template-rows: auto 1fr; }
 
     .topbar {
       padding: 8px 16px; background: rgba(13, 20, 28, 0.8);
