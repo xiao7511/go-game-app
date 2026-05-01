@@ -103,7 +103,8 @@
     <div>
       <input type="text" id="username" placeholder="账号" style="padding: 10px; margin-bottom: 10px; width: 100%; border-radius: 8px; border: 1px solid var(--panel-border); background: rgba(0,0,0,0.3); color: var(--text);">
       <input type="password" id="password" placeholder="密码" style="padding: 10px; margin-bottom: 20px; width: 100%; border-radius: 8px; border: 1px solid var(--panel-border); background: rgba(0,0,0,0.3); color: var(--text);">
-      <button onclick="mockLogin()">登录</button>
+      <!-- 加上 onclick -->
+      <button id="auth-btn" onclick="handleAuthClick()">进入游戏</button>
     </div>
     <p style="margin-top: 20px; color: var(--muted);">或</p>
     <button onclick="loginWithSupabase()">授权登录</button>
@@ -160,6 +161,26 @@
         initEventListeners();
       }
     };
+    // 建议直接使用全局已有的 supabase 实例，不要在函数内 createClient
+    async function handleAuthClick() {
+      try {
+        // 按照任务 1：校验状态
+        const { data: { session }, error } = await supabase.auth.getSession();
+    
+        if (error || !session) {
+          // 任务 1 要求：未认证强制跳转
+          window.location.href = '/register.html'; 
+          return;
+        }
+    
+        // 已认证逻辑：切换 UI
+        document.getElementById('login-overlay').style.setProperty('display', 'none', 'important');
+        document.getElementById('game-selection').style.display = 'flex';
+      } catch (err) {
+        console.error("Auth Check Failed:", err);
+        window.location.href = '/register.html';
+      }
+    }
 
     async function mockLogin() {
       const usernameInput = document.getElementById('username');
@@ -251,10 +272,8 @@
     } finally {
         btn.disabled = false;
         btn.innerText = "授权登录";
+      }
     }
-}
-
-
     // Function to update User Info display
     function updateUserInfoDisplay() {
       const userInfoString = sessionStorage.getItem('userInfo');
@@ -265,7 +284,6 @@
         document.getElementById('user-rank').textContent = userInfo.rank;
       }
     }
-
     // Call updateUserInfoDisplay when the game app is shown
     document.getElementById('go-game-btn').addEventListener('click', () => {
         document.getElementById('game-selection').style.display = 'none';
@@ -276,18 +294,15 @@
         // Here call game.js initialization
         if (typeof initGame === 'function') initGame(); 
     });
-
     // Invite button logic
     document.getElementById('invite-button').addEventListener('click', () => {
       console.log("邀请链接已生成: http://mock-invite.link/", Math.random().toString(36).substring(7));
       alert("邀请请求已发送！");
     });
-
     // Mock function to update game state - to be replaced by real-time updates
     function updateGameStateDisplay() {
       let moves = 0;
       let time = 300; // 5 minutes
-
       document.getElementById('current-moves').textContent = moves;
       document.getElementById('remaining-time').textContent = formatTime(time);
 
@@ -304,14 +319,11 @@
         }
       }, 1000); // Update every second
     }
-
     function formatTime(seconds) {
       const minutes = Math.floor(seconds / 60);
       const remainingSeconds = seconds % 60;
       return `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
     }
-
-
   </script>
 </body>
 </html>

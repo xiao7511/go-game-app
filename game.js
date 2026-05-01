@@ -1,7 +1,22 @@
 (() => {
+  // 确保这段代码只在全局出现一次
+  const supabase = supabase.createClient('URL', 'KEY');
+  
+  // 任务 1 的新逻辑
+  async function checkUser() {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+          window.location.href = '/register.html'; // 强制跳转
+      } else {
+          console.log("已登录:", session.user.email);
+          // 初始化棋盘逻辑...
+      }
+  }
+  checkUser();
+
   // --- 1. 配置与状态 ---
   const AUTH_OVERLAY_ID='***';
-
+  
   /**
    * Supabase 客户端单例（懒初始化）
    * 首次调用时从 window.APP_CONFIG 读取凭据并创建客户端。
