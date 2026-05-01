@@ -57,12 +57,12 @@
   let whiteCaptures = 0;
   
   // 音效资源
-  const sounds = {
-    click: 'https://soundjay.com',
-    placeStone: 'https://soundjay.com',
-    yourTurn: 'https://soundjay.com',
-    invalidMove: 'https://soundjay.com',
-    capture: 'https://soundjay.com'
+ const sounds = {
+    click: './assets/sounds/button-25.mp3',
+    placeStone: './assets/sounds/button-22.mp3',
+    yourTurn: './assets/sounds/button-3.mp3',
+    invalidMove: './assets/sounds/button-12.mp3',
+    capture: './assets/sounds/button-21.mp3'
   };
   let audioCtx = null;
   const buffers = {};
