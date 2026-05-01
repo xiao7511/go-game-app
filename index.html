@@ -56,14 +56,29 @@
     .badge {
       padding: 6px 14px; background: rgba(255,255,255,0.06);
       border: 1px solid var(--panel-border); border-radius: 999px; font-size: 0.85rem; margin-left: 8px;
+    canvas { max-width: 90vmin; max-height: 90vmin; box-shadow: 0 20px 60px rgba(0,0,0,0.4); cursor: pointer; transition: opacity 0.25s ease; }
+    
+    /* 动画锁：落子动画期间禁止点击 */
+    canvas.animating {
+      pointer-events: none;
+      opacity: 0.85;
     }
-
+    
+    /* 响应式棋盘容器 */
     .board-shell {
       display: flex; justify-content: center; align-items: center;
       background: var(--wood-image); position: relative;
+      width: 98vw;
+      aspect-ratio: 1 / 1;
+      max-width: 98vh;
+      max-height: 98vh;
+      margin: 0 auto;
     }
-
-    canvas { max-width: 90vmin; max-height: 90vmin; box-shadow: 0 20px 60px rgba(0,0,0,0.4); cursor: pointer; }
+    
+    /* 触控优化：消除移动端双击延迟 */
+    canvas, .board-shell {
+      touch-action: manipulation;
+    }
 
     .floating-actions { position: fixed; right: 20px; bottom: 20px; z-index: 900; }
 
@@ -91,7 +106,7 @@
       <button onclick="mockLogin()">登录</button>
     </div>
     <p style="margin-top: 20px; color: var(--muted);">或</p>
-    <button onclick="loginWithSupabase()">授权登录 / 游客进入</button>
+    <button onclick="loginWithSupabase()">授权登录</button>
   </div>
 </div>
 
@@ -203,24 +218,24 @@
         if (!cfg.SUPABASE_URL || !cfg.SUPABASE_ANON_KEY) {
           alert('配置错误: 缺少 Supabase 连接信息，请检查 config.local.js');
           btn.disabled = false;
-          btn.innerText = '授权登录 / 游客进入';
+          btn.innerText = '授权登录';
           return;
         }
 
         // 初始化 Supabase 客户端并挂载到全局
         const client = supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY);
         window.supabaseClient = client;
-        // 这里使用 OAuth 登录（GitHub），也可以改用 signInAnonymously()
+        // 使用 OAuth 登录（GitHub）
         const { data, error } = await client.auth.signInWithOAuth({
             provider: 'github',
             options: {
-              redirectTo: window.location.origin // 登录完跳回当前首页
+              redirectTo: window.location.origin
             }
           })
 
         if (error) throw error;
 
-        console.log("登录成功:", data.user);
+        console.log("登录成功:", data);
 
         // 1. 隐藏登录遮罩层
         const overlay = document.getElementById('login-overlay');
@@ -235,7 +250,7 @@
         alert("连接失败: " + error.message);
     } finally {
         btn.disabled = false;
-        btn.innerText = "授权登录 / 游客进入";
+        btn.innerText = "授权登录";
     }
 }
 

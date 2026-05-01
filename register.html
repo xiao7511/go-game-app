@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#0f1720" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js"></script>
+  <title>注册 - 在线游戏 Pro</title>
+  <style>
+    :root {
+      --bg: #0f1720;
+      --panel: rgba(16, 24, 32, 0.72);
+      --panel-border: rgba(255, 255, 255, 0.10);
+      --text: #eef4fb;
+      --muted: rgba(238, 244, 251, 0.72);
+      --accent: #f6c453;
+      --radius: 22px;
+    }
+    * { box-sizing: border-box; }
+    body, html {
+      margin: 0; padding: 0; height: 100%;
+      font-family: sans-serif;
+      background: radial-gradient(circle at center, #1a2635, #0f1720);
+      color: var(--text);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--panel-border);
+      padding: 40px;
+      border-radius: var(--radius);
+      text-align: center;
+      backdrop-filter: blur(10px);
+      box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+      width: 90%;
+      max-width: 400px;
+    }
+    h1 { margin-bottom: 10px; letter-spacing: 2px; }
+    p { color: var(--muted); margin-bottom: 25px; }
+    input {
+      padding: 12px; margin-bottom: 12px; width: 100%;
+      border-radius: 8px; border: 1px solid var(--panel-border);
+      background: rgba(0,0,0,0.3); color: var(--text); font-size: 1rem;
+    }
+    button {
+      padding: 12px 24px; border-radius: 12px; border: none;
+      font-weight: bold; cursor: pointer; transition: 0.2s;
+      background: var(--accent); color: #000;
+      width: 100%; font-size: 1rem; margin-top: 8px;
+    }
+    button:hover { transform: translateY(-2px); opacity: 0.9; }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    .back-link { margin-top: 20px; font-size: 0.85rem; }
+    .back-link a { color: var(--accent); text-decoration: none; }
+    .error-msg { color: #ff4d4f; font-size: 0.85rem; margin-top: 8px; display: none; }
+    .success-msg { color: #4caf50; font-size: 0.85rem; margin-top: 8px; display: none; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>创建账号</h1>
+    <p>注册以开始围棋对局</p>
+    <form id="register-form" onsubmit="handleRegister(event)">
+      <input type="email" id="reg-email" placeholder="邮箱地址" required autocomplete="email">
+      <input type="password" id="reg-password" placeholder="密码（至少6位）" required minlength="6" autocomplete="new-password">
+      <input type="text" id="reg-nickname" placeholder="昵称（选填）" autocomplete="off">
+      <button type="submit" id="reg-btn">注册</button>
+    </form>
+    <p class="error-msg" id="reg-error"></p>
+    <p class="success-msg" id="reg-success"></p>
+    <div class="back-link">
+      已有账号？<a href="/">返回登录</a>
+    </div>
+  </div>
+
+  <script>
+    async function handleRegister(event) {
+      event.preventDefault();
+      const btn = document.getElementById('reg-btn');
+      const errorEl = document.getElementById('reg-error');
+      const successEl = document.getElementById('reg-success');
+      const email = document.getElementById('reg-email').value.trim();
+      const password = document.getElementById('reg-password').value;
+      const nickname = document.getElementById('reg-nickname').value.trim() || '新玩家';
+
+      errorEl.style.display = 'none';
+      successEl.style.display = 'none';
+      btn.disabled = true;
+      btn.innerText = '注册中...';
+
+      try {
+        const cfg = window.APP_CONFIG || {};
+        if (!cfg.SUPABASE_URL || !cfg.SUPABASE_ANON_KEY) {
+          throw new Error('配置缺失，请联系管理员');
+        }
+
+        const client = supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY);
+        
+        const { data, error } = await client.auth.signUp({
+          email: email,
+          password: password,
+          options: {
+            data: { nickname: nickname }
+          }
+        });
+
+        if (error) throw error;
+
+        successEl.textContent = '注册成功！正在跳转...';
+        successEl.style.display = 'block';
+
+        // 保存用户信息
+        const userInfo = {
+          uid: data.user.id,
+          nickname: nickname,
+          avatar: `https://api.dicebear.com/7.x/pixel-art/svg?seed=${data.user.id}`,
+          rank: '1 Dan'
+        };
+        sessionStorage.setItem('userInfo', JSON.stringify(userInfo));
+
+        // 跳转回首页
+        setTimeout(() => {
+          window.location.href = '/';
+        }, 1500);
+
+      } catch (error) {
+        errorEl.textContent = '注册失败: ' + error.message;
+        errorEl.style.display = 'block';
+        btn.disabled = false;
+        btn.innerText = '注册';
+      }
+    }
+  </script>
+</body>
+</html>

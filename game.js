@@ -56,6 +56,116 @@
   let blackCaptures = 0;
   let whiteCaptures = 0;
   
+  // 棋盘状态：19x19 二维数组
+  let board = Array.from({ length: SIZE }, () => Array(SIZE).fill(EMPTY));
+  
+  // 动画锁：防止动画期间重复落子
+  let animating = false;
+  
+  // BFS 方向偏移量（上、下、左、右）
+  const DIRECTIONS = [[-1, 0], [1, 0], [0, -1], [0, 1]];
+  
+  /**
+   * BFS 检测指定位置棋串的气数 (Liberties)
+   * @param {number} startRow - 起始行
+   * @param {number} startCol - 起始列
+   * @param {number} color - 棋子颜色 (BLACK/WHITE)
+   * @param {Array<Array<number>>} boardState - 棋盘状态（可选，默认使用全局 board）
+   * @returns {{ liberties: number, group: Array<[number, number]> }} 气数和棋串坐标
+   */
+  function bfsCheckLiberties(startRow, startCol, color, boardState = board) {
+    const queue = [[startRow, startCol]];
+    const visited = new Set();
+    visited.add(`${startRow},${startCol}`);
+    const group = [];
+    let liberties = 0;
+    const countedLiberties = new Set();
+    
+    while (queue.length > 0) {
+      const [r, c] = queue.shift();
+      group.push([r, c]);
+      
+      for (const [dr, dc] of DIRECTIONS) {
+        const nr = r + dr;
+        const nc = c + dc;
+        const key = `${nr},${nc}`;
+        
+        // 边界检查
+        if (nr < 0 || nr >= SIZE || nc < 0 || nc >= SIZE) continue;
+        
+        if (boardState[nr][nc] === EMPTY) {
+          // 遇到空点，计为气（去重）
+          if (!countedLiberties.has(key)) {
+            countedLiberties.add(key);
+            liberties++;
+          }
+        } else if (boardState[nr][nc] === color && !visited.has(key)) {
+          // 遇到同色棋子，加入 BFS 队列
+          visited.add(key);
+          queue.push([nr, nc]);
+        }
+        // 遇到敌方棋子不处理（跳过）
+      }
+    }
+    
+    return { liberties, group };
+  }
+  
+  /**
+   * 在棋盘上落子并检测提子
+   * @param {number} row
+   * @param {number} col
+   * @returns {{ success: boolean, captured: number, reason?: string }}
+   */
+  function placeStone(row, col) {
+    // 检查位置是否为空
+    if (board[row][col] !== EMPTY) {
+      return { success: false, captured: 0, reason: '该位置已有棋子' };
+    }
+    
+    const color = currentPlayer;
+    const opponent = color === BLACK ? WHITE : BLACK;
+    
+    // 1. 临时落子
+    board[row][col] = color;
+    
+    // 2. 先检查四周敌方棋子的气，执行提子
+    let totalCaptured = 0;
+    for (const [dr, dc] of DIRECTIONS) {
+      const nr = row + dr;
+      const nc = col + dc;
+      if (nr >= 0 && nr < SIZE && nc >= 0 && nc < SIZE && board[nr][nc] === opponent) {
+        const { liberties, group } = bfsCheckLiberties(nr, nc, opponent);
+        if (liberties === 0) {
+          // 气数为 0，移除该棋串
+          for (const [r, c] of group) {
+            board[r][c] = EMPTY;
+          }
+          totalCaptured += group.length;
+        }
+      }
+    }
+    
+    // 3. 检查自己的棋串是否有气（防止自杀）
+    const { liberties: selfLiberties } = bfsCheckLiberties(row, col, color);
+    if (selfLiberties === 0) {
+      // 自杀手，回滚落子
+      board[row][col] = EMPTY;
+      // 同时回滚已提的敌方棋子
+      // 注：完整回滚较复杂，此处禁止自杀手
+      return { success: false, captured: 0, reason: '禁止自杀（该落子无气）' };
+    }
+    
+    // 4. 更新捕获计数
+    if (color === BLACK) {
+      blackCaptures += totalCaptured;
+    } else {
+      whiteCaptures += totalCaptured;
+    }
+    
+    return { success: true, captured: totalCaptured };
+  }
+  
   // 音效资源
  const sounds = {
     click: './assets/sounds/button-25.mp3',
@@ -138,100 +248,198 @@
     if (whiteCapEl) whiteCapEl.textContent = whiteCaptures;
   }
 
-  function handlePlaceStone(x, y) {
-    // 模拟落子逻辑
-    const success = true; // 此处应接入具体的围棋合法性判断
-    if (success) {
-      playSound('placeStone');
+  function handlePlaceStone(row, col) {
+    // 动画锁检查：防止动画期间重复落子
+    if (animating) {
+      console.log('动画进行中，请稍候...');
+      return;
+    }
+    
+    const result = placeStone(row, col);
+    
+    if (result.success) {
+      // 锁定动画：添加 CSS class 触发 pointer-events: none
+      animating = true;
+      if (canvas) canvas.classList.add('animating');
+      playSound(result.captured > 0 ? 'capture' : 'placeStone');
+      
+      // 重绘棋盘（含 transition 效果由 CSS 控制）
+      drawBoard();
+      
+      // 切换选手
       currentPlayer = currentPlayer === BLACK ? WHITE : BLACK;
       updateUI();
-      // 模拟提示音
-      setTimeout(() => playSound('yourTurn'), 600);
+      
+      // 解锁动画（300ms 后，配合 CSS transition 时长）
+      setTimeout(() => {
+        animating = false;
+        if (canvas) canvas.classList.remove('animating');
+        playSound('yourTurn');
+      }, 300);
     } else {
       playSound('invalidMove');
     }
   }
 
+  // Canvas 引用（全局用于重绘）
+  let canvas = null;
+  let ctx = null;
+  let cellSize = 0;
+  let padding = 0;
+
+  function drawBoard() {
+    if (!canvas || !ctx) return;
+    const size = canvas.width;
+    const currentPadding = padding;
+    const currentCellSize = cellSize;
+
+    ctx.clearRect(0, 0, size, size);
+
+    // 1. 木质背景
+    ctx.fillStyle = '#f3c17a';
+    ctx.fillRect(0, 0, size, size);
+
+    // 2. 棋盘线
+    ctx.strokeStyle = '#333';
+    ctx.lineWidth = 1;
+    for (let i = 0; i < SIZE; i++) {
+      const pos = currentPadding + i * currentCellSize;
+      // 横线
+      ctx.beginPath();
+      ctx.moveTo(currentPadding, pos);
+      ctx.lineTo(size - currentPadding, pos);
+      ctx.stroke();
+      // 竖线
+      ctx.beginPath();
+      ctx.moveTo(pos, currentPadding);
+      ctx.lineTo(pos, size - currentPadding);
+      ctx.stroke();
+    }
+
+    // 3. 星位
+    const starPoints = SIZE === 19 ? [
+      [3, 3], [3, 9], [3, 15],
+      [9, 3], [9, 9], [9, 15],
+      [15, 3], [15, 9], [15, 15]
+    ] : [];
+    starPoints.forEach(([row, col]) => {
+      ctx.beginPath();
+      ctx.arc(currentPadding + col * currentCellSize, currentPadding + row * currentCellSize, 4, 0, 2 * Math.PI);
+      ctx.fillStyle = '#333';
+      ctx.fill();
+    });
+
+    // 4. 绘制棋子（带 transition 效果由 CSS 控制，此处仅渲染当前状态）
+    for (let r = 0; r < SIZE; r++) {
+      for (let c = 0; c < SIZE; c++) {
+        if (board[r][c] !== EMPTY) {
+          const cx = currentPadding + c * currentCellSize;
+          const cy = currentPadding + r * currentCellSize;
+          const radius = currentCellSize * 0.44;
+
+          // 阴影
+          ctx.beginPath();
+          ctx.arc(cx + 1.5, cy + 1.5, radius, 0, 2 * Math.PI);
+          ctx.fillStyle = 'rgba(0,0,0,0.25)';
+          ctx.fill();
+
+          // 棋子
+          ctx.beginPath();
+          ctx.arc(cx, cy, radius, 0, 2 * Math.PI);
+          if (board[r][c] === BLACK) {
+            const gradient = ctx.createRadialGradient(cx - radius * 0.3, cy - radius * 0.3, radius * 0.1, cx, cy, radius);
+            gradient.addColorStop(0, '#555');
+            gradient.addColorStop(1, '#111');
+            ctx.fillStyle = gradient;
+          } else {
+            const gradient = ctx.createRadialGradient(cx - radius * 0.3, cy - radius * 0.3, radius * 0.1, cx, cy, radius);
+            gradient.addColorStop(0, '#fff');
+            gradient.addColorStop(1, '#bbb');
+            ctx.fillStyle = gradient;
+          }
+          ctx.fill();
+
+          // 高光
+          ctx.beginPath();
+          ctx.arc(cx - radius * 0.25, cy - radius * 0.25, radius * 0.3, 0, 2 * Math.PI);
+          ctx.fillStyle = 'rgba(255,255,255,0.15)';
+          ctx.fill();
+        }
+      }
+    }
+  }
+
   function initGame() {
-    const canvas = document.getElementById('goBoard');
+    canvas = document.getElementById('goBoard');
     if (!canvas) return;
-    const ctx = canvas.getContext('2d');
+    ctx = canvas.getContext('2d');
 
     // 1. 确保父容器已显示，否则获取不到宽度
     const parent = canvas.parentElement;
-    const size = Math.min(parent.clientWidth, parent.clientHeight) || 600; // 后备值
+    const size = Math.min(parent.clientWidth, parent.clientHeight) || 600;
     canvas.width = size;
     canvas.height = size;
 
     // 2. 核心参数：间距和边距
-    const padding = size / (SIZE + 1); // 边缘留白
-    const cellSize = (size - padding * 2) / (SIZE - 1);
+    padding = size / (SIZE + 1);
+    cellSize = (size - padding * 2) / (SIZE - 1);
 
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    // 初始绘制
+    drawBoard();
 
-    // 3. 绘制背景色（可选，让它看起来更像木质棋盘）
-    ctx.fillStyle = '#f3c17a'; 
-    ctx.fillRect(0, 0, size, size);
+    // 3. Canvas 点击事件：坐标转换并落子
+    canvas.addEventListener('click', (e) => {
+      if (animating) return;
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = canvas.width / rect.width;
+      const scaleY = canvas.height / rect.height;
+      const mouseX = (e.clientX - rect.left) * scaleX;
+      const mouseY = (e.clientY - rect.top) * scaleY;
 
-    // 4. 绘制棋盘线
-    ctx.strokeStyle = '#333';
-    ctx.lineWidth = 1;
-    for (let i = 0; i < SIZE; i++) {
-        const pos = padding + i * cellSize;
-        
-        // 横线
-        ctx.beginPath();
-        ctx.moveTo(padding, pos);
-        ctx.lineTo(size - padding, pos);
-        ctx.stroke();
+      const col = Math.round((mouseX - padding) / cellSize);
+      const row = Math.round((mouseY - padding) / cellSize);
 
-        // 竖线
-        ctx.beginPath();
-        ctx.moveTo(pos, padding);
-        ctx.lineTo(pos, size - padding);
-        ctx.stroke();
-    }
-
-    // 5. 绘制星位
-    const starPoints = SIZE === 19 ? [
-        [3, 3], [3, 9], [3, 15],
-        [9, 3], [9, 9], [9, 15],
-        [15, 3], [15, 9], [15, 15]
-    ] : [];
-
-    starPoints.forEach(([row, col]) => {
-        ctx.beginPath();
-        ctx.arc(padding + col * cellSize, padding + row * cellSize, 4, 0, 2 * Math.PI);
-        ctx.fillStyle = '#333';
-        ctx.fill();
+      if (col >= 0 && col < SIZE && row >= 0 && row < SIZE) {
+        handlePlaceStone(row, col);
+      }
     });
-}
+  }
 
 
   // --- 5. 事件绑定 ---
   // --- 5. 事件绑定 ---
   function initEventListeners() {
     
-    // 1. 【新增】处理登录/进入按钮
-    // 请确保 HTML 中那个黄色按钮的 ID 是 'auth-btn'
+    // 1. 处理登录/进入按钮 — 路由守卫：未认证则强制跳转注册页
     document.getElementById('auth-btn')?.addEventListener('click', async () => {
-      console.log("正在尝试进入...");
+      console.log("正在检查认证状态...");
       
-      // 如果 Supabase 初始化成功，尝试匿名登录
-      if (supabaseClient) {
+      // 检查 Supabase 会话是否有效
+      const client = getSupabaseClient();
+      let authenticated = false;
+      
+      if (client) {
         try {
-          const { data, error } = await supabaseClient.auth.signInAnonymously();
+          const { data: { session }, error } = await client.auth.getSession();
           if (error) throw error;
-          console.log("Supabase 登录成功:", data.user.id);
+          authenticated = !!(session && session.user);
+          if (authenticated) {
+            console.log("已认证用户:", session.user.id);
+          }
         } catch (err) {
-          console.warn("Supabase 登录失败，将以离线模式进入:", err.message);
+          console.warn("会话检查失败:", err.message);
         }
-      } else {
-        console.warn("Supabase 未配置，启用本地模式");
       }
       
-      // 无论登录成功与否，都允许进入游戏选择界面
-      setLoggedIn(true); 
+      // 路由守卫：未认证则重定向到注册页
+      if (!authenticated) {
+        console.warn("未认证，重定向到 /register");
+        window.location.href = '/register';
+        return;
+      }
+      
+      // 已认证，进入游戏选择界面
+      setLoggedIn(true);
     });
 
     // 2. 围棋按钮点击：进入游戏
