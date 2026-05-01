@@ -162,7 +162,7 @@
         //window.supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
         const {createClient} = window.supabase
         const supabase = createClient(
-          'https://kogjjfccyncdszuuwlun.supabase.co/rest/v1/',
+          'https://kogjjfccyncdszuuwlun.supabase.co',
           'sb_publishable_sUhEUYYHIr7hQl6A_iE4zQ_F-P3KENr'
         )
         const { data, error } = await supabase.auth.signInWithPassword({
