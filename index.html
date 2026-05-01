@@ -149,25 +149,38 @@
     async function mockLogin() {
       const usernameInput = document.getElementById('username');
       const passwordInput = document.getElementById('password');
-      const username = usernameInput.value;
+      const email = usernameInput.value; // Supabase 通常使用 email 登录
       const password = passwordInput.value;
-
-      // Mock validation
-      if (username === "test" && password === "test") {
+    
+      try {
+        // 1. 调用真实的 Supabase 身份验证
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email: email,
+          password: password,
+        });
+    
+        if (error) throw error;
+    
+        // 2. 登录成功，处理用户信息
+        // 提示：你可以从 data.user 中获取真实数据，或者查询你的 profiles 表
         const userInfo = {
-          uid: "mock-user-123",
-          nickname: "TestPlayer",
-          avatar: "https://api.dicebear.com/7.x/pixel-art/svg?seed=TestPlayer",
-          rank: "9 Dan"
+          uid: data.user.id,
+          nickname: data.user.user_metadata.nickname || "新玩家",
+          avatar: data.user.user_metadata.avatar_url || `https://api.dicebear.com/7.x/pixel-art/svg?seed=${data.user.id}`,
+          rank: data.user.user_metadata.rank || "1 Dan"
         };
+    
+        // 3. 持久化会话（Supabase SDK 默认会自动处理，但你可以手动存入 sessionStorage 供 UI 使用）
         sessionStorage.setItem('userInfo', JSON.stringify(userInfo));
-        console.log("Mock Login Successful:", userInfo);
-        
-        // Transition to game selection
+        console.log("Supabase Login Successful:", data.user);
+    
+        // 4. UI 状态切换
         document.getElementById('login-overlay').style.setProperty('display', 'none', 'important');
         document.getElementById('game-selection').style.display = 'flex';
-      } else {
-        alert("无效的账号或密码");
+    
+      } catch (error) {
+        console.error("Login Error:", error.message);
+        alert("登录失败: " + error.message);
       }
     }
 
