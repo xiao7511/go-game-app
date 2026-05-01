@@ -167,13 +167,13 @@
   }
   
   // 音效资源
- const sounds = {
-    click: './assets/sounds/button-25.mp3',
-    placeStone: './assets/sounds/button-22.mp3',
-    yourTurn: './assets/sounds/button-3.mp3',
-    invalidMove: './assets/sounds/button-12.mp3',
-    capture: './assets/sounds/button-21.mp3'
-  };
+const sounds = {
+    click: './assets/sounds/click.mp3',
+    placeStone: './assets/sounds/place_stone.mp3',
+    yourTurn: './assets/sounds/your_turn.mp3',
+    invalidMove: './assets/sounds/invalid.mp3',
+    capture: './assets/sounds/capture.mp3'
+};
   let audioCtx = null;
   const buffers = {};
 
