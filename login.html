@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#0f1720" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="config.js"></script>
-  <title>注册 - 在线游戏 Pro</title>
+  <title>登录 - 在线游戏 Pro</title>
   <style>
     :root {
       --bg: #0f1720;
@@ -37,7 +37,7 @@
       max-width: 400px;
     }
     h1 { margin-bottom: 10px; letter-spacing: 2px; }
-    p { color: var(--muted); margin-bottom: 25px; }
+    p.desc { color: var(--muted); margin-bottom: 25px; }
     input {
       padding: 12px; margin-bottom: 12px; width: 100%;
       border-radius: 8px; border: 1px solid var(--panel-border);
@@ -51,84 +51,61 @@
     }
     button:hover { transform: translateY(-2px); opacity: 0.9; }
     button:disabled { opacity: 0.5; cursor: not-allowed; }
-    .back-link { margin-top: 20px; font-size: 0.85rem; }
-    .back-link a { color: var(--accent); text-decoration: none; }
+    .link-row { margin-top: 20px; font-size: 0.85rem; color: var(--muted); }
+    .link-row a { color: var(--accent); text-decoration: none; }
     .error-msg { color: #ff4d4f; font-size: 0.85rem; margin-top: 8px; display: none; }
-    .success-msg { color: #4caf50; font-size: 0.85rem; margin-top: 8px; display: none; }
   </style>
 </head>
 <body>
   <div class="card">
-    <h1>创建账号</h1>
-    <p>注册以开始围棋对局</p>
-    <form id="register-form" onsubmit="handleRegister(event)">
-      <input type="email" id="reg-email" placeholder="邮箱地址" required autocomplete="email">
-      <input type="password" id="reg-password" placeholder="密码（至少6位）" required minlength="6" autocomplete="new-password">
-      <input type="text" id="reg-nickname" placeholder="昵称（选填）" autocomplete="off">
-      <button type="submit" id="reg-btn">注册</button>
+    <h1>在线游戏 Pro</h1>
+    <p class="desc">请登录以开启您的对局</p>
+    <form id="login-form" onsubmit="handleLogin(event)">
+      <input type="email" id="login-email" placeholder="邮箱地址" required autocomplete="email">
+      <input type="password" id="login-password" placeholder="密码" required autocomplete="current-password">
+      <button type="submit" id="login-btn">登录</button>
     </form>
-    <p class="error-msg" id="reg-error"></p>
-    <p class="success-msg" id="reg-success"></p>
-    <div class="back-link">
-      已有账号？<a href="login.html">返回登录</a>
+    <p class="error-msg" id="login-error"></p>
+    <div class="link-row">
+      没有账号？<a href="register.html">用户注册</a>
     </div>
   </div>
 
   <script>
-    async function handleRegister(event) {
+    async function handleLogin(event) {
       event.preventDefault();
-      const btn = document.getElementById('reg-btn');
-      const errorEl = document.getElementById('reg-error');
-      const successEl = document.getElementById('reg-success');
-      const email = document.getElementById('reg-email').value.trim();
-      const password = document.getElementById('reg-password').value;
-      const nickname = document.getElementById('reg-nickname').value.trim() || '新玩家';
+      const btn = document.getElementById('login-btn');
+      const errorEl = document.getElementById('login-error');
+      const email = document.getElementById('login-email').value.trim();
+      const password = document.getElementById('login-password').value;
 
       errorEl.style.display = 'none';
-      successEl.style.display = 'none';
       btn.disabled = true;
-      btn.innerText = '注册中...';
+      btn.innerText = '登录中...';
 
       try {
         const cfg = window.APP_CONFIG || {};
         if (!cfg.SUPABASE_URL || !cfg.SUPABASE_ANON_KEY) {
-          throw new Error('配置缺失，请联系管理员');
+          throw new Error('配置缺失，请检查 config.local.js');
         }
-
-        const client = supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY);
-        
-        const { data, error } = await client.auth.signUp({
-          email: email,
-          password: password,
-          options: {
-            data: { nickname: nickname }
-          }
-        });
-
+        const { createClient } = window.supabase;
+        const client = createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY);
+        const { data, error } = await client.auth.signInWithPassword({ email, password });
         if (error) throw error;
 
-        successEl.textContent = '注册成功！正在跳转...';
-        successEl.style.display = 'block';
-
-        // 保存用户信息
         const userInfo = {
           uid: data.user.id,
-          nickname: nickname,
-          avatar: `https://api.dicebear.com/7.x/pixel-art/svg?seed=${data.user.id}`,
-          rank: '1 Dan'
+          nickname: data.user.user_metadata.nickname || '新玩家',
+          avatar: data.user.user_metadata.avatar_url || `https://api.dicebear.com/7.x/pixel-art/svg?seed=${data.user.id}`,
+          rank: data.user.user_metadata.rank || '1 Dan'
         };
         sessionStorage.setItem('userInfo', JSON.stringify(userInfo));
-
-        // 跳转回首页
-        setTimeout(() => {
-          window.location.href = 'index.html';
-        }, 1500);
-
-      } catch (error) {
-        errorEl.textContent = '注册失败: ' + error.message;
+        window.location.href = 'index.html';
+      } catch (err) {
+        errorEl.textContent = '登录失败: ' + err.message;
         errorEl.style.display = 'block';
         btn.disabled = false;
-        btn.innerText = '注册';
+        btn.innerText = '登录';
       }
     }
   </script>

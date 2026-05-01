@@ -7,7 +7,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="config.js"></script>
   <script src="game.js"></script>
-  <title>在线游戏 Pro</title>
+  <title>围棋 Pro - 在线对战</title>
   <style>
     :root {
       --bg: #0f1720;
@@ -21,123 +21,120 @@
         repeating-linear-gradient(90deg, rgba(96, 60, 25, 0.22) 0 18px, rgba(124, 84, 40, 0.14) 18px 36px),
         linear-gradient(135deg, #8e6337 0%, #6f4827 48%, #8e6337 100%);
     }
-
     * { box-sizing: border-box; }
     body, html { margin: 0; padding: 0; height: 100%; font-family: sans-serif; background: var(--bg); color: var(--text); overflow: hidden; }
 
-    /* 1. 登录覆盖层 */
-    #login-overlay {
-      position: fixed; inset: 0; z-index: 1000;
-      background: rgba(0,0,0,0.9); display: flex; align-items: center; justify-content: center;
-    }
-
-    /* 2. 游戏选择页面 */
+    /* ── 游戏选择页面 ── */
     #game-selection {
       position: fixed; inset: 0; z-index: 500;
-      display: none; flex-direction: column; align-items: center; justify-content: center;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
       background: radial-gradient(circle at center, #1a2635, #0f1720);
     }
-
-    /* 3. 游戏主界面容器 */
-    .app { display: none; height: 100vh; grid-template-rows: auto 1fr; }
-
     .card {
       background: var(--panel); border: 1px solid var(--panel-border);
       padding: 30px; border-radius: var(--radius); text-align: center;
       backdrop-filter: blur(10px); box-shadow: 0 20px 50px rgba(0,0,0,0.5);
     }
-
-    .topbar {
-      padding: 12px 20px; background: rgba(13, 20, 28, 0.8);
-      display: flex; justify-content: space-between; align-items: center;
-      border-bottom: 1px solid var(--panel-border); z-index: 100;
-    }
-
     .badge {
       padding: 6px 14px; background: rgba(255,255,255,0.06);
       border: 1px solid var(--panel-border); border-radius: 999px; font-size: 0.85rem; margin-left: 8px;
-    canvas { max-width: 90vmin; max-height: 90vmin; box-shadow: 0 20px 60px rgba(0,0,0,0.4); cursor: pointer; transition: opacity 0.25s ease; }
-    
-    /* 动画锁：落子动画期间禁止点击 */
-    canvas.animating {
-      pointer-events: none;
-      opacity: 0.85;
     }
-    
-    /* 响应式棋盘容器 */
+
+    /* ── 游戏主界面 ── */
+    .app { display: none; height: 100vh; display: none; grid-template-rows: auto 1fr; }
+
+    .topbar {
+      padding: 8px 16px; background: rgba(13, 20, 28, 0.8);
+      display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;
+      border-bottom: 1px solid var(--panel-border); z-index: 100; gap: 8px;
+    }
+    .topbar .status {
+      display: flex; flex-wrap: wrap; gap: 4px;
+    }
+
+    /* 棋盘容器：Flex + Grid 双保险居中 */
     .board-shell {
       display: flex; justify-content: center; align-items: center;
       background: var(--wood-image); position: relative;
-      width: 98vw;
-      aspect-ratio: 1 / 1;
-      max-width: 98vh;
-      max-height: 98vh;
-      margin: 0 auto;
+      width: 98vw; aspect-ratio: 1 / 1;
+      max-width: 98vh; max-height: 98vh; margin: 0 auto;
     }
-    
-    /* 触控优化：消除移动端双击延迟 */
-    canvas, .board-shell {
+    canvas {
+      max-width: 90vmin; max-height: 90vmin;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.4); cursor: pointer;
+      transition: opacity 0.25s ease;
       touch-action: manipulation;
     }
+    canvas.animating { pointer-events: none; opacity: 0.85; }
 
-    .floating-actions { position: fixed; right: 20px; bottom: 20px; z-index: 900; }
+    /* 退出按钮 — 右下角美化 */
+    .floating-quit {
+      position: fixed; right: 16px; bottom: 16px; z-index: 900;
+    }
+    .floating-quit button {
+      width: 48px; height: 48px; border-radius: 50%; border: none;
+      background: rgba(255, 77, 79, 0.85); color: #fff; font-size: 1.4rem;
+      cursor: pointer; transition: 0.25s; display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 4px 16px rgba(255, 77, 79, 0.3);
+      backdrop-filter: blur(6px);
+    }
+    .floating-quit button:hover {
+      transform: scale(1.12); background: #ff4d4f; box-shadow: 0 6px 24px rgba(255, 77, 79, 0.5);
+    }
 
     button {
       padding: 12px 24px; border-radius: 12px; border: none; font-weight: bold;
       cursor: pointer; transition: 0.2s; background: var(--accent); color: #000;
     }
-    button.danger { background: #ff4d4f; color: white; }
     button:hover { transform: translateY(-2px); opacity: 0.9; }
-
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
     h1 { margin-bottom: 20px; letter-spacing: 2px; }
+
+    /* ── 移动端响应式 ── */
+    @media (max-width: 600px) {
+      .topbar { padding: 6px 10px; font-size: 0.8rem; }
+      .topbar .status .badge { font-size: 0.7rem; padding: 4px 8px; margin-left: 2px; }
+      .board-shell { width: 100vw; max-width: 100vw; }
+      canvas { max-width: 96vmin; max-height: 96vmin; }
+      .floating-quit { right: 10px; bottom: 10px; }
+      .floating-quit button { width: 42px; height: 42px; font-size: 1.2rem; }
+      .card { padding: 20px; width: 92%; }
+      #game-selection .card button { font-size: 0.95rem; padding: 12px 20px; }
+      #user-info { display: none !important; }
+    }
   </style>
 </head>
 <body>
 
-  <!-- 登录流程第一步：强制登录框 -->
- <!-- 找到这个 ID，确保 style 里有 display: flex !important -->
-<div id="login-overlay" style="display: flex !important; position: fixed; inset: 0; z-index: 9999; background: rgba(0,0,0,0.95); align-items: center; justify-content: center;">
-  <div class="card">
-    <h1>在线游戏 Pro</h1>
-    <p>请先登录以开启您的对局</p>
-    <div>
-      <input type="text" id="username" placeholder="账号" style="padding: 10px; margin-bottom: 10px; width: 100%; border-radius: 8px; border: 1px solid var(--panel-border); background: rgba(0,0,0,0.3); color: var(--text);">
-      <input type="password" id="password" placeholder="密码" style="padding: 10px; margin-bottom: 20px; width: 100%; border-radius: 8px; border: 1px solid var(--panel-border); background: rgba(0,0,0,0.3); color: var(--text);">
-      <!-- 加上 onclick -->
-      <button id="auth-btn" onclick="handleAuthClick()">进入游戏</button>
-    </div>
-    <p style="margin-top: 20px; color: var(--muted);">或</p>
-    <button onclick="loginWithSupabase()">授权登录</button>
-  </div>
-</div>
-
-
-  <!-- 登录流程第二步：游戏选项 -->
+  <!-- 第一步：游戏模式选择 -->
   <div id="game-selection">
     <div class="card">
       <h1>选择模式</h1>
       <div style="display: flex; flex-direction: column; gap: 15px; margin-top: 20px;">
-        <button id="go-game-btn" style="font-size: 1.2rem; padding: 15px 40px; justify-content: space-between; display: flex; align-items: center;">经典围棋 19x19 <span class="badge" style="margin-left: auto; background: #4caf50; color: white;">已上线</span></button>
-        <button disabled style="font-size: 1.2rem; padding: 15px 40px; justify-content: space-between; display: flex; align-items: center; opacity: 0.6; cursor: not-allowed;">掼蛋 (Guandan) <span class="badge" style="margin-left: auto;">开发中</span></button>
-        <button disabled style="font-size: 1.2rem; padding: 15px 40px; justify-content: space-between; display: flex; align-items: center; opacity: 0.6; cursor: not-allowed;">上海麻将 <span class="badge" style="margin-left: auto;">待开发</span></button>
+        <button id="go-game-btn" style="font-size: 1.2rem; padding: 15px 40px; justify-content: space-between; display: flex; align-items: center;">
+          经典围棋 19x19 <span class="badge" style="margin-left: auto; background: #4caf50; color: white;">已上线</span>
+        </button>
+        <button disabled style="font-size: 1.2rem; padding: 15px 40px; justify-content: space-between; display: flex; align-items: center; opacity: 0.6; cursor: not-allowed;">
+          掼蛋 (Guandan) <span class="badge" style="margin-left: auto;">开发中</span>
+        </button>
+        <button disabled style="font-size: 1.2rem; padding: 15px 40px; justify-content: space-between; display: flex; align-items: center; opacity: 0.6; cursor: not-allowed;">
+          上海麻将 <span class="badge" style="margin-left: auto;">待开发</span>
+        </button>
       </div>
       <p style="margin-top: 15px; font-size: 0.8rem; color: var(--muted);">在线对战模式即将开启</p>
     </div>
   </div>
 
-  <!-- 登录流程第三步：对战界面 -->
+  <!-- 第二步：对战界面 -->
   <div class="app">
     <header class="topbar">
       <div class="brand"><strong>围棋 Pro</strong></div>
       <div id="user-info" style="display: flex; align-items: center;">
-        <img id="user-avatar" src="" alt="" style="width: 30px; height: 30px; border-radius: 50%; margin-right: 10px;"/>
+        <img id="user-avatar" src="" alt="" style="width: 28px; height: 28px; border-radius: 50%; margin-right: 8px;"/>
         <span id="user-nickname"></span>
-        <span id="user-rank" class="badge" style="margin-left: 10px;"></span>
-        <button id="invite-button" style="margin-left: 20px; padding: 8px 15px; font-size: 0.9rem;">邀请</button>
+        <span id="user-rank" class="badge" style="margin-left: 8px;"></span>
       </div>
       <div class="status">
-        <span class="badge">当前步数：<b id="current-moves" style="color:var(--accent)">0</b></span>
-        <span class="badge">剩余时间：<b id="remaining-time" style="color:var(--accent)">00:00</b></span>
         <span class="badge">轮到：<b id="currentPlayer" style="color:var(--accent)">黑子</b></span>
         <span class="badge">黑提：<b id="blackCaptures">0</b></span>
         <span class="badge">白提：<b id="whiteCaptures">0</b></span>
@@ -148,182 +145,40 @@
       <canvas id="goBoard"></canvas>
     </main>
 
-    <div class="floating-actions">
-      <!-- 退出按钮 -->
-      <button id="quit-game-btn" class="danger">退出游戏</button>
+    <div class="floating-quit">
+      <button id="quit-game-btn" title="退出游戏">✕</button>
     </div>
   </div>
 
   <script>
-        // 确保页面加载后，Canvas 能正确获取到（用于 game.js 初始化）
+    // 页面加载后显示用户信息
     window.onload = () => {
-      if (typeof initEventListeners === 'function') {
-        initEventListeners();
+      const info = sessionStorage.getItem('userInfo');
+      if (info) {
+        const u = JSON.parse(info);
+        document.getElementById('user-avatar').src = u.avatar;
+        document.getElementById('user-nickname').textContent = u.nickname;
+        document.getElementById('user-rank').textContent = u.rank;
       }
+      if (typeof initEventListeners === 'function') initEventListeners();
     };
-    // 建议直接使用全局已有的 supabase 实例，不要在函数内 createClient
-    async function handleAuthClick() {
-      try {
-        // 按照任务 1：校验状态
-        const { data: { session }, error } = await supabase.auth.getSession();
-    
-        if (error || !session) {
-          // 任务 1 要求：未认证强制跳转
-          window.location.href = '/register.html'; 
-          return;
-        }
-    
-        // 已认证逻辑：切换 UI
-        document.getElementById('login-overlay').style.setProperty('display', 'none', 'important');
-        document.getElementById('game-selection').style.display = 'flex';
-      } catch (err) {
-        console.error("Auth Check Failed:", err);
-        window.location.href = '/register.html';
-      }
-    }
 
-    async function mockLogin() {
-      const usernameInput = document.getElementById('username');
-      const passwordInput = document.getElementById('password');
-      const email = usernameInput.value; // Supabase 通常使用 email 登录
-      const password = passwordInput.value;
-    
-      try {
-        // 1. 调用真实的 Supabase 身份验证
-        // 从统一配置读取凭据（无硬编码密钥）
-        const cfg = window.APP_CONFIG || {};
-        if (!cfg.SUPABASE_URL || !cfg.SUPABASE_ANON_KEY) {
-          alert('配置错误: 缺少 Supabase 连接信息，请检查 config.local.js');
-          return;
-        }
-        const {createClient} = window.supabase;
-        const supabase = createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY);
-        const { data, error } = await supabase.auth.signInWithPassword({
-          email: email,
-          password: password,
-        });
-    
-        if (error) throw error;
-    
-        // 2. 登录成功，处理用户信息
-        // 提示：你可以从 data.user 中获取真实数据，或者查询你的 profiles 表
-        const userInfo = {
-          uid: data.user.id,
-          nickname: data.user.user_metadata.nickname || "新玩家",
-          avatar: data.user.user_metadata.avatar_url || `https://api.dicebear.com/7.x/pixel-art/svg?seed=${data.user.id}`,
-          rank: data.user.user_metadata.rank || "1 Dan"
-        };
-    
-        // 3. 持久化会话（Supabase SDK 默认会自动处理，但你可以手动存入 sessionStorage 供 UI 使用）
-        sessionStorage.setItem('userInfo', JSON.stringify(userInfo));
-        console.log("Supabase Login Successful:", data.user);
-    
-        // 4. UI 状态切换
-        document.getElementById('login-overlay').style.setProperty('display', 'none', 'important');
-        document.getElementById('game-selection').style.display = 'flex';
-    
-      } catch (error) {
-        console.error("Login Error:", error.message);
-        alert("登录失败: " + error.message);
-      }
-    }
-
-    async function loginWithSupabase() {
-    const btn = event.target;
-    btn.disabled = true;
-    btn.innerText = "正在连接...";
-
-    try {
-        // 从统一配置读取凭据（无硬编码密钥）
-        const cfg = window.APP_CONFIG || {};
-        if (!cfg.SUPABASE_URL || !cfg.SUPABASE_ANON_KEY) {
-          alert('配置错误: 缺少 Supabase 连接信息，请检查 config.local.js');
-          btn.disabled = false;
-          btn.innerText = '授权登录';
-          return;
-        }
-
-        // 初始化 Supabase 客户端并挂载到全局
-        const client = supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY);
-        window.supabaseClient = client;
-        // 使用 OAuth 登录（GitHub）
-        const { data, error } = await client.auth.signInWithOAuth({
-            provider: 'github',
-            options: {
-              redirectTo: window.location.origin
-            }
-          })
-
-        if (error) throw error;
-
-        console.log("登录成功:", data);
-
-        // 1. 隐藏登录遮罩层
-        const overlay = document.getElementById('login-overlay');
-        overlay.style.setProperty('display', 'none', 'important');
-
-        // 2. 显示游戏模式选择页面
-        const selection = document.getElementById('game-selection');
-        selection.style.display = 'flex';
-
-    } catch (error) {
-        console.error("登录失败:", error.message);
-        alert("连接失败: " + error.message);
-    } finally {
-        btn.disabled = false;
-        btn.innerText = "授权登录";
-      }
-    }
-    // Function to update User Info display
-    function updateUserInfoDisplay() {
-      const userInfoString = sessionStorage.getItem('userInfo');
-      if (userInfoString) {
-        const userInfo = JSON.parse(userInfoString);
-        document.getElementById('user-avatar').src = userInfo.avatar;
-        document.getElementById('user-nickname').textContent = userInfo.nickname;
-        document.getElementById('user-rank').textContent = userInfo.rank;
-      }
-    }
-    // Call updateUserInfoDisplay when the game app is shown
+    // 围棋按钮 → 进入游戏
     document.getElementById('go-game-btn').addEventListener('click', () => {
-        document.getElementById('game-selection').style.display = 'none';
-        document.querySelector('.app').style.display = 'grid';
-        updateUserInfoDisplay(); // Update user info when entering Go game
-        // Here we can also start mock game state updates if needed
-        updateGameStateDisplay();
-        // Here call game.js initialization
-        if (typeof initGame === 'function') initGame(); 
+      document.getElementById('game-selection').style.display = 'none';
+      document.querySelector('.app').style.display = 'grid';
+      if (typeof initGame === 'function') {
+        requestAnimationFrame(() => initGame());
+      }
     });
-    // Invite button logic
-    document.getElementById('invite-button').addEventListener('click', () => {
-      console.log("邀请链接已生成: http://mock-invite.link/", Math.random().toString(36).substring(7));
-      alert("邀请请求已发送！");
+
+    // 退出按钮
+    document.getElementById('quit-game-btn').addEventListener('click', () => {
+      if (confirm('确定要退出当前对局吗？')) {
+        document.querySelector('.app').style.display = 'none';
+        document.getElementById('game-selection').style.display = 'flex';
+      }
     });
-    // Mock function to update game state - to be replaced by real-time updates
-    function updateGameStateDisplay() {
-      let moves = 0;
-      let time = 300; // 5 minutes
-      document.getElementById('current-moves').textContent = moves;
-      document.getElementById('remaining-time').textContent = formatTime(time);
-
-      setInterval(() => {
-        // Simulate game progress
-        if (Math.random() < 0.5) { // 50% chance to increment moves
-          moves++;
-          document.getElementById('current-moves').textContent = moves;
-        }
-
-        if (time > 0) {
-          time--;
-          document.getElementById('remaining-time').textContent = formatTime(time);
-        }
-      }, 1000); // Update every second
-    }
-    function formatTime(seconds) {
-      const minutes = Math.floor(seconds / 60);
-      const remainingSeconds = seconds % 60;
-      return `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
-    }
   </script>
 </body>
 </html>

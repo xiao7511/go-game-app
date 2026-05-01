@@ -181,44 +181,19 @@
     return { success: true, captured: totalCaptured };
   }
   
-  // 音效资源
-const sounds = {
-    click: './assets/sounds/click.mp3',
-    placeStone: './assets/sounds/place_stone.mp3',
-    yourTurn: './assets/sounds/your_turn.mp3',
-    invalidMove: './assets/sounds/invalid.mp3',
-    capture: './assets/sounds/capture.mp3'
-};
-  let audioCtx = null;
-  const buffers = {};
+  // 音效资源 — 映射到实际文件
+  const SOUNDS = {
+    click: 'assets/sounds/button-25.mp3',
+    placeStone: 'assets/sounds/button-22.mp3',
+    yourTurn: 'assets/sounds/button-3.mp3',
+    invalidMove: 'assets/sounds/button-12.mp3',
+    capture: 'assets/sounds/button-21.mp3'
+  };
 
-  // --- 2. 音效引擎 ---
-  // --- 2. 改进后的音效引擎 ---
-  async function initAudio() {
-    if (audioCtx) return;
-    const AudioContext = window.AudioContext || window.webkitAudioContext;
-    audioCtx = new AudioContext();
-    // 暂时清空或替换为本地路径，避免报错阻塞
-    const sounds = {}; 
-    for (const [name, url] of Object.entries(sounds)) {
-      try {
-        // 如果没有有效的 URL，直接跳过
-        if (!url.endsWith('.mp3')) continue; 
-        
-        const res = await fetch(url);
-        const arrayBuffer = await res.arrayBuffer();
-        buffers[name] = await audioCtx.decodeAudioData(arrayBuffer);
-      } catch (err) { 
-        console.warn('音效加载失败，但不影响游戏运行:', name); 
-      }
-    }
-  }
   function playSound(name) {
-    if (!audioCtx || !buffers[name]) return;
-    const source = audioCtx.createBufferSource();
-    source.buffer = buffers[name];
-    source.connect(audioCtx.destination);
-    source.start(0);
+    const url = SOUNDS[name];
+    if (!url) return;
+    try { new Audio(url).play(); } catch (e) { /* 静默失败 */ }
   }
 
   // --- 3. UI 切换逻辑 ---
@@ -422,44 +397,10 @@ const sounds = {
 
 
   // --- 5. 事件绑定 ---
-  // --- 5. 事件绑定 ---
   function initEventListeners() {
-    
-    // 1. 处理登录/进入按钮 — 路由守卫：未认证则强制跳转注册页
-    document.getElementById('auth-btn')?.addEventListener('click', async () => {
-      console.log("正在检查认证状态...");
-      
-      // 检查 Supabase 会话是否有效
-      const client = getSupabaseClient();
-      let authenticated = false;
-      
-      if (client) {
-        try {
-          const { data: { session }, error } = await client.auth.getSession();
-          if (error) throw error;
-          authenticated = !!(session && session.user);
-          if (authenticated) {
-            console.log("已认证用户:", session.user.id);
-          }
-        } catch (err) {
-          console.warn("会话检查失败:", err.message);
-        }
-      }
-      
-      // 路由守卫：未认证则重定向到注册页
-      if (!authenticated) {
-        console.warn("未认证，重定向到 /register");
-        window.location.href = '/register';
-        return;
-      }
-      
-      // 已认证，进入游戏选择界面
-      setLoggedIn(true);
-    });
 
-    // 2. 围棋按钮点击：进入游戏
+    // 围棋按钮点击：进入游戏
     document.getElementById('go-game-btn')?.addEventListener('click', async () => {
-        await initAudio(); 
         playSound('click');
         
         // 1. 切换 UI 状态
@@ -477,7 +418,7 @@ const sounds = {
         });
     });
 
-    // 3. 退出按钮点击：返回选项
+    // 退出按钮点击：返回选项
     document.getElementById('quit-game-btn')?.addEventListener('click', () => {
       if (confirm('确定要退出当前对局吗？')) {
         applyImmersiveState(false);
