@@ -97,15 +97,20 @@
   }
 
   // --- 3. UI 切换逻辑 ---
-  function applyImmersiveState(inGame) {
+ function applyImmersiveState(inGame) {
     document.body.classList.toggle('is-immersive', inGame);
     const shell = document.querySelector('.board-shell');
     if (shell) {
-      shell.style.display = inGame ? 'flex' : 'none';
-      shell.classList.toggle('is-active', inGame);
+        shell.style.display = inGame ? 'flex' : 'none';
+        shell.classList.toggle('is-active', inGame);
     }
-    document.querySelector('.sidebar').style.display = inGame ? 'grid' : 'none';
-  }
+    // 增加判断
+    const sidebar = document.querySelector('.sidebar');
+    if (sidebar) {
+        sidebar.style.display = inGame ? (window.innerWidth > 768 ? 'grid' : 'none') : 'none';
+    }
+}
+
 
   function setLoggedIn(loggedIn) {
     isLoggedIn = loggedIn;
@@ -149,52 +154,59 @@
 
   function initGame() {
     const canvas = document.getElementById('goBoard');
+    if (!canvas) return;
     const ctx = canvas.getContext('2d');
 
-    // 动态调整 Canvas 大小以填充其父容器
+    // 1. 确保父容器已显示，否则获取不到宽度
     const parent = canvas.parentElement;
-    const size = Math.min(parent.clientWidth, parent.clientHeight);
+    const size = Math.min(parent.clientWidth, parent.clientHeight) || 600; // 后备值
     canvas.width = size;
     canvas.height = size;
 
-    const cellSize = size / (SIZE - 1);
+    // 2. 核心参数：间距和边距
+    const padding = size / (SIZE + 1); // 边缘留白
+    const cellSize = (size - padding * 2) / (SIZE - 1);
 
-    // 清除画布
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // 绘制棋盘线
+    // 3. 绘制背景色（可选，让它看起来更像木质棋盘）
+    ctx.fillStyle = '#f3c17a'; 
+    ctx.fillRect(0, 0, size, size);
+
+    // 4. 绘制棋盘线
     ctx.strokeStyle = '#333';
     ctx.lineWidth = 1;
     for (let i = 0; i < SIZE; i++) {
-      // 横线
-      ctx.beginPath();
-      ctx.moveTo(cellSize / 2, i * cellSize + cellSize / 2);
-      ctx.lineTo(size - cellSize / 2, i * cellSize + cellSize / 2);
-      ctx.stroke();
+        const pos = padding + i * cellSize;
+        
+        // 横线
+        ctx.beginPath();
+        ctx.moveTo(padding, pos);
+        ctx.lineTo(size - padding, pos);
+        ctx.stroke();
 
-      // 竖线
-      ctx.beginPath();
-      ctx.moveTo(i * cellSize + cellSize / 2, cellSize / 2);
-      ctx.lineTo(i * cellSize + cellSize / 2, size - cellSize / 2);
-      ctx.stroke();
+        // 竖线
+        ctx.beginPath();
+        ctx.moveTo(pos, padding);
+        ctx.lineTo(pos, size - padding);
+        ctx.stroke();
     }
 
-    // 绘制星位 (以 19x19 为例)
-    const starPoints = [
-      [3, 3], [3, 9], [3, 15],
-      [9, 3], [9, 9], [9, 15],
-      [15, 3], [15, 9], [15, 15]
-    ];
+    // 5. 绘制星位
+    const starPoints = SIZE === 19 ? [
+        [3, 3], [3, 9], [3, 15],
+        [9, 3], [9, 9], [9, 15],
+        [15, 3], [15, 9], [15, 15]
+    ] : [];
 
     starPoints.forEach(([row, col]) => {
-      const x = col * cellSize + cellSize / 2;
-      const y = row * cellSize + cellSize / 2;
-      ctx.beginPath();
-      ctx.arc(x, y, 4, 0, 2 * Math.PI);
-      ctx.fillStyle = '#333';
-      ctx.fill();
+        ctx.beginPath();
+        ctx.arc(padding + col * cellSize, padding + row * cellSize, 4, 0, 2 * Math.PI);
+        ctx.fillStyle = '#333';
+        ctx.fill();
     });
-  }
+}
+
 
   // --- 5. 事件绑定 ---
   // --- 5. 事件绑定 ---
@@ -224,13 +236,22 @@
 
     // 2. 围棋按钮点击：进入游戏
     document.getElementById('go-game-btn')?.addEventListener('click', async () => {
-      // 检查是否已初始化音频环境
-      await initAudio(); 
-      playSound('click');
-      document.getElementById('game-selection').style.display = 'none';
-      document.querySelector('.app').style.display = 'grid';
-      applyImmersiveState(true);
-      updateUI();
+        await initAudio(); 
+        playSound('click');
+        
+        // 1. 切换 UI 状态
+        document.getElementById('game-selection').style.display = 'none';
+        const app = document.querySelector('.app');
+        if (app) app.style.display = 'grid'; // 先显示容器
+        
+        applyImmersiveState(true);
+        updateUI();
+
+        // 2. 重要：显示容器后立即初始化棋盘
+        // 使用 requestAnimationFrame 确保浏览器已经完成了 DOM 渲染
+        requestAnimationFrame(() => {
+            initGame();
+        });
     });
 
     // 3. 退出按钮点击：返回选项
