@@ -1,19 +1,11 @@
 import { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.go-game-app.pro',
-  appName: '围棋Pro',
-  webDir: './',
-  bundledWebRuntime: false,
+  appId: 'cn.obsmd.gogame',
+  appName: '在线游戏 Pro',
+  webDir: 'www', // 更改为指向存放网页资源的文件夹
   server: {
     androidScheme: 'https'
-  },
-  plugins: {
-    SplashScreen: {
-      launchShowDuration: 2000,
-      backgroundColor: '#0f1720',
-      showSpinner: false
-    }
   }
 };
 

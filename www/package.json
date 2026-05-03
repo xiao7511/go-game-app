@@ -1,0 +1,19 @@
+{
+  "name": "go-game-app-pro",
+  "version": "1.0.0",
+  "description": "在线围棋Pro - 支持19x19棋盘对战",
+  "private": true,
+  "scripts": {
+    "build": "echo 'Static site - no build step required'",
+    "build:app": "npm run build && npx cap copy"
+  },
+  "dependencies": {
+    "@capacitor/cli": "^5.7.8",
+    "@capacitor/core": "^5.7.8"
+  },
+  "devDependencies": {
+    "@capacitor/android": "^5.7.8",
+    "@capacitor/ios": "^5.0.0",
+    "typescript": "^6.0.3"
+  }
+}
