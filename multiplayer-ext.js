@@ -41,6 +41,7 @@
   let blackCaptures = 0;
   let whiteCaptures = 0;
 
+  let roomContext = {};       
   // 棋盘状态 (扩展维护的独立副本)
   let board = Array.from({ length: SIZE }, () => Array(SIZE).fill(EMPTY));
 
@@ -89,7 +90,7 @@
   async function getPlayerProfile(playerId) {
     if (!supabase || !playerId) return null;
     try {
-      const { data, error } = await supabase.rpc('get_player_profile', { player_id: playerId });
+      const { data, error } = await supabase.schema('game').rpc('get_player_profile', { player_id: playerId });
       if (error) throw error;
       return Array.isArray(data) ? data[0] || null : data;
     } catch (err) {
@@ -166,7 +167,9 @@
       console.warn('[multiplayer-ext] Supabase CDN 未加载');
       return null;
     }
-    supabase = window.supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY);
+    supabase = window.supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY,{
+      db: { schema: 'game' }
+    });
     return supabase;
   }
 
