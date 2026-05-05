@@ -916,18 +916,46 @@
     console.log('[multiplayer-ext] 认输完成:', data);
   }
 
-  function hookQuitButton() {
-    const quitBtn = document.getElementById('quit-game-btn');
-    if (quitBtn) {
-      quitBtn.addEventListener('click', () => {
-        if (isInRoom) leaveRoom();
-      });
-    }
+  async function hookQuitButton() {
     const surrenderBtn = document.getElementById('surrender-btn');
-    if (surrenderBtn) {
-      surrenderBtn.addEventListener('click', onSurrender);
-    }
-  }
+    if (!surrenderBtn) return;
+
+    // 使用 AbortController 防止页面卸载时的异步回调报错
+    const controller = new AbortController();
+
+    surrenderBtn.onclick = async () => {
+        try {
+            // 使用 Web Locks 时务必处理异常
+            await navigator.locks.request('surrender_lock', { ifAvailable: true }, async (lock) => {
+                if (!lock) {
+                    console.warn('正在处理中，请勿重复点击');
+                    return;
+                }
+
+                // 检查 supabase 是否初始化 (参考此前报错排查)
+                if (!supabase) {
+                    alert("网络连接尚未就绪");
+                    return;
+                }
+
+                const { data, error } = await supabase
+                    .schema('game') // 显式指定模式
+                    .rpc('handle_surrender', { 
+                        p_session_id: roomCode, 
+                        p_action: 'request' 
+                    });
+
+                if (error) throw error;
+                console.log('投降请求已发送', data);
+            });
+        } catch (err) {
+            // 捕获并忽略“不可运行”错误，避免控制台爆红
+            if (err.name !== 'NotAllowedError' && !err.message.includes('no longer runnable')) {
+                console.error('投降操作失败:', err);
+            }
+        }
+    };
+}
   // ── 启动入口 ─────────────────────────────────────────────────────
 
   function init() {
