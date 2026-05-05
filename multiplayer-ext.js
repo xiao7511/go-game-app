@@ -40,6 +40,7 @@
   let isInRoom = false;         // 是否处于多人对局中
   let blackCaptures = 0;
   let whiteCaptures = 0;
+  let opponentProfile = null;   // { nickname, rank } — 对手的个人信息
 
   // 棋盘状态 (扩展维护的独立副本)
   let board = Array.from({ length: SIZE }, () => Array(SIZE).fill(EMPTY));
@@ -86,6 +87,7 @@
     }
   }
 
+<<<<<<< HEAD
   async function getPlayerProfile(playerId) {
     if (!supabase || !playerId) return null;
     try {
@@ -154,6 +156,70 @@
     }
   }
 
+=======
+  // ── 对手信息获取与显示 ──────────────────────────────────────────
+
+  /** 根据 user_id 查询对手的昵称和段位 */
+  async function fetchOpponentProfile(opponentId) {
+    if (!supabase || !opponentId) return null;
+    try {
+      // 尝试用 RPC (需要先在 Supabase 创建 get_player_profile 函数)
+      const { data, error } = await supabase.rpc('get_player_profile', {
+        player_id: opponentId
+      });
+      if (!error && data && data.length > 0) {
+        return {
+          nickname: data[0].nickname || '棋手',
+          rank: data[0].rank || '业余1段'
+        };
+      }
+    } catch (_) {
+      // RPC 不可用，尝试直接查 auth.users (需要 service_role，通常不暴露)
+    }
+    // Fallback: 从 game_rooms 表查询对手当时注册时保存的信息
+    try {
+      const { data: roomData } = await supabase
+        .schema('game')
+        .from('game_rooms')
+        .select(myColor === 'black' ? 'white_id' : 'black_id')
+        .eq('code', roomCode)
+        .single();
+      // 无法直接读 auth.users，用 sessionStorage 的公开信息兜底
+    } catch (_) {}
+    return { nickname: '棋手', rank: '业余1段' };
+  }
+
+  /** 显示对手信息到 UI */
+  function showOpponentInfo(profile) {
+    const container = document.getElementById('opponent-info');
+    const nicknameEl = document.getElementById('opponent-nickname');
+    const rankEl = document.getElementById('opponent-rank');
+    if (container && nicknameEl && rankEl) {
+      if (profile) {
+        nicknameEl.textContent = profile.nickname || '棋手';
+        rankEl.textContent = profile.rank || '';
+        container.style.display = 'flex';
+      } else {
+        container.style.display = 'none';
+      }
+    }
+  }
+
+  /** 隐藏对手信息 */
+  function hideOpponentInfo() {
+    const container = document.getElementById('opponent-info');
+    if (container) container.style.display = 'none';
+    opponentProfile = null;
+  }
+
+  /** 进入多人对局后加载对手信息 */
+  async function loadOpponentInfo(opponentId) {
+    if (!opponentId) return;
+    opponentProfile = await fetchOpponentProfile(opponentId);
+    showOpponentInfo(opponentProfile);
+  }
+
+>>>>>>> e8735163870d45e501d2d1603fe9a3bc9d7939cb
   // ── Supabase 客户端初始化 ────────────────────────────────────────
 
   function initSupabaseClient() {
@@ -493,7 +559,7 @@
         }
       }
     });
-    // 在 initRoomChannel 中增加[cite: 1, 2]
+    // 在 initRoomChannel 中增加
     ch.on('postgres_changes', { 
         event: 'UPDATE', 
         schema: 'game', // 务必匹配您的 schema
@@ -502,6 +568,15 @@
     }, async payload => {
         if (payload.new.status === 'playing' && myColor === 'black') {
             console.log('对手已加入，对局开始！');
+<<<<<<< HEAD
+=======
+            // 获取加入房间的白棋玩家信息
+            const whiteId = payload.new.white_id;
+            if (whiteId) {
+              loadOpponentInfo(whiteId);
+            }
+            // 可以触发一个"对局开始"的音效或 UI 提示
+>>>>>>> e8735163870d45e501d2d1603fe9a3bc9d7939cb
         }
         roomContext.isOnline = true;
         setConnectionStatus(payload.new.status === 'ended' ? '已结束' : (payload.new.status === 'playing' ? '实时同步中' : '等待对手'), true);
@@ -651,7 +726,7 @@
     try {
       // 查询房间
       const { data: room, error } = await supabase
-        .schema('game') //指定特定的schema
+        .schema('game')
         .from('game_rooms')
         .select('*')
         .eq('code', code)
@@ -673,7 +748,7 @@
       } else if (!room.white_id) {
         // 以白棋身份加入
         const { error: updateErr } = await supabase
-          .schema('game') //指定特定的schema
+          .schema('game')
           .from('game_rooms')
           .update({ white_id: userId, status: 'playing' })
           .eq('code', code);
@@ -703,6 +778,12 @@
 
       // 初始化房间通道
       roomChannel = await initRoomChannel(code);
+
+      // ★ 获取对手信息（创建房间后黑棋等待对手加入时，对面加入后触发）
+      const opponentId = myColor === 'black' ? room.white_id || userId : room.black_id;
+      if (opponentId && opponentId !== userId) {
+        await loadOpponentInfo(opponentId);
+      }
 
       // 构建邀请链接
       updateRoomPanel({ code, inviteLink });
@@ -882,6 +963,7 @@
     isInRoom = false;
     roomCode = null;
     myColor = null;
+    hideOpponentInfo();
     const panel = document.getElementById('mp-room-panel');
     if (panel) panel.remove();
     console.log('[multiplayer-ext] 已退出房间');
@@ -951,6 +1033,30 @@
         if (isInRoom) leaveRoom();
       });
     }
+
+    // ★ 页面可见性变化时重连：恢复对手信息
+    document.addEventListener('visibilitychange', async () => {
+      if (document.visibilityState !== 'visible') return;
+      if (!isInRoom || !roomCode || !supabase) return;
+      console.log('[multiplayer-ext] 页面恢复可见，重连中...');
+      try {
+        const { data: room } = await supabase
+          .schema('game')
+          .from('game_rooms')
+          .select('*')
+          .eq('code', roomCode)
+          .single();
+        if (room) {
+          const userId = await getUserId();
+          const opponentId = room.black_id === userId ? room.white_id : room.black_id;
+          if (opponentId && opponentId !== userId) {
+            await loadOpponentInfo(opponentId);
+          }
+        }
+      } catch (e) {
+        console.warn('[multiplayer-ext] 重连获取对手信息失败:', e);
+      }
+    });
 
     console.log('[multiplayer-ext] 多人扩展已加载', hasRoomParam ? '(检测到房间邀请)' : '');
   }

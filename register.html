@@ -65,6 +65,14 @@
       <input type="email" id="reg-email" placeholder="邮箱地址" required autocomplete="email">
       <input type="password" id="reg-password" placeholder="密码（至少6位）" required minlength="6" autocomplete="new-password">
       <input type="text" id="reg-nickname" placeholder="昵称（选填）" autocomplete="off">
+      <select id="reg-rank" style="width:100%;padding:12px;margin-bottom:12px;border-radius:8px;border:1px solid rgba(255,255,255,0.10);background:rgba(0,0,0,0.3);color:var(--text);font-size:1rem;outline:none;">
+        <option value="业余1段">业余1段</option><option value="业余2段">业余2段</option><option value="业余3段">业余3段</option>
+        <option value="业余4段">业余4段</option><option value="业余5段">业余5段</option><option value="业余6段">业余6段</option>
+        <option value="业余7段">业余7段</option><option value="业余8段">业余8段</option><option value="业余9段">业余9段</option>
+        <option value="专业1段">专业1段</option><option value="专业2段">专业2段</option><option value="专业3段">专业3段</option>
+        <option value="专业4段">专业4段</option><option value="专业5段">专业5段</option><option value="专业6段">专业6段</option>
+        <option value="专业7段">专业7段</option><option value="专业8段">专业8段</option><option value="专业9段">专业9段</option>
+      </select>
       <button type="submit" id="reg-btn">注册</button>
     </form>
     <p class="error-msg" id="reg-error"></p>
@@ -83,6 +91,7 @@
       const email = document.getElementById('reg-email').value.trim();
       const password = document.getElementById('reg-password').value;
       const nickname = document.getElementById('reg-nickname').value.trim() || '新玩家';
+      const rank = document.getElementById('reg-rank').value || '业余1段';
 
       errorEl.style.display = 'none';
       successEl.style.display = 'none';
@@ -101,7 +110,7 @@
           email: email,
           password: password,
           options: {
-            data: { nickname: nickname }
+            data: { nickname: nickname, rank: rank }
           }
         });
 
@@ -115,7 +124,7 @@
           uid: data.user.id,
           nickname: nickname,
           avatar: `https://api.dicebear.com/7.x/pixel-art/svg?seed=${data.user.id}`,
-          rank: '1 Dan'
+          rank: rank
         };
         sessionStorage.setItem('userInfo', JSON.stringify(userInfo));
 

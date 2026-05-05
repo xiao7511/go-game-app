@@ -486,10 +486,28 @@
   </div>
 
   <div class="app">
+<<<<<<< HEAD
     <header class="topbar">
       <div class="topbar-brand">
         <strong>围棋 Pro</strong>
         <span>在线对战 · 生产级布局</span>
+=======
+<div class="topbar">
+      <div class="brand"><strong>围棋 Pro</strong></div>
+      <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+        <!-- 我的信息（左侧） -->
+        <div id="user-info" style="display: flex; align-items: center;">
+          <img id="user-avatar" src="" alt="" style="width: 28px; height: 28px; border-radius: 50%; margin-right: 8px;"/>
+          <span id="user-nickname"></span>
+          <span id="user-rank" class="badge" style="margin-left: 8px;"></span>
+        </div>
+        <!-- 对手信息（右侧，多人模式下显示） -->
+        <div id="opponent-info" style="display:none;align-items:center;gap:6px;padding:4px 12px;border-radius:999px;border:1px solid rgba(246,196,83,0.35);background:rgba(246,196,83,0.08);">
+          <span style="font-size:0.72rem;color:var(--muted);">VS</span>
+          <span id="opponent-nickname" style="font-weight:bold;color:var(--accent);"></span>
+          <span id="opponent-rank" class="badge" style="background:rgba(246,196,83,0.15);border-color:rgba(246,196,83,0.25);"></span>
+        </div>
+>>>>>>> e8735163870d45e501d2d1603fe9a3bc9d7939cb
       </div>
 
       <div class="topbar-center" aria-live="polite">

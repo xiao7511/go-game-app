@@ -104,3 +104,25 @@ with check (
       and (auth.uid() = gs.black_id or auth.uid() = gs.white_id)
   )
 );
+
+-- ============================================================
+-- RPC: 查询玩家个人信息（昵称 + 段位）
+-- 从 auth.users 的 raw_user_meta_data 中读取
+-- ============================================================
+create or replace function public.get_player_profile(player_id uuid)
+returns table (
+  user_id uuid,
+  nickname text,
+  rank text
+)
+language sql
+security definer
+set search_path = ''
+as $$
+  select 
+    id as user_id,
+    coalesce(raw_user_meta_data->>'nickname', '棋手') as nickname,
+    coalesce(raw_user_meta_data->>'rank', '业余1段') as rank
+  from auth.users
+  where id = player_id;
+$$;
