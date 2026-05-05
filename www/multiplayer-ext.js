@@ -53,7 +53,6 @@
   // BFS 方向
   const DIRECTIONS = [[-1, 0], [1, 0], [0, -1], [0, 1]];
 
-  // ── 工具函数 ─────────────────────────────────────────────────────
   // 在全局作用域定义此函数
   function setConnectionStatus(status) {
       const statusEl = document.getElementById('connection-status');
@@ -64,6 +63,7 @@
           statusEl.style.color = status === 'connected' ? '#4CAF50' : '#F44336';
       }
   }
+    // ── 工具函数 ─────────────────────────────────────────────────────
   /** 生成 6 位随机房间码 (大写字母+数字) */
   function generateRoomCode() {
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // 排除易混淆字符
