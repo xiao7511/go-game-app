@@ -42,6 +42,7 @@
   let whiteCaptures = 0;
 
   let latestMove = null; // 在全局声明
+  let latestMoveFlash = true;
   let roomContext = {};       
   // 棋盘状态 (扩展维护的独立副本)
   let board = Array.from({ length: SIZE }, () => Array(SIZE).fill(EMPTY));
