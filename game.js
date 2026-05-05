@@ -3,7 +3,6 @@
 
   // --- 1. 配置与状态 ---
   const AUTH_OVERLAY_ID='***';
-  
   /**
    * Supabase 客户端单例（懒初始化）
    * 首次调用时从 window.APP_CONFIG 读取凭据并创建客户端。
