@@ -168,7 +168,12 @@
       return null;
     }
     supabase = window.supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY,{
-      db: { schema: 'game' }
+      db: { schema: 'game' },
+      realtime: {
+        params: {
+          eventsPerSecond: 10
+        }
+      }
     });
     return supabase;
   }
