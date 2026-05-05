@@ -749,12 +749,12 @@
     if (!initCanvasParams()) return;
 
     // 重置棋盘状态
-    board = Array.from({ length: SIZE }, () => Array(SIZE).fill(EMPTY));
-    blackCaptures = 0;
-    whiteCaptures = 0;
-    currentTurn = 'black';
-    latestMove = null;
-    latestMoveFlash = true;
+    const board = Array.from({ length: SIZE }, () => Array(SIZE).fill(EMPTY));
+    const blackCaptures = 0;
+    const whiteCaptures = 0;
+    const currentTurn = 'black';
+    const latestMove = null;
+    const latestMoveFlash = true;
 
     // 全盘绘制
     drawFullBoard();
