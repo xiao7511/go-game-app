@@ -917,7 +917,7 @@
       alert('Supabase 未配置，无法认输');
       return;
     }
-
+    console.log('正在请求认输，房间标识:', roomContext.roomId);
     const { data, error } = await supabase.schema('game').rpc('handle_surrender', {
       p_session_id: roomContext.roomId,
       p_action: 'request'
