@@ -54,7 +54,16 @@
   const DIRECTIONS = [[-1, 0], [1, 0], [0, -1], [0, 1]];
 
   // ── 工具函数 ─────────────────────────────────────────────────────
-
+  // 在全局作用域定义此函数
+  function setConnectionStatus(status) {
+      const statusEl = document.getElementById('connection-status');
+      console.log(`[Supabase] 当前连接状态: ${status}`);
+      
+      if (statusEl) {
+          statusEl.innerText = status === 'connected' ? '🟢 已连接' : '🔴 连接断开';
+          statusEl.style.color = status === 'connected' ? '#4CAF50' : '#F44336';
+      }
+  }
   /** 生成 6 位随机房间码 (大写字母+数字) */
   function generateRoomCode() {
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // 排除易混淆字符
