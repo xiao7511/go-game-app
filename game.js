@@ -17,9 +17,9 @@
       if (supabaseInstance) return supabaseInstance; 
 
       const { createClient } = window.supabase; 
-      if (window.SUPABASE_URL && window.SUPABASE_ANON_KEY) {
+      if (window.CONFIG.SUPABASE_URL && window.CONFIG.SUPABASE_ANON_KEY) {
           // 创建唯一实例[cite: 2]
-          supabaseInstance = createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY); 
+          supabaseInstance = createClient(window.CONFIG.SUPABASE_URL, window.CONFIG.SUPABASE_ANON_KEY); 
       }
       return supabaseInstance;
   }
