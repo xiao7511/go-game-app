@@ -43,6 +43,22 @@
   
   // 动画锁：防止动画期间重复落子
   let animating = false;
+  let gameEnded = false;
+  let latestMove = null;
+  let latestMoveFlash = true;
+  let latestMoveTimer = null;
+  let resizeObserver = null;
+  let canvasResizeRaf = null;
+  let boardClickHandler = null;
+  let roomContext = {
+    roomId: null,
+    inviteLink: '',
+    isOnline: false,
+    localSide: null,
+    opponentSide: null,
+    connectionLabel: '未建立',
+    surrenderPending: false,
+  };
   
   // BFS 方向偏移量（上、下、左、右）
   const DIRECTIONS = [[-1, 0], [1, 0], [0, -1], [0, 1]];
@@ -196,17 +212,20 @@ function playSound(name) {
 }
 const playEffect = playSound;
   // --- 3. UI 切换逻辑 ---
- function applyImmersiveState(inGame) {
+  function applyImmersiveState(inGame) {
     document.body.classList.toggle('is-immersive', inGame);
     const shell = document.querySelector('.board-shell');
     if (shell) {
         shell.style.display = inGame ? 'flex' : 'none';
         shell.classList.toggle('is-active', inGame);
     }
-    // 增加判断
-    const sidebar = document.querySelector('.sidebar');
-    if (sidebar) {
-        sidebar.style.display = inGame ? (window.innerWidth > 768 ? 'grid' : 'none') : 'none';
+    const layout = document.querySelector('.layout');
+    if (layout) {
+        layout.style.display = inGame ? 'grid' : 'none';
+    }
+    const topbar = document.querySelector('.topbar');
+    if (topbar) {
+        topbar.style.display = inGame ? 'grid' : 'none';
     }
 }
 
@@ -238,6 +257,11 @@ const playEffect = playSound;
     if (!client) {
       // 离线模式：允许立刻落子（默认执黑）
       myColor = BLACK;
+      roomContext.localSide = 'black';
+      roomContext.opponentSide = 'white';
+      roomContext.isOnline = false;
+      setConnectionStatus('离线模式', false);
+      updateUI();
       return;
     }
 
@@ -255,6 +279,8 @@ const playEffect = playSound;
         if (payload.color === BLACK) blackCaptures += payload.captured?.length || 0;
         else whiteCaptures += payload.captured?.length || 0;
         currentPlayer = myColor;
+        latestMove = { row: payload.row, col: payload.col, color: payload.color };
+        latestMoveFlash = true;
         drawBoard();
         updateUI();
         new Audio(SOUNDS[payload.captured?.length ? 'capture' : 'placeStone']).play();
@@ -266,8 +292,13 @@ const playEffect = playSound;
       const state = channel.presenceState();
       const ids = Object.keys(state);
       myColor = ids[0] === channel.memberId ? BLACK : WHITE;
+      roomContext.localSide = normalizeSide(myColor);
+      roomContext.opponentSide = getOpponentSide(roomContext.localSide);
+      roomContext.isOnline = true;
+      setConnectionStatus('实时同步中', true);
       const turnEl = document.getElementById('currentPlayer');
       if (turnEl) turnEl.textContent = myColor === BLACK ? '黑棋（我方）' : '白棋（我方）';
+      updateUI();
     });
 
     await channel.subscribe(async (status) => {
@@ -284,15 +315,103 @@ const playEffect = playSound;
       event: 'move',
       payload: { row, col, color, captured: capturedList }
     });
+    roomContext.connectionLabel = '已同步';
+    setConnectionStatus('已同步', true);
+  }
+
+  function normalizeSide(side) {
+    if (side === BLACK || side === 'black' || side === 1) return 'black';
+    if (side === WHITE || side === 'white' || side === 2) return 'white';
+    return null;
+  }
+
+  function sideLabel(side) {
+    const normalized = normalizeSide(side);
+    return normalized === 'black' ? '黑棋' : normalized === 'white' ? '白棋' : '—';
+  }
+
+  function getOpponentSide(side = roomContext.localSide || myColor) {
+    const normalized = normalizeSide(side);
+    if (normalized === 'black') return 'white';
+    if (normalized === 'white') return 'black';
+    return null;
+  }
+
+  function showToast(message, duration = 2400) {
+    const toast = document.getElementById('toast');
+    if (!toast) return;
+    toast.textContent = message;
+    toast.classList.add('is-visible');
+    clearTimeout(showToast._timer);
+    showToast._timer = setTimeout(() => toast.classList.remove('is-visible'), duration);
+  }
+
+  function setConnectionStatus(label, isOnline = roomContext.isOnline) {
+    roomContext.connectionLabel = label;
+    const connectionEl = document.getElementById('connection-summary');
+    if (connectionEl) connectionEl.textContent = label;
+    const pill = document.getElementById('room-status-pill');
+    if (pill) {
+      pill.textContent = isOnline ? '进行中' : '待连接';
+      pill.classList.toggle('offline', !isOnline);
+    }
+  }
+
+  function updateRoomPanel() {
+    const roomIdEl = document.getElementById('room-id');
+    const linkEl = document.getElementById('room-invite-link');
+    const localSideEl = document.getElementById('local-player-side');
+    const localTurnEl = document.getElementById('local-player-turn');
+    const opponentSideEl = document.getElementById('opponent-side');
+    const opponentActivityEl = document.getElementById('opponent-activity');
+    const turnSummaryEl = document.getElementById('turn-summary');
+
+    if (roomIdEl) roomIdEl.textContent = roomContext.roomId || '—';
+    if (linkEl) linkEl.value = roomContext.inviteLink || '';
+    if (localSideEl) localSideEl.textContent = `执色：${sideLabel(roomContext.localSide)}`;
+    if (opponentSideEl) opponentSideEl.textContent = `执色：${sideLabel(roomContext.opponentSide || getOpponentSide(roomContext.localSide))}`;
+    if (localTurnEl) localTurnEl.textContent = roomContext.isOnline ? `状态：${currentPlayer === roomContext.localSide ? '轮到我方' : '等待对手'}` : '状态：单机/未入房';
+    if (opponentActivityEl) opponentActivityEl.textContent = roomContext.isOnline ? '状态：实时同步中' : '状态：等待加入';
+    if (turnSummaryEl) turnSummaryEl.textContent = `${sideLabel(currentPlayer)}回合`;
+  }
+
+  function updatePlayerProfilePanel() {
+    const avatar = document.getElementById('user-avatar');
+    const nickname = document.getElementById('user-nickname');
+    const rank = document.getElementById('user-rank');
+    if (!avatar) return;
+
+    const info = sessionStorage.getItem('userInfo');
+    if (info) {
+      try {
+        const u = JSON.parse(info);
+        if (u.avatar) avatar.src = u.avatar;
+        nickname && (nickname.textContent = u.nickname || '棋手');
+        rank && (rank.textContent = u.rank || '业余1段');
+      } catch (err) {
+        console.warn('解析用户信息失败', err);
+      }
+    }
+  }
+
+  function updateLatestMoveIndicator() {
+    const localTurnEl = document.getElementById('local-player-turn');
+    if (latestMove && localTurnEl) {
+      localTurnEl.textContent = `状态：最新落子 ${sideLabel(latestMove.color)} ${latestMove.row + 1}行${latestMove.col + 1}列${latestMoveFlash ? ' · 闪烁中' : ''}`;
+    }
   }
 
   function updateUI() {
     const turnEl = document.getElementById('currentPlayer');
-    if (turnEl) turnEl.textContent = currentPlayer === BLACK ? '黑棋' : '白棋';
+    if (turnEl) turnEl.textContent = sideLabel(currentPlayer);
     const blackCapEl = document.getElementById('blackCaptures');
     if (blackCapEl) blackCapEl.textContent = blackCaptures;
     const whiteCapEl = document.getElementById('whiteCaptures');
     if (whiteCapEl) whiteCapEl.textContent = whiteCaptures;
+    updateRoomPanel();
+    updatePlayerProfilePanel();
+    const turnSummaryEl = document.getElementById('turn-summary');
+    if (turnSummaryEl) turnSummaryEl.textContent = `${sideLabel(currentPlayer)}回合`;
   }
 
   /**
@@ -379,6 +498,8 @@ const playEffect = playSound;
     // 3. 锁定状态，开启“快路径”渲染
     animating = true;
     const prevColor = currentPlayer; // 记录当前落子颜色
+    latestMove = { row, col, color: prevColor };
+    latestMoveFlash = true;
 
     // 立即播放音效，提升响应感知
     playEffect(result.captured > 0 ? 'capture' : 'placeStone'); 
@@ -451,6 +572,11 @@ function judgeWinner(board, blackTerritory, whiteTerritory) {
 
   function onGameEnd(board, bT, wT) {
     const result = judgeWinner(board, bT, wT);
+    gameEnded = true;
+    if (latestMoveTimer) {
+      clearInterval(latestMoveTimer);
+      latestMoveTimer = null;
+    }
     
     // 使用简单的原生弹窗，或者自定义 HTML 模态框
     const alertBox = document.createElement('div');
@@ -511,10 +637,12 @@ function judgeWinner(board, blackTerritory, whiteTerritory) {
       ctx.fill();
     });
 
-    // 4. 绘制棋子（带 transition 效果由 CSS 控制，此处仅渲染当前状态）
+    // 4. 绘制棋子（带最新落子闪烁效果）
     for (let r = 0; r < SIZE; r++) {
       for (let c = 0; c < SIZE; c++) {
         if (board[r][c] !== EMPTY) {
+          const isLatestMove = latestMove && latestMove.row === r && latestMove.col === c;
+          if (isLatestMove && !latestMoveFlash) continue;
           const cx = currentPadding + c * currentCellSize;
           const cy = currentPadding + r * currentCellSize;
           const radius = currentCellSize * 0.44;
@@ -549,6 +677,20 @@ function judgeWinner(board, blackTerritory, whiteTerritory) {
         }
       }
     }
+
+    if (latestMove) {
+      const { row, col } = latestMove;
+      const cx = currentPadding + col * currentCellSize;
+      const cy = currentPadding + row * currentCellSize;
+      const pulse = Math.abs(Math.sin(Date.now() / 220));
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(cx, cy, currentCellSize * (0.52 + pulse * 0.08), 0, Math.PI * 2);
+      ctx.strokeStyle = `rgba(246, 196, 83, ${0.42 + pulse * 0.35})`;
+      ctx.lineWidth = 2 + pulse * 2;
+      ctx.stroke();
+      ctx.restore();
+    }
   }
 
   function initGame() {
@@ -557,14 +699,25 @@ function judgeWinner(board, blackTerritory, whiteTerritory) {
     ctx = canvas.getContext('2d');
 
     // 1. 确保父容器已显示，否则获取不到宽度
-    const parent = canvas.parentElement;
-    const size = Math.min(parent.clientWidth, parent.clientHeight) || 600;
+    const shell = canvas.parentElement;
+    const boardZone = document.querySelector('.board-zone');
+    const availableWidth = shell?.clientWidth || boardZone?.clientWidth || 600;
+    const availableHeight = Math.max(360, (window.innerHeight || 720) - 170);
+    const size = Math.max(320, Math.floor(Math.min(availableWidth, availableHeight)));
     canvas.width = size;
     canvas.height = size;
 
     // 2. 核心参数：间距和边距
     padding = size / (SIZE + 1);
     cellSize = (size - padding * 2) / (SIZE - 1);
+
+    // 1.5 最新落子闪烁控制
+    if (latestMoveTimer) clearInterval(latestMoveTimer);
+    latestMoveTimer = setInterval(() => {
+      if (!latestMove) return;
+      latestMoveFlash = !latestMoveFlash;
+      drawBoard();
+    }, 280);
 
     // 初始绘制
     drawBoard();
@@ -573,8 +726,11 @@ function judgeWinner(board, blackTerritory, whiteTerritory) {
     initRealtime();
 
     // 3. Canvas 点击事件：坐标转换并落子
-    canvas.addEventListener('click', (e) => {
-      if (animating) return;
+    if (boardClickHandler) {
+      canvas.removeEventListener('click', boardClickHandler);
+    }
+    boardClickHandler = (e) => {
+      if (animating || gameEnded) return;
       const rect = canvas.getBoundingClientRect();
       const scaleX = canvas.width / rect.width;
       const scaleY = canvas.height / rect.height;
@@ -587,12 +743,114 @@ function judgeWinner(board, blackTerritory, whiteTerritory) {
       if (col >= 0 && col < SIZE && row >= 0 && row < SIZE) {
         handlePlaceStone(row, col);
       }
-    });
+    };
+    canvas.addEventListener('click', boardClickHandler);
+
+    if (!resizeObserver && 'ResizeObserver' in window) {
+      resizeObserver = new ResizeObserver(() => {
+        if (canvasResizeRaf) cancelAnimationFrame(canvasResizeRaf);
+        canvasResizeRaf = requestAnimationFrame(() => {
+          if (!canvas || !canvas.parentElement) return;
+          const nextAvailableWidth = canvas.parentElement.clientWidth || boardZone?.clientWidth || 600;
+          const nextSize = Math.max(320, Math.floor(Math.min(nextAvailableWidth, Math.max(360, (window.innerHeight || 720) - 170))));
+          if (canvas.width !== nextSize || canvas.height !== nextSize) {
+            canvas.width = nextSize;
+            canvas.height = nextSize;
+            padding = nextSize / (SIZE + 1);
+            cellSize = (nextSize - padding * 2) / (SIZE - 1);
+            drawBoard();
+          }
+        });
+      });
+      resizeObserver.observe(shell);
+    }
+
+    if (!window.__goGameResizeBound) {
+      window.__goGameResizeBound = true;
+      window.addEventListener('resize', () => {
+        if (canvasResizeRaf) cancelAnimationFrame(canvasResizeRaf);
+        canvasResizeRaf = requestAnimationFrame(() => {
+          if (canvas && canvas.parentElement) {
+            const nextAvailableWidth = canvas.parentElement.clientWidth || boardZone?.clientWidth || 600;
+            const nextSize = Math.max(320, Math.floor(Math.min(nextAvailableWidth, Math.max(360, (window.innerHeight || 720) - 170))));
+            canvas.width = nextSize;
+            canvas.height = nextSize;
+            padding = nextSize / (SIZE + 1);
+            cellSize = (nextSize - padding * 2) / (SIZE - 1);
+            drawBoard();
+          }
+        });
+      });
+    }
   }
 
 
   // --- 5. 事件绑定 ---
+  function openConfirmDialog(message, onConfirm, confirmLabel = '确认') {
+    const modal = document.getElementById('confirm-modal');
+    const msgEl = document.getElementById('confirm-modal-message');
+    const okBtn = document.getElementById('confirm-modal-ok');
+    const cancelBtn = document.getElementById('confirm-modal-cancel');
+    if (!modal || !msgEl || !okBtn || !cancelBtn) {
+      if (window.confirm(message)) onConfirm?.();
+      return;
+    }
+
+    msgEl.textContent = message;
+    okBtn.textContent = confirmLabel;
+    modal.classList.add('is-open');
+    modal.setAttribute('aria-hidden', 'false');
+
+    const cleanup = () => {
+      modal.classList.remove('is-open');
+      modal.setAttribute('aria-hidden', 'true');
+      okBtn.onclick = null;
+      cancelBtn.onclick = null;
+    };
+
+    okBtn.onclick = () => {
+      cleanup();
+      onConfirm?.();
+    };
+    cancelBtn.onclick = cleanup;
+  }
+
+  function bindTopBarActions() {
+    const quitBtn = document.getElementById('quit-game-btn');
+    const surrenderBtn = document.getElementById('surrender-btn');
+
+    if (quitBtn) {
+      quitBtn.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        openConfirmDialog('确定要退出当前对局吗？', () => {
+          try {
+            window.MP?.leaveRoom?.();
+          } catch (err) {
+            console.warn('leaveRoom 执行失败', err);
+          }
+          applyImmersiveState(false);
+          const app = document.querySelector('.app');
+          const selection = document.getElementById('game-selection');
+          if (app) app.style.display = 'none';
+          if (selection) selection.style.display = 'flex';
+        }, '退出');
+      }, true);
+    }
+
+    if (surrenderBtn) {
+      surrenderBtn.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        openConfirmDialog('确定要认输吗？认输后本局将结束。', () => {
+          window.MP?.handleSurrender?.();
+        }, '认输');
+      }, true);
+    }
+  }
+
   function initEventListeners() {
+    bindTopBarActions();
     // 将逻辑合并为一个监听器，确保流程线性执行
     document.getElementById('go-game-btn')?.addEventListener('click', async () => {
         try {
@@ -627,16 +885,6 @@ function judgeWinner(board, blackTerritory, whiteTerritory) {
         }
     });
 
-    // 退出按钮保持不变，但建议加入清理逻辑
-    document.getElementById('quit-game-btn')?.addEventListener('click', () => {
-      if (confirm('确定要退出当前对局吗？')) {
-        applyImmersiveState(false);
-        const app = document.querySelector('.app');
-        const selection = document.getElementById('game-selection');
-        if (app) app.style.display = 'none';
-        if (selection) selection.style.display = 'flex';
-      }
-    });
   }
 
   // 初始化执行

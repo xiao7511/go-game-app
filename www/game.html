@@ -1,202 +1,610 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="theme-color" content="#0f1720" />
+  <title>围棋 Pro - 在线对战</title>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="config.js"></script>
   <script src="game.js"></script>
   <script src="multiplayer-ext.js"></script>
-  <title>围棋 Pro - 在线对战</title>
   <style>
     :root {
       --bg: #0f1720;
-      --panel: rgba(16, 24, 32, 0.72);
-      --panel-border: rgba(255, 255, 255, 0.10);
+      --panel: rgba(17, 24, 39, 0.78);
+      --panel-strong: rgba(10, 15, 24, 0.92);
+      --panel-border: rgba(255, 255, 255, 0.12);
       --text: #eef4fb;
       --muted: rgba(238, 244, 251, 0.72);
       --accent: #f6c453;
-      --radius: 22px;
+      --danger: #ef4444;
+      --success: #10b981;
+      --radius: 20px;
+      --shadow: 0 24px 64px rgba(0, 0, 0, 0.36);
       --wood-image: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(0,0,0,0.06)),
-        repeating-linear-gradient(90deg, rgba(96, 60, 25, 0.22) 0 18px, rgba(124, 84, 40, 0.14) 18px 36px),
+        repeating-linear-gradient(90deg, rgba(96, 60, 25, 0.20) 0 18px, rgba(124, 84, 40, 0.12) 18px 36px),
         linear-gradient(135deg, #8e6337 0%, #6f4827 48%, #8e6337 100%);
-      /* 定义房间面板距离顶部的默认距离 */
-      --mp-panel-top: 60px; 
     }
-      /* 媒体查询：当屏幕宽度小于 768px（手机端）时，增加顶部间距 */
-   /* 当屏幕高度较小或宽度较窄（手机端）时 */
-    @media (max-width: 768px) {
-      :root {
-        /* 将面板移动到棋盘下方，或者顶部导航栏更下方的位置 */
-        --mp-panel-top: 15vh; 
-      }
-      
-      #mp-room-panel {
-        transform: scale(0.9); /* 手机端稍微缩小面板 */
-        transform-origin: right top;
-      }
-    }
+
     * { box-sizing: border-box; }
-    body, html { margin: 0; padding: 0; height: 100%; font-family: sans-serif; background: var(--bg); color: var(--text); overflow: hidden; }
-
-    /* ── 游戏选择页面 ── */
-    #game-selection {
-      position: fixed; inset: 0; z-index: 500;
-      display: flex; flex-direction: column; align-items: center; justify-content: center;
-      background: radial-gradient(circle at center, #1a2635, #0f1720);
-    }
-    .card {
-      background: var(--panel); border: 1px solid var(--panel-border);
-      padding: 30px; border-radius: var(--radius); text-align: center;
-      backdrop-filter: blur(10px); box-shadow: 0 20px 50px rgba(0,0,0,0.5);
-    }
-    .badge {
-      padding: 6px 14px; background: rgba(255,255,255,0.06);
-      border: 1px solid var(--panel-border); border-radius: 999px; font-size: 0.85rem; margin-left: 8px;
+    html, body {
+      height: 100%;
+      margin: 0;
+      background: radial-gradient(circle at top, #1b2737 0%, var(--bg) 60%);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+      overflow: hidden;
     }
 
-    /* ── 游戏主界面 ── */
-    .app { display: none; height: 100vh; grid-template-rows: auto 1fr; }
-
-    .topbar {
-      padding: 8px 16px; background: rgba(13, 20, 28, 0.8);
-      display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;
-      border-bottom: 1px solid var(--panel-border); z-index: 100; gap: 8px;
-    }
-    .topbar .status {
-      display: flex; flex-wrap: wrap; gap: 4px;
-    }
-
-    /* 棋盘容器：Flex + Grid 双保险居中 */
-    .board-shell {
-      display: flex; justify-content: center; align-items: center;
-      background: var(--wood-image); position: relative;
-      width: 98vw; aspect-ratio: 1 / 1;
-      max-width: 98vh; max-height: 98vh; margin: 0 auto;
-    }
-    canvas {
-      max-width: 90vmin; max-height: 90vmin;
-      box-shadow: 0 20px 60px rgba(0,0,0,0.4); cursor: pointer;
-      transition: opacity 0.25s ease;
-      touch-action: manipulation;
-    }
-    canvas.animating { pointer-events: none; opacity: 0.85; }
-
-    /* 退出按钮 — 右下角美化 */
-    .floating-quit {
-      position: fixed; right: 16px; bottom: 16px; z-index: 900;
-    }
-    .floating-quit button {
-      width: 48px; height: 48px; border-radius: 50%; border: none;
-      background: rgba(255, 77, 79, 0.85); color: #fff; font-size: 1.4rem;
-      cursor: pointer; transition: 0.25s; display: flex; align-items: center; justify-content: center;
-      box-shadow: 0 4px 16px rgba(255, 77, 79, 0.3);
-      backdrop-filter: blur(6px);
-    }
-    .floating-quit button:hover {
-      transform: scale(1.12); background: #ff4d4f; box-shadow: 0 6px 24px rgba(255, 77, 79, 0.5);
+    button, input {
+      font: inherit;
     }
 
     button {
-      padding: 12px 24px; border-radius: 12px; border: none; font-weight: bold;
-      cursor: pointer; transition: 0.2s; background: var(--accent); color: #000;
+      border: 0;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: transform 0.18s ease, opacity 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
     }
-    button:hover { transform: translateY(-2px); opacity: 0.9; }
-    button:disabled { opacity: 0.5; cursor: not-allowed; }
-    h1 { margin-bottom: 20px; letter-spacing: 2px; }
+    button:hover { transform: translateY(-1px); }
+    button:disabled { cursor: not-allowed; opacity: 0.55; transform: none; }
 
-    /* ── 移动端响应式 ── */
-    @media (max-width: 600px) {
-      .topbar { padding: 6px 10px; font-size: 0.8rem; }
-      .topbar .status .badge { font-size: 0.7rem; padding: 4px 8px; margin-left: 2px; }
-      .board-shell { width: 100vw; max-width: 100vw; }
-      canvas { max-width: 96vmin; max-height: 96vmin; }
-      .floating-quit { right: 10px; bottom: 10px; }
-      .floating-quit button { width: 42px; height: 42px; font-size: 1.2rem; }
-      .card { padding: 20px; width: 92%; }
-      #game-selection .card button { font-size: 0.95rem; padding: 12px 20px; }
-      #user-info { display: none !important; }
+    .hidden { display: none !important; }
+
+    /* Selection view */
+    #game-selection {
+      position: fixed;
+      inset: 0;
+      z-index: 50;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: radial-gradient(circle at center, #1a2635, #0f1720 78%);
+      padding: 24px;
+    }
+    .selection-card {
+      width: min(560px, 100%);
+      background: var(--panel);
+      border: 1px solid var(--panel-border);
+      border-radius: 24px;
+      padding: 28px;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(12px);
+    }
+    .selection-card h1 {
+      margin: 0 0 8px;
+      font-size: 2rem;
+      letter-spacing: 0.04em;
+    }
+    .selection-subtitle {
+      margin: 0 0 20px;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+    .mode-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .mode-btn {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 16px 18px;
+      border-radius: 16px;
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text);
+      text-align: left;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .mode-btn.primary {
+      background: linear-gradient(135deg, #f6c453, #d89d1e);
+      color: #161616;
+      font-weight: 700;
+      box-shadow: 0 12px 28px rgba(246, 196, 83, 0.24);
+    }
+    .mode-btn .badge {
+      flex: 0 0 auto;
+      padding: 5px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      background: rgba(255, 255, 255, 0.12);
+      color: inherit;
+    }
+    .mode-btn.primary .badge {
+      background: rgba(0, 0, 0, 0.14);
+    }
+
+    /* Game app */
+    .app {
+      display: none;
+      height: 100vh;
+      min-height: 100vh;
+      grid-template-rows: auto 1fr;
+      overflow: hidden;
+    }
+
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      display: grid;
+      grid-template-columns: minmax(220px, 1fr) auto minmax(220px, 1fr);
+      align-items: center;
+      gap: 16px;
+      padding: 14px 20px;
+      background: rgba(8, 12, 18, 0.85);
+      border-bottom: 1px solid var(--panel-border);
+      backdrop-filter: blur(12px);
+    }
+    .topbar-brand {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      min-width: 0;
+    }
+    .topbar-brand strong {
+      font-size: 1.05rem;
+      letter-spacing: 0.08em;
+    }
+    .topbar-brand span {
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .topbar-center {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .topbar-actions {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 9px 12px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      color: var(--text);
+      line-height: 1;
+      white-space: nowrap;
+    }
+    .chip b { color: var(--accent); }
+    .chip--muted b { color: var(--text); }
+    .chip--success b { color: var(--success); }
+
+    .btn {
+      padding: 11px 16px;
+      border-radius: 12px;
+      font-weight: 700;
+      border: 1px solid transparent;
+    }
+    .btn-ghost {
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text);
+      border-color: rgba(255, 255, 255, 0.1);
+    }
+    .btn-danger {
+      background: rgba(239, 68, 68, 0.95);
+      color: white;
+      box-shadow: 0 10px 24px rgba(239, 68, 68, 0.24);
+    }
+    .btn-accent {
+      background: linear-gradient(135deg, #f6c453, #d89d1e);
+      color: #171717;
+      font-weight: 800;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(224px, 280px) minmax(0, 1fr) minmax(224px, 320px);
+      gap: 16px;
+      padding: 16px;
+      min-height: 0;
+      align-items: stretch;
+    }
+    .sidebar {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      min-width: 0;
+      min-height: 0;
+    }
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--panel-border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(12px);
+      overflow: hidden;
+    }
+    .panel-header {
+      padding: 16px 16px 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    }
+    .panel-header h2 {
+      margin: 0;
+      font-size: 15px;
+      letter-spacing: 0.06em;
+    }
+    .panel-body {
+      padding: 16px;
+    }
+
+    .player-card {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .player-avatar {
+      width: 52px;
+      height: 52px;
+      border-radius: 50%;
+      object-fit: cover;
+      background: rgba(255,255,255,0.08);
+      flex: 0 0 auto;
+    }
+    .player-meta {
+      min-width: 0;
+      flex: 1;
+    }
+    .player-meta .name-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+      margin-bottom: 6px;
+    }
+    .player-meta .name-row strong {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-size: 1rem;
+    }
+    .player-meta .sub {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .status-pill {
+      padding: 4px 8px;
+      border-radius: 999px;
+      background: rgba(16, 185, 129, 0.14);
+      color: #7ef0c8;
+      border: 1px solid rgba(16, 185, 129, 0.18);
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .status-pill.offline {
+      background: rgba(239, 68, 68, 0.14);
+      color: #ffb0b0;
+      border-color: rgba(239, 68, 68, 0.16);
+    }
+
+    .board-zone {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 0;
+      min-height: 0;
+      position: relative;
+    }
+    .board-shell {
+      position: relative;
+      width: min(100%, min(78vmin, calc(100vh - 120px)));
+      aspect-ratio: 1 / 1;
+      border-radius: 24px;
+      background: var(--wood-image);
+      box-shadow: 0 24px 80px rgba(0, 0, 0, 0.42);
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    canvas#goBoard {
+      display: block;
+      width: 100%;
+      height: 100%;
+      cursor: pointer;
+      touch-action: manipulation;
+    }
+
+    .hint-list {
+      display: grid;
+      gap: 10px;
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+    .hint-list strong { color: var(--text); }
+
+    #room-panel .room-code {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      color: var(--accent);
+      word-break: break-all;
+    }
+    #room-panel .room-link {
+      margin-top: 10px;
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    #room-panel .room-link input {
+      flex: 1 1 180px;
+      min-width: 0;
+      padding: 10px 12px;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.12);
+      background: rgba(255,255,255,0.06);
+      color: var(--text);
+    }
+    #room-panel .room-link button {
+      flex: 0 0 auto;
+    }
+
+    /* Modal + toast */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.5);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      padding: 16px;
+    }
+    .modal-backdrop.is-open { display: flex; }
+    .modal {
+      width: min(440px, 100%);
+      background: var(--panel-strong);
+      border: 1px solid var(--panel-border);
+      border-radius: 22px;
+      box-shadow: var(--shadow);
+      padding: 22px;
+    }
+    .modal h3 { margin: 0 0 10px; }
+    .modal p { margin: 0 0 18px; color: var(--muted); line-height: 1.6; }
+    .modal-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .toast {
+      position: fixed;
+      left: 50%;
+      bottom: 24px;
+      transform: translateX(-50%);
+      z-index: 1100;
+      padding: 12px 16px;
+      border-radius: 999px;
+      background: rgba(11, 18, 31, 0.92);
+      color: var(--text);
+      border: 1px solid rgba(255,255,255,0.12);
+      box-shadow: var(--shadow);
+      display: none;
+      max-width: min(92vw, 520px);
+      text-align: center;
+    }
+    .toast.is-visible { display: block; }
+
+    @media (max-width: 1200px) {
+      .layout {
+        grid-template-columns: minmax(200px, 260px) minmax(0, 1fr);
+        grid-template-areas:
+          "left board"
+          "right board";
+        align-items: start;
+      }
+      .sidebar-left { grid-area: left; }
+      .sidebar-right { grid-area: right; }
+      .board-zone { grid-area: board; }
+      .board-shell { width: min(100%, min(74vmin, calc(100vh - 140px))); }
+    }
+
+    @media (max-width: 860px) {
+      html, body { overflow: auto; }
+      .app { height: auto; min-height: 100%; }
+      .topbar {
+        grid-template-columns: 1fr;
+        justify-items: stretch;
+      }
+      .topbar-center, .topbar-actions { justify-content: flex-start; }
+      .layout {
+        grid-template-columns: 1fr;
+        grid-template-areas:
+          "board"
+          "left"
+          "right";
+        padding: 12px;
+      }
+      .board-zone { min-height: unset; }
+      .board-shell {
+        width: min(100%, 92vmin);
+        max-width: 100%;
+      }
+    }
+
+    @media (max-width: 520px) {
+      .selection-card { padding: 22px; }
+      .selection-card h1 { font-size: 1.6rem; }
+      .panel-body, .panel-header { padding-left: 14px; padding-right: 14px; }
+      .chip { padding: 8px 10px; font-size: 13px; }
+      .btn { width: 100%; justify-content: center; }
+      .topbar-actions { width: 100%; }
+      .topbar-actions .btn { flex: 1 1 0; }
     }
   </style>
 </head>
 <body>
-
-  <!-- 第一步：游戏模式选择 -->
   <div id="game-selection">
-    <div class="card">
+    <section class="selection-card">
       <h1>选择游戏</h1>
-      <div style="display: flex; flex-direction: column; gap: 15px; margin-top: 20px;">
-        <button id="go-game-btn" style="font-size: 1.2rem; padding: 15px 40px; justify-content: space-between; display: flex; align-items: center;">
-          经典围棋 19x19 <span class="badge" style="margin-left: auto; background: #4caf50; color: white;">已上线</span>
+      <p class="selection-subtitle">当前版本已聚焦围棋对局，并为后续玩法保留扩展位。进入后将自动加载对战 UI。</p>
+      <div class="mode-list">
+        <button id="go-game-btn" class="mode-btn primary">
+          <span>经典围棋 19×19</span>
+          <span class="badge">已上线</span>
         </button>
-        <button disabled style="font-size: 1.2rem; padding: 15px 40px; justify-content: space-between; display: flex; align-items: center; opacity: 0.6; cursor: not-allowed;">
-          掼蛋 (Guandan) <span class="badge" style="margin-left: auto;">开发中</span>
+        <button class="mode-btn" disabled>
+          <span>掼蛋 (Guandan)</span>
+          <span class="badge">开发中</span>
         </button>
-        <button disabled style="font-size: 1.2rem; padding: 15px 40px; justify-content: space-between; display: flex; align-items: center; opacity: 0.6; cursor: not-allowed;">
-          上海麻将 <span class="badge" style="margin-left: auto;">待开发</span>
+        <button class="mode-btn" disabled>
+          <span>上海麻将</span>
+          <span class="badge">待开发</span>
         </button>
       </div>
-      <p style="margin-top: 15px; font-size: 0.8rem; color: var(--muted);">在线对战模式即将开启</p>
-    </div>
+    </section>
   </div>
 
-  <!-- 第二步：对战界面 -->
   <div class="app">
     <header class="topbar">
-      <div class="brand"><strong>围棋 Pro</strong></div>
-      <div id="user-info" style="display: flex; align-items: center;">
-        <img id="user-avatar" src="" alt="" style="width: 28px; height: 28px; border-radius: 50%; margin-right: 8px;"/>
-        <span id="user-nickname"></span>
-        <span id="user-rank" class="badge" style="margin-left: 8px;"></span>
+      <div class="topbar-brand">
+        <strong>围棋 Pro</strong>
+        <span>在线对战 · 生产级布局</span>
       </div>
-      <div class="status">
-        <span class="badge">轮到：<b id="currentPlayer" style="color:var(--accent)">黑子</b></span>
-        <span class="badge">黑提：<b id="blackCaptures">0</b></span>
-        <span class="badge">白提：<b id="whiteCaptures">0</b></span>
+
+      <div class="topbar-center" aria-live="polite">
+        <span class="chip chip--muted">轮到：<b id="currentPlayer">黑子</b></span>
+        <span class="chip">黑提：<b id="blackCaptures">0</b></span>
+        <span class="chip">白提：<b id="whiteCaptures">0</b></span>
+      </div>
+
+      <div class="topbar-actions">
+        <button id="surrender-btn" class="btn btn-danger">认输</button>
+        <button id="quit-game-btn" class="btn btn-ghost">退出游戏</button>
       </div>
     </header>
 
-    <main class="board-shell">
-      <canvas id="goBoard"></canvas>
-    </main>
+    <main class="layout">
+      <aside class="sidebar sidebar-left">
+        <section class="panel" id="local-player-panel">
+          <div class="panel-header">
+            <h2>本地玩家</h2>
+            <span id="local-player-status" class="status-pill">在线</span>
+          </div>
+          <div class="panel-body player-card">
+            <img id="user-avatar" class="player-avatar" src="" alt="玩家头像" />
+            <div class="player-meta">
+              <div class="name-row">
+                <strong id="user-nickname">未登录</strong>
+                <span id="user-rank" class="chip chip--muted" style="padding: 4px 8px; font-size: 12px;">未设置段位</span>
+              </div>
+              <div class="sub">
+                <span id="local-player-side">执色：—</span>
+                <span id="local-player-turn">状态：待进入对局</span>
+              </div>
+            </div>
+          </div>
+        </section>
 
-    <div class="floating-quit">
-      <button id="quit-game-btn" title="退出游戏">X</button>
+        <section class="panel">
+          <div class="panel-header">
+            <h2>对局提示</h2>
+          </div>
+          <div class="panel-body hint-list">
+            <div><strong>落子反馈：</strong>最新落点会持续闪烁，直到对手完成应手。</div>
+            <div><strong>棋盘自适应：</strong>主棋盘会随屏幕高度缩放，保持正方形比例。</div>
+            <div><strong>退出逻辑：</strong>顶部“退出游戏”会先二次确认，再执行清理。</div>
+          </div>
+        </section>
+      </aside>
+
+      <section class="board-zone">
+        <div class="board-shell">
+          <canvas id="goBoard"></canvas>
+        </div>
+      </section>
+
+      <aside class="sidebar sidebar-right">
+        <section class="panel" id="room-panel">
+          <div class="panel-header">
+            <h2>房间信息</h2>
+            <span class="status-pill" id="room-status-pill">待连接</span>
+          </div>
+          <div class="panel-body">
+            <div class="room-code">Room ID：<span id="room-id">—</span></div>
+            <div class="room-link">
+              <input id="room-invite-link" type="text" readonly value="" aria-label="邀请链接" />
+              <button id="mp-copy-invite-btn" class="btn btn-accent" type="button">复制链接</button>
+            </div>
+            <p id="room-copy-hint" style="margin: 10px 0 0; color: var(--muted); font-size: 13px; line-height: 1.6;">复制房间邀请链接后可发送给好友加入对局。</p>
+          </div>
+        </section>
+
+        <section class="panel" id="opponent-player-panel">
+          <div class="panel-header">
+            <h2>对手信息</h2>
+            <span id="opponent-status" class="status-pill offline">离线</span>
+          </div>
+          <div class="panel-body player-card">
+            <img id="opponent-avatar" class="player-avatar" src="" alt="对手头像" />
+            <div class="player-meta">
+              <div class="name-row">
+                <strong id="opponent-nickname">等待对手</strong>
+                <span id="opponent-rank" class="chip chip--muted" style="padding: 4px 8px; font-size: 12px;">—</span>
+              </div>
+              <div class="sub">
+                <span id="opponent-side">执色：—</span>
+                <span id="opponent-activity">状态：等待加入</span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-header">
+            <h2>实时状态</h2>
+          </div>
+          <div class="panel-body hint-list">
+            <div><strong>回合：</strong><span id="turn-summary">黑棋先行</span></div>
+            <div><strong>连接：</strong><span id="connection-summary">未建立</span></div>
+            <div><strong>提醒：</strong>认输按钮会调用 Supabase RPC <code>game.handle_surrender</code>。</div>
+          </div>
+        </section>
+      </aside>
+    </main>
+  </div>
+
+  <div id="confirm-modal" class="modal-backdrop" aria-hidden="true">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="confirm-modal-title">
+      <h3 id="confirm-modal-title">确认操作</h3>
+      <p id="confirm-modal-message">—</p>
+      <div class="modal-actions">
+        <button id="confirm-modal-cancel" class="btn btn-ghost" type="button">取消</button>
+        <button id="confirm-modal-ok" class="btn btn-danger" type="button">确认</button>
+      </div>
     </div>
   </div>
 
-  <script>
-    // 页面加载后显示用户信息
-    window.onload = () => {
-      const info = sessionStorage.getItem('userInfo');
-      if (info) {
-        const u = JSON.parse(info);
-        document.getElementById('user-avatar').src = u.avatar;
-        document.getElementById('user-nickname').textContent = u.nickname;
-        document.getElementById('user-rank').textContent = u.rank;
-      }
-      if (typeof initEventListeners === 'function') initEventListeners();
-    };
-
-    // 围棋按钮 → 进入游戏
-    document.getElementById('go-game-btn').addEventListener('click', () => {
-      document.getElementById('game-selection').style.display = 'none';
-      document.querySelector('.app').style.display = 'grid';
-      if (typeof initGame === 'function') {
-        requestAnimationFrame(() => initGame());
-      }
-    });
-
-    // 退出按钮
-    document.getElementById('quit-game-btn').addEventListener('click', () => {
-      if (confirm('确定要退出当前对局吗？')) {
-        document.querySelector('.app').style.display = 'none';
-        document.getElementById('game-selection').style.display = 'flex';
-      }
-    });
-  </script>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
 </body>
 </html>

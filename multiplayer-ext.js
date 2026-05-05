@@ -70,7 +70,9 @@
     try {
       const url = SOUNDS[name];
       if (url) new Audio(url).play().catch(() => {});
-    } catch (_) { /* 静默忽略 */ }
+    } catch (_) {
+      /* 静默忽略 */
+    }
   }
 
   /** 获取当前登录用户 ID */
@@ -80,6 +82,74 @@
       const { data: { session } } = await supabase.auth.getSession();
       return session?.user?.id || null;
     } catch (_) {
+      return null;
+    }
+  }
+
+  async function getPlayerProfile(playerId) {
+    if (!supabase || !playerId) return null;
+    try {
+      const { data, error } = await supabase.rpc('get_player_profile', { player_id: playerId });
+      if (error) throw error;
+      return Array.isArray(data) ? data[0] || null : data;
+    } catch (err) {
+      console.warn('[multiplayer-ext] 获取玩家资料失败:', err);
+      return null;
+    }
+  }
+
+  function updateRoomPanel({ code = roomCode, inviteLink = '' } = {}) {
+    const roomIdEl = document.getElementById('room-id');
+    const linkEl = document.getElementById('room-invite-link');
+    const statusEl = document.getElementById('room-status-pill');
+    if (roomIdEl) roomIdEl.textContent = code || '—';
+    if (linkEl && inviteLink) linkEl.value = inviteLink;
+    if (statusEl) {
+      statusEl.textContent = isInRoom ? '进行中' : '待连接';
+      statusEl.classList.toggle('offline', !isInRoom);
+    }
+  }
+
+  function updateLocalPlayerPanel(profile) {
+    if (!profile) return;
+    const nicknameEl = document.getElementById('user-nickname');
+    const rankEl = document.getElementById('user-rank');
+    const sideEl = document.getElementById('local-player-side');
+    const activityEl = document.getElementById('local-player-turn');
+    if (nicknameEl) nicknameEl.textContent = profile.nickname || '棋手';
+    if (rankEl) rankEl.textContent = profile.rank || '业余1段';
+    if (sideEl) sideEl.textContent = `执色：${myColor === 'black' ? '黑棋' : myColor === 'white' ? '白棋' : '—'}`;
+    if (activityEl) activityEl.textContent = isInRoom ? `状态：${currentTurn === myColor ? '轮到我方' : '等待对手'}` : '状态：待进入对局';
+  }
+
+  async function updateOpponentPanel(room) {
+    const opponentId = myColor === 'black' ? room.white_id : room.black_id;
+    const profile = await getPlayerProfile(opponentId);
+    const nicknameEl = document.getElementById('opponent-nickname');
+    const rankEl = document.getElementById('opponent-rank');
+    const sideEl = document.getElementById('opponent-side');
+    const statusEl = document.getElementById('opponent-status');
+    const activityEl = document.getElementById('opponent-activity');
+    if (nicknameEl) nicknameEl.textContent = profile?.nickname || '等待对手';
+    if (rankEl) rankEl.textContent = profile?.rank || '—';
+    if (sideEl) sideEl.textContent = `执色：${opponentId ? (myColor === 'black' ? '白棋' : '黑棋') : '—'}`;
+    if (statusEl) {
+      statusEl.textContent = opponentId ? '在线' : '离线';
+      statusEl.classList.toggle('offline', !opponentId);
+    }
+    if (activityEl) activityEl.textContent = opponentId ? '状态：已匹配' : '状态：等待加入';
+  }
+
+
+  function syncLocalProfile() {
+    const info = sessionStorage.getItem('userInfo');
+    if (!info) return null;
+    try {
+      const profile = JSON.parse(info);
+      updateLocalPlayerPanel(profile);
+      return profile;
+    } catch (err) {
+      console.warn('[multiplayer-ext] 本地用户信息解析失败:', err);
       return null;
     }
   }
@@ -401,10 +471,27 @@
     });
 
     // 监听对手加入 / 离开
-    ch.on('presence', { event: 'sync' }, () => {
+    ch.on('presence', { event: 'sync' }, async () => {
       const state = ch.presenceState();
       const ids = Object.keys(state);
       console.log('[multiplayer-ext] 房间在线成员:', ids.length);
+      if (roomCode) {
+        try {
+          const { data: latestRoom } = await supabase
+            .schema('game')
+            .from('game_rooms')
+            .select('*')
+            .eq('code', code)
+            .single();
+          if (latestRoom) {
+            roomContext.isOnline = true;
+            setConnectionStatus(latestRoom.status === 'playing' ? '实时同步中' : '等待对手', true);
+            await updateOpponentPanel(latestRoom);
+          }
+        } catch (err) {
+          console.warn('[multiplayer-ext] 刷新房间信息失败:', err);
+        }
+      }
     });
     // 在 initRoomChannel 中增加[cite: 1, 2]
     ch.on('postgres_changes', { 
@@ -412,11 +499,13 @@
         schema: 'game', // 务必匹配您的 schema
         table: 'game_rooms',
         filter: `code=eq.${code}` 
-    }, payload => {
+    }, async payload => {
         if (payload.new.status === 'playing' && myColor === 'black') {
             console.log('对手已加入，对局开始！');
-            // 可以触发一个“对局开始”的音效或 UI 提示
         }
+        roomContext.isOnline = true;
+        setConnectionStatus(payload.new.status === 'ended' ? '已结束' : (payload.new.status === 'playing' ? '实时同步中' : '等待对手'), true);
+        await updateOpponentPanel(payload.new);
     });
 
     await ch.subscribe(async (status) => {
@@ -517,15 +606,22 @@
       myColor = 'black';
       currentTurn = 'black';
       isInRoom = true;
+      const inviteLink = `${window.location.origin}${window.location.pathname}?room=${code}`;
+      roomContext.roomId = code;
+      roomContext.inviteLink = inviteLink;
+      roomContext.localSide = 'black';
+      roomContext.opponentSide = 'white';
+      roomContext.isOnline = true;
+      setConnectionStatus('等待对手', true);
 
       // 初始化房间通道
       roomChannel = await initRoomChannel(code);
 
-      // 构建邀请链接
-      const inviteLink = `${window.location.origin}${window.location.pathname}?room=${code}`;
-
       // 显示房间信息
-      showRoomUI(code, inviteLink);
+      updateRoomPanel({ code, inviteLink });
+      syncLocalProfile();
+      updateLocalPlayerPanel(await getPlayerProfile(userId) || {});
+      updateOpponentPanel({ black_id: userId, white_id: null });
 
       // 启动棋盘
       startMultiplayerGame();
@@ -597,13 +693,21 @@
       roomCode = code;
       currentTurn = 'black';
       isInRoom = true;
+      const inviteLink = `${window.location.origin}${window.location.pathname}?room=${code}`;
+      roomContext.roomId = code;
+      roomContext.inviteLink = inviteLink;
+      roomContext.localSide = myColor;
+      roomContext.opponentSide = myColor === 'black' ? 'white' : 'black';
+      roomContext.isOnline = true;
+      setConnectionStatus(room.status === 'waiting' ? '等待对手' : '实时同步中', true);
 
       // 初始化房间通道
       roomChannel = await initRoomChannel(code);
 
       // 构建邀请链接
-      const inviteLink = `${window.location.origin}${window.location.pathname}?room=${code}`;
-      showRoomUI(code, inviteLink);
+      updateRoomPanel({ code, inviteLink });
+      syncLocalProfile();
+      await updateOpponentPanel(room);
 
       // 启动棋盘
       startMultiplayerGame();
@@ -640,6 +744,8 @@
     blackCaptures = 0;
     whiteCaptures = 0;
     currentTurn = 'black';
+    latestMove = null;
+    latestMoveFlash = true;
 
     // 全盘绘制
     drawFullBoard();
@@ -671,31 +777,9 @@
     const isMobile = window.innerWidth <= 768;
     
     panel.style.cssText = isMobile ? `
-        position: fixed;
-        bottom: 110px;        /* 距离底部一定高度，避开系统手势栏 */
-        left: 16px;           /* 固定在左侧 */
-        right: auto;
-        z-index: 950;
-        background: rgba(16, 24, 32, 0.85);
-        border: 1px solid rgba(255, 255, 255, 0.15);
-        border-radius: 12px;
-        padding: 10px 14px;
-        backdrop-filter: blur(8px);
-        box-shadow: 0 4px 20px rgba(0,0,0,0.4);
-        max-width: 200px;     /* 缩小宽度，减少存在感[cite: 1] */
+        display:none;
     ` : `
-        position: fixed;
-        top: 60px;
-        right: 16px;
-        z-index: 950;
-        background: rgba(16, 24, 32, 0.92);
-        border: 1px solid rgba(255, 255, 255, 0.12);
-        border-radius: 14px;
-        padding: 14px 18px;
-        color: #eef4fb;
-        backdrop-filter: blur(10px);
-        box-shadow: 0 8px 30px rgba(0,0,0,0.5);
-        max-width: 280px;
+        display:none;
     `;
 
     panel.innerHTML = `
@@ -804,6 +888,34 @@
   }
 
   // 监听退出按钮
+  async function onSurrender() {
+    if (!isInRoom || !roomContext.roomId) {
+      alert('当前不在对局中');
+      return;
+    }
+
+    if (!supabase) {
+      alert('Supabase 未配置，无法认输');
+      return;
+    }
+
+    const { data, error } = await supabase.schema('game').rpc('handle_surrender', {
+      p_session_id: roomContext.roomId,
+      p_action: 'request'
+    });
+
+    if (error) {
+      console.error('[multiplayer-ext] 认输失败:', error);
+      alert('认输失败: ' + error.message);
+      return;
+    }
+
+    gameEnded = true;
+    setConnectionStatus('已结束', true);
+    showToast('你已认输，对局结束。');
+    console.log('[multiplayer-ext] 认输完成:', data);
+  }
+
   function hookQuitButton() {
     const quitBtn = document.getElementById('quit-game-btn');
     if (quitBtn) {
@@ -811,8 +923,11 @@
         if (isInRoom) leaveRoom();
       });
     }
+    const surrenderBtn = document.getElementById('surrender-btn');
+    if (surrenderBtn) {
+      surrenderBtn.addEventListener('click', onSurrender);
+    }
   }
-
   // ── 启动入口 ─────────────────────────────────────────────────────
 
   function init() {
@@ -852,6 +967,7 @@
     createRoom,
     joinRoom,
     leaveRoom,
+    handleSurrender: onSurrender,
     getRoomCode: () => roomCode,
     getMyColor: () => myColor,
     isInRoom: () => isInRoom
