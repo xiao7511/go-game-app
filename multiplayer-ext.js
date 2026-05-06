@@ -41,6 +41,8 @@
   let blackCaptures = 0;
   let whiteCaptures = 0;
 
+  let latestMove = null; // 在全局声明
+  let latestMoveFlash = true;
   let roomContext = {};       
   // 棋盘状态 (扩展维护的独立副本)
   let board = Array.from({ length: SIZE }, () => Array(SIZE).fill(EMPTY));
@@ -757,12 +759,12 @@
     if (!initCanvasParams()) return;
 
     // 重置棋盘状态
-    board = Array.from({ length: SIZE }, () => Array(SIZE).fill(EMPTY));
-    blackCaptures = 0;
-    whiteCaptures = 0;
-    currentTurn = 'black';
-    latestMove = null;
-    latestMoveFlash = true;
+   board = Array.from({ length: SIZE }, () => Array(SIZE).fill(EMPTY));
+   blackCaptures = 0;
+   whiteCaptures = 0;
+   currentTurn = 'black';
+   latestMove = null;
+   latestMoveFlash = true;
 
     // 全盘绘制
     drawFullBoard();
@@ -915,7 +917,7 @@
       alert('Supabase 未配置，无法认输');
       return;
     }
-
+    console.log('正在请求认输，房间标识:', roomContext.roomId);
     const { data, error } = await supabase.schema('game').rpc('handle_surrender', {
       p_session_id: roomContext.roomId,
       p_action: 'request'
