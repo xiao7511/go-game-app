@@ -44,8 +44,7 @@
   let animating = false;
   let gameEnded = false;
   let latestMove = null;
-  let latestMoveFlash = true;
-  let latestMoveTimer = null;
+  let latestMoveRafId = null;
   let resizeObserver = null;
   let canvasResizeRaf = null;
   let boardClickHandler = null;
@@ -507,7 +506,7 @@ const playEffect = playSound;
     // 不等 drawBoard，直接在 Canvas 上画一颗子
     renderSingleStone(row, col, prevColor); 
 
-    // 5. 状态平滑切换
+    // 3. 状态平滑切换
     currentPlayer = (currentPlayer === BLACK) ? WHITE : BLACK;
     updateUI();
 
@@ -518,15 +517,10 @@ const playEffect = playSound;
       
       // 广播数据给后端或对手
       broadcastMove(row, col, prevColor, result.capturedGroup || null);
-
-      // 缩短冷却期：150ms 即可解锁下次操作，手感更爽快
-      setTimeout(() => {
-        animating = false;
-        // 轮到对方时，轻声提醒
-        if (currentPlayer === myColor) {
-          playEffect('yourTurn');
-        }
-      }, 150); 
+      animating = false;
+      if (currentPlayer === myColor) {
+        playEffect('yourTurn');
+      }
     });
   }
 
@@ -572,10 +566,6 @@ function judgeWinner(board, blackTerritory, whiteTerritory) {
   function onGameEnd(board, bT, wT) {
     const result = judgeWinner(board, bT, wT);
     gameEnded = true;
-    if (latestMoveTimer) {
-      clearInterval(latestMoveTimer);
-      latestMoveTimer = null;
-    }
     
     // 使用简单的原生弹窗，或者自定义 HTML 模态框
     const alertBox = document.createElement('div');
@@ -641,10 +631,10 @@ function judgeWinner(board, blackTerritory, whiteTerritory) {
       for (let c = 0; c < SIZE; c++) {
         if (board[r][c] !== EMPTY) {
           const isLatestMove = latestMove && latestMove.row === r && latestMove.col === c;
-          if (isLatestMove && !latestMoveFlash) continue;
           const cx = currentPadding + c * currentCellSize;
           const cy = currentPadding + r * currentCellSize;
           const radius = currentCellSize * 0.44;
+          const alpha = isLatestMove ? (0.5 + 0.5 * Math.sin(Date.now() / 250)) : 1;
 
           // 阴影
           ctx.beginPath();
@@ -653,6 +643,8 @@ function judgeWinner(board, blackTerritory, whiteTerritory) {
           ctx.fill();
 
           // 棋子
+          ctx.save();
+          ctx.globalAlpha = alpha;
           ctx.beginPath();
           ctx.arc(cx, cy, radius, 0, 2 * Math.PI);
           if (board[r][c] === BLACK) {
@@ -673,6 +665,7 @@ function judgeWinner(board, blackTerritory, whiteTerritory) {
           ctx.arc(cx - radius * 0.25, cy - radius * 0.25, radius * 0.3, 0, 2 * Math.PI);
           ctx.fillStyle = 'rgba(255,255,255,0.15)';
           ctx.fill();
+          ctx.restore();
         }
       }
     }
@@ -711,13 +704,6 @@ function judgeWinner(board, blackTerritory, whiteTerritory) {
     cellSize = (size - padding * 2) / (SIZE - 1);
 
     // 1.5 最新落子闪烁控制
-    if (latestMoveTimer) clearInterval(latestMoveTimer);
-    latestMoveTimer = setInterval(() => {
-      if (!latestMove) return;
-      latestMoveFlash = !latestMoveFlash;
-      drawBoard();
-    }, 280);
-
     // 初始绘制
     drawBoard();
 

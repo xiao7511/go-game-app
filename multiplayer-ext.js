@@ -533,7 +533,12 @@
 
   function canvasCaptureHandler(e) {
     if (!state.isInRoom) return;
-    if (!state.myColor || state.currentTurn !== state.myColor) {
+    const isBlackTurn = state.currentTurn === 'black';
+    const canPlaceStone = !state.myColor
+      || (state.myColor === 'black' && isBlackTurn)
+      || (state.myColor === 'white' && !isBlackTurn)
+      || state.currentTurn === state.myColor;
+    if (!canPlaceStone) {
       e.preventDefault();
       e.stopPropagation();
       playSound('invalidMove');
@@ -636,7 +641,9 @@
     if (!overlay || !title || !desc) return;
 
     title.textContent = '对局结束';
-    desc.textContent = `${winnerColor === 'black' ? '黑方' : '白方'}获胜${reason === 'resign' ? '（对手认输）' : ''}`;
+    const winnerLabel = winnerColor === 'black' ? '黑方' : '白方';
+    const loserLabel = winnerColor === 'black' ? '白方' : '黑方';
+    desc.textContent = reason === 'resign' ? `${winnerLabel}获胜（${loserLabel}投降）` : `${winnerLabel}获胜`;
     overlay.classList.add('is-open');
   }
 
