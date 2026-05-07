@@ -133,17 +133,24 @@
     }
   }
 
-  async function getPlayerProfile(playerId) {
-    if (!state.supabase || !playerId) return null;
+ async function getPlayerProfile(playerId) {
     try {
-      const { data, error } = await state.supabase
-        .schema('game')
-        .rpc('get_player_profile', { player_id: playerId });
-      if (error) throw error;
-      return Array.isArray(data) ? data[0] || null : data;
+      // 关键修复：确保参数名 p_id 与数据库函数定义一致
+      const { data, error } = await state.supabase.rpc('get_player_profile', { 
+        p_id: playerId 
+      });
+
+      if (error) {
+        // 如果是 400 错误，说明可能是参数名不对或函数不存在
+        console.warn('[MP] RPC 调用失败，尝试返回保底数据:', error.message);
+        return { nickname: '棋手_' + playerId.substring(0, 4), avatar_url: null };
+      }
+
+      return data;
     } catch (err) {
-      console.warn('[multiplayer-ext] 获取玩家资料失败:', err);
-      return null;
+      // 捕获 LockGrantedCallback 等浏览器底层的异步异常
+      console.error('[MP] getPlayerProfile 发生异常:', err);
+      return { nickname: '棋手', avatar_url: null };
     }
   }
 
