@@ -114,10 +114,10 @@
       border: 1px solid rgba(255, 255, 255, 0.08);
     }
     .mode-btn.primary {
-      background: linear-gradient(135deg, #f6c453, #d89d1e);
-      color: #161616;
+      background: #28a745;
+      color: #fff;
       font-weight: 700;
-      box-shadow: 0 12px 28px rgba(246, 196, 83, 0.24);
+      box-shadow: 0 12px 28px rgba(40, 167, 69, 0.24);
     }
     .mode-btn .badge {
       flex: 0 0 auto;
@@ -136,6 +136,7 @@
       min-height: 100vh;
       grid-template-rows: auto 1fr;
       overflow: hidden;
+      max-width: 100vw;
     }
 
     .topbar {
@@ -225,6 +226,7 @@
       padding: 16px;
       min-height: 0;
       align-items: stretch;
+      max-width: 100vw;
     }
     .sidebar {
       display: flex;
@@ -313,6 +315,7 @@
       min-width: 0;
       min-height: 0;
       position: relative;
+      max-width: 100vw;
     }
     .board-shell {
       position: relative;
@@ -330,6 +333,8 @@
       align-items: center;
       justify-content: center;
       isolation: isolate;
+      max-width: 100vw;
+      touch-action: none;
     }
     .board-shell::before {
       content: '';
@@ -352,7 +357,8 @@
       width: 100%;
       height: 100%;
       cursor: pointer;
-      touch-action: manipulation;
+      touch-action: none;
+      max-width: 100vw;
     }
 
     .hint-list {
