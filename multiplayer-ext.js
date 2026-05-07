@@ -1,11 +1,13 @@
 /**
- * multiplayer-ext.js 
- * [终极修复版] - 解决 ReferenceError，匹配深色科技感 UI
+ * multiplayer-ext.js
+ * [终极修复版] - 解决函数定义错误，匹配截图 UI 风格，支持手机端与呼吸闪烁
  */
 (() => {
   'use strict';
 
   const SIZE = 19;
+  const EMPTY = 0, BLACK = 1, WHITE = 2;
+  
   const state = {
     supabase: null,
     roomChannel: null,
@@ -14,7 +16,7 @@
     currentTurn: 'black',
     isInRoom: false,
     latestMove: null, 
-    board: Array(SIZE).fill().map(() => Array(SIZE).fill(0)),
+    board: Array(SIZE).fill().map(() => Array(SIZE).fill(EMPTY)),
     canvas: null,
     ctx: null,
     padding: 0,
@@ -24,115 +26,142 @@
 
   const $ = id => document.getElementById(id);
 
-  // --- 1. 核心功能函数 (定义在 inject 前防止 ReferenceError) ---
-  
-  const createRoom = async () => {
-    console.log('[MP] 正在创建房间...');
-    // 这里保留您原有的 Supabase 创建房间逻辑
-    // 示例：const { data } = await state.supabase.from('rooms').insert(...);
-  };
+  // --- 1. 核心逻辑函数 (提升到顶部确保 injectUIButtons 能引用) ---
 
-  const joinRoom = async (code) => {
-    console.log('[MP] 正在加入房间:', code);
-    // 这里保留您原有的 Supabase 加入房间逻辑
-  };
+  async function createRoom() {
+    console.log('[MP] 正在发起创建房间请求...');
+    if (!state.supabase) {
+      alert("Supabase 未初始化，请检查配置");
+      return;
+    }
+    // 此处保留您原始文件中定义的实际创建逻辑...
+  }
 
-  // --- 2. 视觉重塑 (匹配图片中的深色卡片风格) ---
+  async function joinRoom(code) {
+    const cleanCode = code.trim().toUpperCase();
+    if (cleanCode.length !== 6) {
+      alert("请输入正确的6位房号");
+      return;
+    }
+    console.log('[MP] 正在加入房间:', cleanCode);
+    // 此处保留您原始文件中定义的实际加入逻辑...
+  }
+
+  // --- 2. UI 注入 (严格匹配图片风格：深色、磨砂、紫色渐变) ---
+
   function injectUIButtons() {
     const selectionPanel = document.querySelector('.selection-panel') || $('game-selection');
     if (!selectionPanel) return;
 
-    // 清除可能存在的旧容器
-    const old = document.querySelector('.mp-visual-card');
+    // 清除旧的控制区
+    const old = document.querySelector('.mp-visual-container');
     if (old) old.remove();
 
-    const card = document.createElement('div');
-    card.className = 'mp-visual-card';
+    const container = document.createElement('div');
+    container.className = 'mp-visual-container';
     
-    // 注入 CSS 样式
+    // 动态注入匹配截图的 CSS
     const style = document.createElement('style');
     style.innerHTML = `
-      .mp-visual-card {
-        background: rgba(30, 30, 35, 0.6);
-        backdrop-filter: blur(15px);
-        -webkit-backdrop-filter: blur(15px);
-        border: 1px solid rgba(255, 255, 255, 0.08);
-        border-radius: 20px;
-        padding: 24px;
-        margin-top: 20px;
-        box-shadow: 0 15px 35px rgba(0,0,0,0.5);
-        color: white;
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      .mp-visual-container {
+        background: rgba(15, 15, 20, 0.7);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 24px;
+        padding: 25px;
+        margin-top: 25px;
+        width: 100%;
+        max-width: 380px;
+        box-shadow: 0 20px 50px rgba(0,0,0,0.6);
+        color: #fff;
+        font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
       }
-      .mp-header {
+      .mp-header-row {
         display: flex;
         align-items: center;
-        gap: 10px;
         margin-bottom: 20px;
-        font-size: 15px;
-        font-weight: 500;
-        letter-spacing: 0.5px;
+        font-size: 14px;
+        color: rgba(255,255,255,0.9);
+        letter-spacing: 1px;
       }
-      .status-dot {
-        width: 8px; height: 8px;
-        background: #00ffa3;
+      .mp-dot {
+        width: 6px; height: 6px;
+        background: #00ffcc;
         border-radius: 50%;
-        box-shadow: 0 0 10px #00ffa3;
+        margin-right: 10px;
+        box-shadow: 0 0 10px #00ffcc;
       }
-      .btn-glow {
-        background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
-        border: none; color: white;
-        padding: 14px; border-radius: 12px;
-        width: 100%; font-weight: 600;
-        cursor: pointer; margin-bottom: 15px;
-        box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3);
-        transition: transform 0.2s;
+      .btn-purple-glow {
+        background: linear-gradient(135deg, #6d28d9 0%, #a855f7 100%);
+        color: white;
+        border: none;
+        padding: 15px;
+        border-radius: 14px;
+        width: 100%;
+        font-weight: 600;
+        font-size: 16px;
+        cursor: pointer;
+        margin-bottom: 15px;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 15px rgba(109, 40, 217, 0.4);
       }
-      .btn-glow:active { transform: scale(0.97); }
-      .input-group { display: flex; gap: 10px; }
-      .room-input {
+      .btn-purple-glow:active { transform: scale(0.96); opacity: 0.9; }
+      .mp-input-row { display: flex; gap: 12px; }
+      .mp-input-field {
         flex: 1;
-        background: rgba(0, 0, 0, 0.3);
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        border-radius: 10px;
-        padding: 12px; color: white;
-        text-align: center; font-weight: bold;
-        letter-spacing: 2px;
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        border-radius: 12px;
+        padding: 12px;
+        color: #fff;
+        text-align: center;
+        font-size: 16px;
+        font-weight: bold;
+        letter-spacing: 3px;
       }
-      .btn-join {
+      .mp-input-field::placeholder { color: rgba(255,255,255,0.3); letter-spacing: normal; font-weight: normal; }
+      .btn-join-dark {
         background: rgba(255, 255, 255, 0.1);
         border: 1px solid rgba(255, 255, 255, 0.2);
-        color: white; padding: 0 20px;
-        border-radius: 10px; cursor: pointer;
+        color: #fff;
+        padding: 0 22px;
+        border-radius: 12px;
+        cursor: pointer;
+        font-weight: 500;
+        transition: background 0.2s;
       }
+      .btn-join-dark:hover { background: rgba(255, 255, 255, 0.15); }
     `;
     document.head.appendChild(style);
 
-    card.innerHTML = `
-      <div class="mp-header"><span class="status-dot"></span> 在线游戏 PRO</div>
-      <button id="btn-create-room-new" class="btn-glow">创建对战房间</button>
-      <div class="input-group">
-        <input type="text" id="input-room-code-new" class="room-input" placeholder="输入房号" maxlength="6">
-        <button id="btn-join-room-new" class="btn-join">加入</button>
+    container.innerHTML = `
+      <div class="mp-header-row"><span class="mp-dot"></span> 在线对战模式 (Alpha)</div>
+      <button id="mp-create-btn" class="btn-purple-glow">创建联机对战</button>
+      <div class="mp-input-row">
+        <input type="text" id="mp-code-input" class="mp-input-field" placeholder="输入6位房号" maxlength="6">
+        <button id="mp-join-btn" class="btn-join-dark">加入</button>
       </div>
     `;
-    selectionPanel.appendChild(card);
+    selectionPanel.appendChild(container);
 
-    // 绑定事件 (使用局部变量名确保引用正确)
-    $('btn-create-room-new').onclick = () => createRoom();
-    $('btn-join-room-new').onclick = () => {
-      const val = $('input-room-code-new').value.trim().toUpperCase();
-      if (val.length === 6) joinRoom(val);
-      else alert('请输入6位房号');
+    // 绑定事件
+    $('mp-create-btn').onclick = createRoom;
+    $('mp-join-btn').onclick = () => {
+      const code = $('mp-code-input').value;
+      joinRoom(code);
     };
   }
 
-  // --- 3. 逻辑修复 (手机端+白方权限+闪烁) ---
+  // --- 3. 逻辑修复 (手机端落子 + 白方权限 + 呼吸闪烁) ---
+
   function canvasCaptureHandler(e) {
-    if (!state.isInRoom || state.currentTurn !== state.myColor) return;
+    if (!state.isInRoom) return;
+
+    // 权限：确保当前回合与玩家颜色一致
+    if (state.currentTurn !== state.myColor) return;
 
     const rect = state.canvas.getBoundingClientRect();
-    // 兼容 Touch 和 Click
     const clientX = e.touches ? e.touches[0].clientX : e.clientX;
     const clientY = e.touches ? e.touches[0].clientY : e.clientY;
     
@@ -143,33 +172,35 @@
     const row = Math.round((y - state.padding) / state.cellSize);
 
     if (row >= 0 && row < SIZE && col >= 0 && col < SIZE) {
-      if (state.board[row][col] === 0) {
-        // 调用您的发送落子逻辑 handleMultiplayerMove(row, col);
-        console.log('[MP] 落子:', row, col);
+      if (state.board[row][col] === EMPTY) {
+        // 调用发送落子的 handleMultiplayerMove
+        if (typeof handleMultiplayerMove === 'function') {
+           handleMultiplayerMove(row, col);
+        }
       }
     }
   }
 
-  function drawStone(row, col, colorType) {
+  // 呼吸闪烁绘制函数
+  function renderLatestStoneEffect(row, col, colorType) {
     const cx = state.padding + col * state.cellSize;
     const cy = state.padding + row * state.cellSize;
-    const isLatest = state.latestMove && state.latestMove[0] === row && state.latestMove[1] === col;
-
+    
     state.ctx.save();
-    if (isLatest) {
-      // 呼吸闪烁效果
-      state.ctx.globalAlpha = 0.7 + 0.3 * Math.sin(Date.now() / 250);
-      state.ctx.shadowColor = '#00ff88';
-      state.ctx.shadowBlur = 15;
-    }
+    // 呼吸动画：透明度 0.6 ~ 1.0 之间平滑变动
+    state.ctx.globalAlpha = 0.8 + 0.2 * Math.sin(Date.now() / 250);
+    state.ctx.shadowColor = '#00ffcc';
+    state.ctx.shadowBlur = 15;
+    
     state.ctx.beginPath();
     state.ctx.arc(cx, cy, state.cellSize * 0.43, 0, Math.PI * 2);
-    state.ctx.fillStyle = colorType === 1 ? '#000' : '#fff';
+    state.ctx.fillStyle = (colorType === BLACK) ? '#000' : '#fff';
     state.ctx.fill();
     state.ctx.restore();
   }
 
   // --- 4. 初始化 ---
+
   async function init() {
     if (state.boundOnce) return;
     state.boundOnce = true;
@@ -180,26 +211,27 @@
     if (!state.canvas) return;
     state.ctx = state.canvas.getContext('2d');
 
-    // 绑定事件支持手机端
+    // 手机端适配
     state.canvas.addEventListener('click', canvasCaptureHandler);
     state.canvas.addEventListener('touchstart', (e) => {
-      if (state.isInRoom) e.preventDefault();
+      if (state.isInRoom) e.preventDefault(); // 阻止滚动
       canvasCaptureHandler(e);
     }, { passive: false });
 
-    // 启动动画循环用于闪烁渲染
-    const animate = () => {
-      if (state.latestMove) {
-        // 假设 drawFullBoard 会调用 drawStone
-        if (typeof window.drawFullBoard === 'function') window.drawFullBoard();
-        else if (typeof drawFullBoard === 'function') drawFullBoard();
+    // 每一帧都尝试重绘（用于呼吸闪烁效果）
+    const frame = () => {
+      if (state.latestMove && state.isInRoom) {
+        // 假设 drawFullBoard 会被调用，这里触发局部重绘
+        renderLatestStoneEffect(state.latestMove[0], state.latestMove[1], state.board[state.latestMove[0]][state.latestMove[1]]);
       }
-      requestAnimationFrame(animate);
+      requestAnimationFrame(frame);
     };
-    animate();
+    frame();
+
+    console.log('[MP] 科技感 UI 修复版已就绪');
   }
 
-  window.addEventListener('DOMContentLoaded', init);
-  // 暴露 API 给 window.MP 
+  // 确保 API 暴露
   window.MP = { ...window.MP, init, createRoom, joinRoom };
+  window.addEventListener('DOMContentLoaded', init);
 })();
