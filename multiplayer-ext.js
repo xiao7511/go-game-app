@@ -194,49 +194,84 @@
     bindCopyInviteButton();
   }
 
+  function clearLatestMoveTimers() {
+    if (state.latestMoveTimer) clearTimeout(state.latestMoveTimer);
+    if (state.latestMoveBlinkTimer) clearInterval(state.latestMoveBlinkTimer);
+    state.latestMoveTimer = null;
+    state.latestMoveBlinkTimer = null;
+  }
+
+  function clearLatestMoveHighlight() {
+    clearLatestMoveTimers();
+    state.latestMove = null;
+    state.latestMoveVisible = true;
+  }
+
+  function setLatestMoveHighlight(row, col, duration = FLASH_DURATION) {
+    clearLatestMoveTimers();
+    state.latestMove = [row, col];
+    state.latestMoveVisible = true;
+    drawFullBoard();
+
+    state.latestMoveBlinkTimer = setInterval(() => {
+      state.latestMoveVisible = !state.latestMoveVisible;
+      drawFullBoard();
+    }, FLASH_INTERVAL);
+
+    state.latestMoveTimer = setTimeout(() => {
+      clearLatestMoveHighlight();
+      drawFullBoard();
+    }, duration);
+  }
+
   function bindCopyInviteButton() {
     const copyBtn = $('mp-copy-invite-btn');
     const input = $('room-invite-link');
-    if (!copyBtn || copyBtn.dataset.bound === '1') return;
+    if (!copyBtn) return;
 
-    copyBtn.addEventListener('click', async () => {
-      const text = (input && input.value) || state.roomContext.inviteLink || '';
-      if (!text) {
-        toast('暂无可复制的邀请链接');
-        return;
-      }
-
-      try {
-        if (navigator.clipboard?.writeText && window.isSecureContext) {
-          await navigator.clipboard.writeText(text);
-        } else if (input) {
-          input.removeAttribute('readonly');
-          input.focus();
-          input.select();
-          const ok = document.execCommand('copy');
-          input.setAttribute('readonly', 'readonly');
-          if (!ok) throw new Error('copy failed');
-        } else {
-          throw new Error('clipboard unavailable');
+    if (copyBtn.dataset.bound !== '1') {
+      copyBtn.addEventListener('click', async () => {
+        const text = (input && input.value) || state.roomContext.inviteLink || '';
+        if (!text) {
+          toast('暂无可复制的邀请链接');
+          return;
         }
-        toast('已复制房间邀请链接');
-      } catch (err) {
-        console.warn('[multiplayer-ext] 复制失败:', err);
-        if (input) {
-          input.removeAttribute('readonly');
-          input.focus();
-          input.select();
-          const ok = document.execCommand('copy');
-          input.setAttribute('readonly', 'readonly');
-          if (ok) toast('已复制房间邀请链接');
-          else prompt('请手动复制邀请链接:', text);
-        } else {
-          prompt('请手动复制邀请链接:', text);
-        }
-      }
-    });
 
-    copyBtn.dataset.bound = '1';
+        try {
+          if (navigator.clipboard?.writeText && window.isSecureContext) {
+            await navigator.clipboard.writeText(text);
+          } else if (input) {
+            input.removeAttribute('readonly');
+            input.focus();
+            input.select();
+            const ok = document.execCommand('copy');
+            input.setAttribute('readonly', 'readonly');
+            if (!ok) throw new Error('copy failed');
+          } else {
+            throw new Error('clipboard unavailable');
+          }
+          toast('已复制房间邀请链接');
+        } catch (err) {
+          console.warn('[multiplayer-ext] 复制失败:', err);
+          if (input) {
+            input.removeAttribute('readonly');
+            input.focus();
+            input.select();
+            const ok = document.execCommand('copy');
+            input.setAttribute('readonly', 'readonly');
+            if (ok) toast('已复制房间邀请链接');
+            else prompt('请手动复制邀请链接:', text);
+          } else {
+            prompt('请手动复制邀请链接:', text);
+          }
+        }
+      });
+
+      copyBtn.dataset.bound = '1';
+    }
+
+    copyBtn.disabled = !((input && input.value) || state.roomContext.inviteLink);
+    copyBtn.title = copyBtn.disabled ? '创建或加入房间后可复制邀请链接' : '复制房间邀请链接';
   }
 
   function getBoardSnapshot() {
@@ -293,7 +328,7 @@
     state.latestMoveVisible = true;
   }
 
-  function setLatestMoveHighlight(row, col) {
+  function setLatestMoveHighlight(row, col, duration = FLASH_DURATION) {
     clearLatestMoveTimers();
     state.latestMove = [row, col];
     state.latestMoveVisible = true;
@@ -307,7 +342,7 @@
     state.latestMoveTimer = setTimeout(() => {
       clearLatestMoveHighlight();
       drawFullBoard();
-    }, FLASH_DURATION);
+    }, duration);
   }
 
   function bfsLiberties(startRow, startCol, color, boardState) {
@@ -559,7 +594,7 @@
     }
 
     playSound(result.captured > 0 ? 'capture' : 'placeStone');
-    setLatestMoveHighlight(row, col);
+    setLatestMoveHighlight(row, col, FLASH_DURATION);
     switchTurn();
     drawFullBoard();
 
