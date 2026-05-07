@@ -1,9 +1,15 @@
 /**
  * multiplayer-ext.js
- * [终极修复版] - 解决函数定义错误，匹配截图 UI 风格，支持手机端与呼吸闪烁
+ *
+ * Self-contained multiplayer extension for the Go game.
+ * - Room creation/joining
+ * - Realtime move sync
+ * - Latest move stone flashing
+ * - Resign confirmation flow
+ * - Room invite copy support
  */
 (() => {
- 'use strict';
+  'use strict';
 
   const SIZE = 19;
   const EMPTY = 0;
@@ -780,8 +786,6 @@
   }
 
   async function createRoom() {
-    console.log('[MP] 正在发起创建房间请求...');
-
     const userId = await getUserId();
     if (!userId) {
       alert('请先登录后再创建房间');
@@ -833,12 +837,6 @@
   }
 
   async function joinRoom(code) {
-    const cleanCode = code.trim().toUpperCase();
-    if (cleanCode.length !== 6) {
-      alert("请输入正确的6位房号");
-      return;
-    }
-    console.log('[MP] 正在加入房间:', cleanCode);
     const userId = await getUserId();
     if (!userId) {
       alert('请先登录后再加入房间');
@@ -897,191 +895,481 @@
     }
   }
 
-  // --- 2. UI 注入 (严格匹配图片风格：深色、磨砂、紫色渐变) ---
-
-  function injectUIButtons() {
-    const selectionPanel = document.querySelector('.selection-panel') || $('game-selection');
-    if (!selectionPanel) return;
-
-    // 清除旧的控制区
-    const old = document.querySelector('.mp-visual-container');
-    if (old) old.remove();
-
-    const container = document.createElement('div');
-    container.className = 'mp-visual-container';
-    
-    // 动态注入匹配截图的 CSS
-    const style = document.createElement('style');
-    style.innerHTML = `
-      .mp-visual-container {
-        background: rgba(15, 15, 20, 0.7);
-        backdrop-filter: blur(20px);
-        -webkit-backdrop-filter: blur(20px);
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        border-radius: 24px;
-        padding: 25px;
-        margin-top: 25px;
-        width: 100%;
-        max-width: 380px;
-        box-shadow: 0 20px 50px rgba(0,0,0,0.6);
-        color: #fff;
-        font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
-      }
-      .mp-header-row {
-        display: flex;
-        align-items: center;
-        margin-bottom: 20px;
-        font-size: 14px;
-        color: rgba(255,255,255,0.9);
-        letter-spacing: 1px;
-      }
-      .mp-dot {
-        width: 6px; height: 6px;
-        background: #00ffcc;
-        border-radius: 50%;
-        margin-right: 10px;
-        box-shadow: 0 0 10px #00ffcc;
-      }
-      .btn-purple-glow {
-        background: linear-gradient(135deg, #6d28d9 0%, #a855f7 100%);
-        color: white;
-        border: none;
-        padding: 15px;
-        border-radius: 14px;
-        width: 100%;
-        font-weight: 600;
-        font-size: 16px;
-        cursor: pointer;
-        margin-bottom: 15px;
-        transition: all 0.3s ease;
-        box-shadow: 0 4px 15px rgba(109, 40, 217, 0.4);
-      }
-      .btn-purple-glow:active { transform: scale(0.96); opacity: 0.9; }
-      .mp-input-row { display: flex; gap: 12px; }
-      .mp-input-field {
-        flex: 1;
-        background: rgba(255, 255, 255, 0.05);
-        border: 1px solid rgba(255, 255, 255, 0.15);
-        border-radius: 12px;
-        padding: 12px;
-        color: #fff;
-        text-align: center;
-        font-size: 16px;
-        font-weight: bold;
-        letter-spacing: 3px;
-      }
-      .mp-input-field::placeholder { color: rgba(255,255,255,0.3); letter-spacing: normal; font-weight: normal; }
-      .btn-join-dark {
-        background: rgba(255, 255, 255, 0.1);
-        border: 1px solid rgba(255, 255, 255, 0.2);
-        color: #fff;
-        padding: 0 22px;
-        border-radius: 12px;
-        cursor: pointer;
-        font-weight: 500;
-        transition: background 0.2s;
-      }
-      .btn-join-dark:hover { background: rgba(255, 255, 255, 0.15); }
-    `;
-    document.head.appendChild(style);
-
-    container.innerHTML = `
-      <div class="mp-header-row"><span class="mp-dot"></span> 在线对战模式 (Alpha)</div>
-      <button id="mp-create-btn" class="btn-purple-glow">创建联机对战</button>
-      <div class="mp-input-row">
-        <input type="text" id="mp-code-input" class="mp-input-field" placeholder="输入6位房号" maxlength="6">
-        <button id="mp-join-btn" class="btn-join-dark">加入</button>
-      </div>
-    `;
-    selectionPanel.appendChild(container);
-
-    // 绑定事件
-    $('mp-create-btn').onclick = createRoom;
-    $('mp-join-btn').onclick = () => {
-      const code = $('mp-code-input').value;
-      joinRoom(code);
-    };
+  function showGameArea() {
+    const selection = $('game-selection');
+    const app = document.querySelector('.app');
+    if (selection) selection.style.display = 'none';
+    if (app) app.style.display = 'grid';
   }
 
-  // --- 3. 逻辑修复 (手机端落子 + 白方权限 + 呼吸闪烁) ---
+  function injectUIButtons() {
+    const card = document.querySelector('#game-selection .selection-card');
+    if (!card || $('mp-create-room-btn')) return;
 
-  function canvasCaptureHandler(e) {
-    if (!state.isInRoom) return;
+    const divider = document.createElement('div');
+    divider.style.cssText = 'margin:14px 0;border-top:1px solid rgba(255,255,255,0.1);';
 
-    // 权限：确保当前回合与玩家颜色一致
-    if (state.currentTurn !== state.myColor) return;
+    const wrapper = document.createElement('div');
+    wrapper.style.cssText = 'display:flex;flex-direction:column;gap:10px;margin-top:12px;';
 
-    const rect = state.canvas.getBoundingClientRect();
-    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-    
-    const x = clientX - rect.left;
-    const y = clientY - rect.top;
+    const createBtn = document.createElement('button');
+    createBtn.id = 'mp-create-room-btn';
+    createBtn.className = 'mode-btn primary';
+    createBtn.innerHTML = '<span>🆚 创建对战房间</span><span class="badge">多人</span>';
+    createBtn.addEventListener('click', createRoom);
 
-    const col = Math.round((x - state.padding) / state.cellSize);
-    const row = Math.round((y - state.padding) / state.cellSize);
+    const joinHint = document.createElement('p');
+    joinHint.style.cssText = 'margin:0;color:rgba(238,244,251,0.68);font-size:13px;line-height:1.6;';
+    joinHint.textContent = '收到邀请链接后，打开即可自动加入房间。';
 
-    if (row >= 0 && row < SIZE && col >= 0 && col < SIZE) {
-      if (state.board[row][col] === EMPTY) {
-        // 调用发送落子的 handleMultiplayerMove
-        if (typeof handleMultiplayerMove === 'function') {
-           handleMultiplayerMove(row, col);
-        }
-      }
+    wrapper.appendChild(createBtn);
+    wrapper.appendChild(joinHint);
+    card.appendChild(divider);
+    card.appendChild(wrapper);
+  }
+
+  function bindResignButtons() {
+    const bindOne = (el) => {
+      if (!el || el.dataset.bound === '1') return;
+      el.addEventListener('click', onResignClick);
+      el.dataset.bound = '1';
+    };
+    bindOne($('mp-resign-btn'));
+    bindOne($('surrender-btn'));
+  }
+
+  async function onResignClick() {
+    if (!state.isInRoom || !state.roomChannel) {
+      alert('当前不在对局中');
+      return;
+    }
+    await state.roomChannel.send({
+      type: 'broadcast',
+      event: 'message',
+      payload: {
+        type: 'RESIGN_REQUEST',
+        from: state.myColor,
+        room: state.roomCode,
+      },
+    });
+    toast('已发送认输请求');
+  }
+
+  async function leaveRoom() {
+    clearLatestMoveHighlight();
+    if (state.roomChannel) {
+      try { await state.roomChannel.untrack(); } catch (_) {}
+      try { await state.supabase?.removeChannel(state.roomChannel); } catch (_) {}
+      state.roomChannel = null;
+    }
+    state.isInRoom = false;
+    state.roomCode = null;
+    state.myColor = null;
+    state.roomContext.roomId = null;
+    state.roomContext.inviteLink = '';
+    state.blackCaptures = 0;
+    state.whiteCaptures = 0;
+    setConnectionStatus('未建立');
+    updateProfilePanels();
+    updateRoomPanel({ code: '—', inviteLink: '' });
+    drawFullBoard();
+  }
+
+  function checkRoomParam() {
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get('room');
+    if (code && code.length === ROOM_CODE_LENGTH) {
+      setTimeout(() => joinRoom(code.toUpperCase()), 350);
+      return true;
+    }
+    return false;
+  }
+
+  async function handleSurrenderMessage(payload) {
+    if (!payload || payload.type !== 'RESIGN_REQUEST') return;
+    if (!state.myColor || payload.from === state.myColor) return;
+
+    const agree = window.confirm('对手请求认输，是否同意？');
+    if (!agree) return;
+
+    const winner = state.myColor;
+    await state.roomChannel?.send({
+      type: 'broadcast',
+      event: 'message',
+      payload: {
+        type: 'GAME_OVER',
+        winner,
+        reason: 'resign',
+      },
+    });
+    await persistRoomState({ status: 'ended' });
+    showGameOverOverlay(winner, 'resign');
+  }
+
+  async function onRoomMessage(payload) {
+    if (!payload) return;
+    if (payload.type === 'RESIGN_REQUEST') {
+      await handleSurrenderMessage(payload);
+    } else if (payload.type === 'GAME_OVER') {
+      await persistRoomState({ status: 'ended' });
+      showGameOverOverlay(payload.winner, payload.reason || 'game_over');
     }
   }
 
-  // 呼吸闪烁绘制函数
-  function renderLatestStoneEffect(row, col, colorType) {
-    const cx = state.padding + col * state.cellSize;
-    const cy = state.padding + row * state.cellSize;
-    
-    state.ctx.save();
-    // 呼吸动画：透明度 0.6 ~ 1.0 之间平滑变动
-    state.ctx.globalAlpha = 0.8 + 0.2 * Math.sin(Date.now() / 250);
-    state.ctx.shadowColor = '#00ffcc';
-    state.ctx.shadowBlur = 15;
-    
-    state.ctx.beginPath();
-    state.ctx.arc(cx, cy, state.cellSize * 0.43, 0, Math.PI * 2);
-    state.ctx.fillStyle = (colorType === BLACK) ? '#000' : '#fff';
-    state.ctx.fill();
-    state.ctx.restore();
+  async function refreshRoomFromServer(room) {
+    if (!room) return;
+    if (room.board_state) {
+      try {
+        const snapshot = typeof room.board_state === 'string' ? JSON.parse(room.board_state) : room.board_state;
+        setBoardSnapshot(snapshot);
+      } catch (err) {
+        console.warn('[multiplayer-ext] board_state 解析失败:', err);
+      }
+    }
+    if (typeof room.black_captures === 'number') state.blackCaptures = room.black_captures;
+    if (typeof room.white_captures === 'number') state.whiteCaptures = room.white_captures;
+
+    if (room.status === 'ended') setConnectionStatus('已结束');
+    else if (room.status === 'playing') setConnectionStatus('实时同步中');
+    else setConnectionStatus('等待对手');
+
+    const otherId = state.myColor === 'black' ? room.white_id : room.black_id;
+    const myId = state.myColor === 'black' ? room.black_id : room.white_id;
+    const blackNameEl = $('black-player-name');
+    const whiteNameEl = $('white-player-name');
+
+    const blackProfile = room.black_id ? await getPlayerProfile(room.black_id) : null;
+    const whiteProfile = room.white_id ? await getPlayerProfile(room.white_id) : null;
+    state.roomContext.blackName = blackProfile?.nickname || (room.black_id ? '黑方玩家' : '黑方');
+    state.roomContext.whiteName = whiteProfile?.nickname || (room.white_id ? '白方玩家' : '白方');
+
+    if (blackNameEl) blackNameEl.textContent = state.roomContext.blackName;
+    if (whiteNameEl) whiteNameEl.textContent = state.roomContext.whiteName;
+
+    const oppStatus = $('opponent-status');
+    const oppName = $('opponent-nickname');
+    const oppSide = $('opponent-side');
+    const oppActivity = $('opponent-activity');
+    if (oppStatus) {
+      oppStatus.textContent = otherId ? '在线' : '离线';
+      oppStatus.classList.toggle('offline', !otherId);
+    }
+    if (oppName) oppName.textContent = otherId ? (state.myColor === 'black' ? state.roomContext.whiteName : state.roomContext.blackName) : '等待对手';
+    if (oppSide) oppSide.textContent = `执色：${otherId ? (state.myColor === 'black' ? '白棋' : '黑棋') : '—'}`;
+    if (oppActivity) oppActivity.textContent = otherId ? '状态：已匹配' : '状态：等待加入';
+
+    if (myId) {
+      const profile = await getPlayerProfile(myId);
+      const localName = $('user-nickname');
+      const rankEl = $('user-rank');
+      if (localName) localName.textContent = profile?.nickname || '棋手';
+      if (rankEl) rankEl.textContent = profile?.rank || '业余1段';
+    }
+
+    updateProfilePanels();
+    drawFullBoard();
   }
 
-  // --- 4. 初始化 ---
+  function buildInviteLink(code) {
+    return `${window.location.origin}${window.location.pathname}?room=${code}`;
+  }
+
+  async function createRoom() {
+    const userId = await getUserId();
+    if (!userId) {
+      alert('请先登录后再创建房间');
+      window.location.href = 'login.html';
+      return;
+    }
+    if (!state.supabase) {
+      alert('Supabase 未配置，无法创建房间');
+      return;
+    }
+
+    const code = generateRoomCode();
+    try {
+      const { error } = await state.supabase
+        .schema('game')
+        .from('game_rooms')
+        .insert({
+          code,
+          black_id: userId,
+          white_id: null,
+          status: 'waiting',
+          board_state: JSON.stringify(getBoardSnapshot()),
+          next_turn: 'black',
+          black_captures: 0,
+          white_captures: 0,
+        });
+      if (error) throw error;
+
+      state.roomCode = code;
+      state.myColor = 'black';
+      state.currentTurn = 'black';
+      state.isInRoom = true;
+      state.roomContext.roomId = code;
+      state.roomContext.inviteLink = buildInviteLink(code);
+      state.roomContext.blackName = '黑方玩家';
+      state.roomContext.whiteName = '白方玩家';
+
+      state.roomChannel = await initRoomChannel(code);
+      updateRoomPanel({ code, inviteLink: state.roomContext.inviteLink });
+      await refreshRoomFromServer({ black_id: userId, white_id: null, status: 'waiting' });
+      drawFullBoard();
+      updateProfilePanels();
+      showGameArea();
+      toast(`房间已创建：${code}`);
+    } catch (err) {
+      console.error('[multiplayer-ext] 创建房间失败:', err);
+      alert(`创建房间失败: ${err.message}`);
+    }
+  }
+
+  async function joinRoom(code) {
+    const userId = await getUserId();
+    if (!userId) {
+      alert('请先登录后再加入房间');
+      window.location.href = 'login.html';
+      return;
+    }
+    if (!state.supabase) {
+      alert('Supabase 未配置，无法加入房间');
+      return;
+    }
+
+    try {
+      const { data: room, error } = await state.supabase
+        .schema('game')
+        .from('game_rooms')
+        .select('*')
+        .eq('code', code)
+        .single();
+      if (error || !room) {
+        alert('房间不存在或已过期');
+        return;
+      }
+
+      if (room.black_id === userId) {
+        state.myColor = 'black';
+      } else if (!room.white_id) {
+        const { error: updateErr } = await state.supabase
+          .schema('game')
+          .from('game_rooms')
+          .update({ white_id: userId, status: 'playing' })
+          .eq('code', code);
+        if (updateErr) throw updateErr;
+        state.myColor = 'white';
+      } else if (room.white_id === userId) {
+        state.myColor = 'white';
+      } else {
+        alert('该房间已满');
+        return;
+      }
+
+      state.roomCode = code;
+      state.currentTurn = 'black';
+      state.isInRoom = true;
+      state.roomContext.roomId = code;
+      state.roomContext.inviteLink = buildInviteLink(code);
+      state.roomChannel = await initRoomChannel(code);
+      await refreshRoomFromServer(room);
+      updateRoomPanel({ code, inviteLink: state.roomContext.inviteLink });
+      drawFullBoard();
+      updateProfilePanels();
+      showGameArea();
+      toast(`已加入房间：${code}`);
+    } catch (err) {
+      console.error('[multiplayer-ext] 加入房间失败:', err);
+      alert(`加入房间失败: ${err.message}`);
+    }
+  }
+
+  function bindResignButtons() {
+    const bindOne = (el) => {
+      if (!el || el.dataset.bound === '1') return;
+      el.addEventListener('click', onResignClick);
+      el.dataset.bound = '1';
+    };
+    bindOne($('mp-resign-btn'));
+    bindOne($('surrender-btn'));
+  }
+
+  async function onResignClick() {
+    if (!state.isInRoom || !state.roomChannel) {
+      alert('当前不在对局中');
+      return;
+    }
+    await state.roomChannel.send({
+      type: 'broadcast',
+      event: 'message',
+      payload: {
+        type: 'RESIGN_REQUEST',
+        from: state.myColor,
+        room: state.roomCode,
+      },
+    });
+    toast('已发送认输请求');
+  }
+
+  function hideGameOverOverlay() {
+    const overlay = $('result-overlay');
+    if (overlay) overlay.classList.remove('is-open');
+  }
+
+  function showGameOverOverlay(winnerColor, reason = 'game_over') {
+    const overlay = $('result-overlay');
+    const title = $('result-title');
+    const desc = $('result-desc');
+    if (!overlay || !title || !desc) return;
+    title.textContent = '对局结束';
+    desc.textContent = `${winnerColor === 'black' ? '黑方' : '白方'}获胜${reason === 'resign' ? '（对手认输）' : ''}`;
+    overlay.classList.add('is-open');
+  }
+
+  async function leaveRoom() {
+    clearLatestMoveHighlight();
+    if (state.roomChannel) {
+      try { await state.roomChannel.untrack(); } catch (_) {}
+      try { await state.supabase?.removeChannel(state.roomChannel); } catch (_) {}
+      state.roomChannel = null;
+    }
+    state.isInRoom = false;
+    state.roomCode = null;
+    state.myColor = null;
+    state.roomContext.roomId = null;
+    state.roomContext.inviteLink = '';
+    state.blackCaptures = 0;
+    state.whiteCaptures = 0;
+    setConnectionStatus('未建立');
+    updateProfilePanels();
+    updateRoomPanel({ code: '—', inviteLink: '' });
+    drawFullBoard();
+  }
+
+  function checkRoomParam() {
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get('room');
+    if (code && code.length === ROOM_CODE_LENGTH) {
+      setTimeout(() => joinRoom(code.toUpperCase()), 350);
+      return true;
+    }
+    return false;
+  }
+
+  async function handleSurrenderMessage(payload) {
+    if (!payload || payload.type !== 'RESIGN_REQUEST') return;
+    if (!state.myColor || payload.from === state.myColor) return;
+
+    const agree = window.confirm('对手请求认输，是否同意？');
+    if (!agree) return;
+
+    const winner = state.myColor;
+    await state.roomChannel?.send({
+      type: 'broadcast',
+      event: 'message',
+      payload: {
+        type: 'GAME_OVER',
+        winner,
+        reason: 'resign',
+      },
+    });
+    await persistRoomState({ status: 'ended' });
+    showGameOverOverlay(winner, 'resign');
+  }
+
+  async function onRoomMessage(payload) {
+    if (!payload) return;
+    if (payload.type === 'RESIGN_REQUEST') {
+      await handleSurrenderMessage(payload);
+    } else if (payload.type === 'GAME_OVER') {
+      await persistRoomState({ status: 'ended' });
+      showGameOverOverlay(payload.winner, payload.reason || 'game_over');
+    }
+  }
+
+  function showGameArea() {
+    const selection = $('game-selection');
+    const app = document.querySelector('.app');
+    if (selection) selection.style.display = 'none';
+    if (app) app.style.display = 'grid';
+  }
+
+  function injectUIButtons() {
+    const card = document.querySelector('#game-selection .selection-card');
+    if (!card || $('mp-create-room-btn')) return;
+
+    const divider = document.createElement('div');
+    divider.style.cssText = 'margin:14px 0;border-top:1px solid rgba(255,255,255,0.1);';
+
+    const wrapper = document.createElement('div');
+    wrapper.style.cssText = 'display:flex;flex-direction:column;gap:10px;margin-top:12px;';
+
+    const createBtn = document.createElement('button');
+    createBtn.id = 'mp-create-room-btn';
+    createBtn.className = 'mode-btn primary';
+    createBtn.innerHTML = '<span>🆚 创建对战房间</span><span class="badge">多人</span>';
+    createBtn.addEventListener('click', createRoom);
+
+    const joinHint = document.createElement('p');
+    joinHint.style.cssText = 'margin:0;color:rgba(238,244,251,0.68);font-size:13px;line-height:1.6;';
+    joinHint.textContent = '收到邀请链接后，打开即可自动加入房间。';
+
+    wrapper.appendChild(createBtn);
+    wrapper.appendChild(joinHint);
+    card.appendChild(divider);
+    card.appendChild(wrapper);
+  }
 
   async function init() {
     if (state.boundOnce) return;
     state.boundOnce = true;
 
+    initSupabaseClient();
     injectUIButtons();
+    bindCopyInviteButton();
+    bindResignButtons();
+    checkRoomParam();
 
-    state.canvas = $('game-canvas');
-    if (!state.canvas) return;
-    state.ctx = state.canvas.getContext('2d');
+    if (!initCanvasParams()) return;
+    drawFullBoard();
+    updateProfilePanels();
 
-    // 手机端适配
-    state.canvas.addEventListener('click', canvasCaptureHandler);
-    state.canvas.addEventListener('touchstart', (e) => {
-      if (state.isInRoom) e.preventDefault(); // 阻止滚动
-      canvasCaptureHandler(e);
-    }, { passive: false });
+    state.canvas.addEventListener('click', canvasCaptureHandler, { capture: true });
 
-    // 每一帧都尝试重绘（用于呼吸闪烁效果）
-    const frame = () => {
-      if (state.latestMove && state.isInRoom) {
-        // 假设 drawFullBoard 会被调用，这里触发局部重绘
-        renderLatestStoneEffect(state.latestMove[0], state.latestMove[1], state.board[state.latestMove[0]][state.latestMove[1]]);
-      }
-      requestAnimationFrame(frame);
-    };
-    frame();
+    if (state.resizeObserver) state.resizeObserver.disconnect();
+    state.resizeObserver = new ResizeObserver(() => {
+      ensureCanvasSize();
+      drawFullBoard();
+    });
+    const shell = state.canvas.parentElement;
+    if (shell) state.resizeObserver.observe(shell);
+    window.addEventListener('resize', () => {
+      ensureCanvasSize();
+      drawFullBoard();
+    });
 
-    console.log('[MP] 科技感 UI 修复版已就绪');
+    const closeBtn = $('result-close-btn');
+    if (closeBtn && closeBtn.dataset.bound !== '1') {
+      closeBtn.addEventListener('click', () => hideGameOverOverlay());
+      closeBtn.dataset.bound = '1';
+    }
+
+    console.log('[multiplayer-ext] loaded');
   }
 
-  // 确保 API 暴露
-  window.MP = { ...window.MP, init, createRoom, joinRoom };
-  window.addEventListener('DOMContentLoaded', init);
+  window.MP = {
+    createRoom,
+    joinRoom,
+    leaveRoom,
+    getRoomCode: () => state.roomCode,
+    getMyColor: () => state.myColor,
+    isInRoom: () => state.isInRoom,
+    handleSurrender: onResignClick,
+  };
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init, { once: true });
+  } else {
+    init();
+  }
 })();
