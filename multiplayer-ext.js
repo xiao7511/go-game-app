@@ -457,6 +457,7 @@
   }
 
   function drawFullBoard() {
+    if (state.latestMove) { requestAnimationFrame(() => drawFullBoard()); }
     if (!state.canvas || !state.ctx) return;
     const size = state.canvas.clientWidth || state.canvas.width / Math.max(1, window.devicePixelRatio || 1);
     const ctx = state.ctx;
@@ -533,17 +534,30 @@
 
   function canvasCaptureHandler(e) {
     if (!state.isInRoom) return;
-    const isBlackTurn = state.currentTurn === 'black';
-    const canPlaceStone = !state.myColor
-      || (state.myColor === 'black' && isBlackTurn)
-      || (state.myColor === 'white' && !isBlackTurn)
-      || state.currentTurn === state.myColor;
-    if (!canPlaceStone) {
-      e.preventDefault();
-      e.stopPropagation();
+
+    // Check if it's my turn: (currentTurn is 'black' AND I am 'black') OR (currentTurn is 'white' AND I am 'white')
+    const isMyTurn = (state.currentTurn === state.myColor);
+    
+    if (!isMyTurn) {
       playSound('invalidMove');
       return;
     }
+
+    // Get coordinates relative to canvas, supporting both mouse and touch
+    const rect = state.canvas.getBoundingClientRect();
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    
+    const x = clientX - rect.left;
+    const y = clientY - rect.top;
+
+    const col = Math.round((x - state.padding) / state.cellSize);
+    const row = Math.round((y - state.padding) / state.cellSize);
+
+    if (row >= 0 && row < SIZE && col >= 0 && col < SIZE) {
+      handleMultiplayerMove(row, col);
+    }
+  }
     e.preventDefault();
     e.stopPropagation();
     const pos = captureToBoardCoords(e);
@@ -643,7 +657,14 @@
     title.textContent = '对局结束';
     const winnerLabel = winnerColor === 'black' ? '黑方' : '白方';
     const loserLabel = winnerColor === 'black' ? '白方' : '黑方';
-    desc.textContent = reason === 'resign' ? `${winnerLabel}获胜（${loserLabel}投降）` : `${winnerLabel}获胜`;
+    
+    if (reason === 'resign') {
+      desc.textContent = `${winnerLabel}获胜（${loserLabel}投降）`;
+    } else {
+      desc.textContent = `${winnerLabel}获胜`;
+    }
+    overlay.classList.add('is-open');
+  }获胜（${loserLabel}投降）` : `${winnerLabel}获胜`;
     overlay.classList.add('is-open');
   }
 
@@ -1228,8 +1249,18 @@
     const title = $('result-title');
     const desc = $('result-desc');
     if (!overlay || !title || !desc) return;
+
     title.textContent = '对局结束';
-    desc.textContent = `${winnerColor === 'black' ? '黑方' : '白方'}获胜${reason === 'resign' ? '（对手认输）' : ''}`;
+    const winnerLabel = winnerColor === 'black' ? '黑方' : '白方';
+    const loserLabel = winnerColor === 'black' ? '白方' : '黑方';
+    
+    if (reason === 'resign') {
+      desc.textContent = `${winnerLabel}获胜（${loserLabel}投降）`;
+    } else {
+      desc.textContent = `${winnerLabel}获胜`;
+    }
+    overlay.classList.add('is-open');
+  }获胜${reason === 'resign' ? '（对手认输）' : ''}`;
     overlay.classList.add('is-open');
   }
 
@@ -1342,6 +1373,7 @@
     updateProfilePanels();
 
     state.canvas.addEventListener('click', canvasCaptureHandler, { capture: true });
+    state.canvas.addEventListener('touchstart', (e) => { e.preventDefault(); canvasCaptureHandler(e); }, { passive: false });
 
     if (state.resizeObserver) state.resizeObserver.disconnect();
     state.resizeObserver = new ResizeObserver(() => {
