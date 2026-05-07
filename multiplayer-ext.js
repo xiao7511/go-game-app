@@ -41,10 +41,11 @@
   let blackCaptures = 0;
   let whiteCaptures = 0;
 
-  let latestMove = null; // 在全局声明
+  let latestMove = null; // { row, col, color }
   let latestMoveFlash = true;
-  let roomContext = {};       
-  // 棋盘状态 (扩展维护的独立副本)
+  let latestMoveTimer = null;
+  let roomContext = {};      
+// 棋盘状态 (扩展维护的独立副本)
   let board = Array.from({ length: SIZE }, () => Array(SIZE).fill(EMPTY));
 
   // Canvas 渲染参数 (从 canvas 尺寸计算)
@@ -120,6 +121,49 @@
       statusEl.textContent = isInRoom ? '进行中' : '待连接';
       statusEl.classList.toggle('offline', !isInRoom);
     }
+    bindCopyInviteButton();
+  }
+
+  function bindCopyInviteButton() {
+    const copyBtn = document.getElementById('mp-copy-invite-btn');
+    const linkInput = document.getElementById('room-invite-link');
+    if (!copyBtn || copyBtn.dataset.bound === '1') return;
+    copyBtn.dataset.bound = '1';
+
+    const copyText = async (text) => {
+      if (!text) throw new Error('missing invite link');
+      if (navigator.clipboard?.writeText && window.isSecureContext) {
+        await navigator.clipboard.writeText(text);
+        return true;
+      }
+      if (linkInput) {
+        linkInput.focus();
+        linkInput.select();
+        const ok = document.execCommand('copy');
+        if (ok) return true;
+      }
+      throw new Error('clipboard unavailable');
+    };
+
+    copyBtn.addEventListener('click', async () => {
+      const text = (linkInput && linkInput.value) || roomContext.inviteLink || '';
+      try {
+        await copyText(text);
+        showToast('已复制房间邀请链接');
+      } catch (err) {
+        console.warn('[multiplayer-ext] 复制邀请链接失败:', err);
+        if (linkInput) {
+          linkInput.removeAttribute('readonly');
+          linkInput.focus();
+          linkInput.select();
+          document.execCommand('copy');
+          linkInput.setAttribute('readonly', 'readonly');
+          showToast('请手动复制邀请链接');
+        } else {
+          prompt('请手动复制邀请链接:', text);
+        }
+      }
+    });
   }
 
   function updateLocalPlayerPanel(profile) {
@@ -299,7 +343,11 @@
     ctx.clearRect(0, 0, size, size);
 
     // 木质背景
-    ctx.fillStyle = '#f3c17a';
+    const wood = ctx.createRadialGradient(size * 0.3, size * 0.2, size * 0.05, size * 0.5, size * 0.5, size * 0.9);
+    wood.addColorStop(0, '#f1d0a2');
+    wood.addColorStop(0.45, '#d7ae72');
+    wood.addColorStop(1, '#b98043');
+    ctx.fillStyle = wood;
     ctx.fillRect(0, 0, size, size);
 
     // 棋盘线
@@ -330,6 +378,24 @@
     for (let r = 0; r < SIZE; r++) {
       for (let c = 0; c < SIZE; c++) {
         if (board[r][c] !== EMPTY) drawStone(r, c, board[r][c]);
+      }
+    }
+
+    if (latestMove) {
+      latestMoveFlash = !latestMoveFlash;
+      if (latestMoveFlash) {
+        const [lr, lc] = latestMove;
+        const cx = padding + lc * cellSize;
+        const cy = padding + lr * cellSize;
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(cx, cy, cellSize * 0.48, 0, Math.PI * 2);
+        ctx.strokeStyle = 'rgba(246, 196, 83, 0.95)';
+        ctx.lineWidth = Math.max(2, cellSize * 0.08);
+        ctx.shadowColor = 'rgba(255,255,255,0.35)';
+        ctx.shadowBlur = 14;
+        ctx.stroke();
+        ctx.restore();
       }
     }
   }
@@ -457,6 +523,16 @@
     playSound(result.captured > 0 ? 'capture' : 'placeStone');
 
     // 渲染: 先快速画单子
+    latestMove = [row, col];
+    latestMoveFlash = true;
+    if (latestMoveTimer) clearTimeout(latestMoveTimer);
+    latestMoveTimer = setTimeout(() => {
+      if (latestMove && latestMove[0] === row && latestMove[1] === col) {
+        latestMove = null;
+        latestMoveFlash = true;
+        drawFullBoard();
+      }
+    }, 2000);
     drawStone(row, col, color);
     // 擦除被提棋子
     if (result.capturedGroup) {
@@ -552,6 +628,16 @@
     else whiteCaptures += (captured?.length || 0);
 
     // 渲染: 画对手的棋子
+    latestMove = [row, col];
+    latestMoveFlash = true;
+    if (latestMoveTimer) clearTimeout(latestMoveTimer);
+    latestMoveTimer = setTimeout(() => {
+      if (latestMove && latestMove[0] === row && latestMove[1] === col) {
+        latestMove = null;
+        latestMoveFlash = true;
+        drawFullBoard();
+      }
+    }, 2000);
     drawStone(row, col, color);
     if (captured && captured.length) {
       for (const [r, c] of captured) eraseStone(r, c);
@@ -766,7 +852,6 @@
    latestMove = null;
    latestMoveFlash = true;
 
-    // 全盘绘制
     drawFullBoard();
     updateTurnUI();
 
@@ -819,18 +904,48 @@
     `;
 
     // 复制按钮事件
-    document.getElementById('mp-copy-invite-btn').addEventListener('click', () => {
-      navigator.clipboard.writeText(inviteLink).then(() => {
+    const copyBtn = document.getElementById('mp-copy-invite-btn');
+    if (copyBtn) {
+      copyBtn.addEventListener('click', async () => {
         const toast = document.getElementById('mp-copy-toast');
-        if (toast) {
-          toast.style.display = 'block';
-          setTimeout(() => { toast.style.display = 'none'; }, 2000);
+        const showToast = () => {
+          if (toast) {
+            toast.style.display = 'block';
+            setTimeout(() => { toast.style.display = 'none'; }, 2000);
+          }
+        };
+        try {
+          if (navigator.clipboard && window.isSecureContext) {
+            await navigator.clipboard.writeText(inviteLink);
+          } else {
+            const input = document.getElementById('room-invite-link');
+            if (input) {
+              input.removeAttribute('readonly');
+              input.focus();
+              input.select();
+              const ok = document.execCommand('copy');
+              input.setAttribute('readonly', 'readonly');
+              if (!ok) throw new Error('copy command failed');
+            } else {
+              throw new Error('clipboard unavailable');
+            }
+          }
+          showToast();
+        } catch (err) {
+          const input = document.getElementById('room-invite-link');
+          if (input) {
+            input.removeAttribute('readonly');
+            input.focus();
+            input.select();
+            document.execCommand('copy');
+            input.setAttribute('readonly', 'readonly');
+            showToast();
+          } else {
+            prompt('请手动复制邀请链接:', inviteLink);
+          }
         }
-      }).catch(() => {
-        // fallback: 显示链接供手动复制
-        prompt('请手动复制邀请链接:', inviteLink);
       });
-    });
+    }
   }
 
   function injectUIButtons() {
@@ -890,6 +1005,12 @@
   // ── 清理函数 ─────────────────────────────────────────────────────
 
   function leaveRoom() {
+    if (latestMoveTimer) {
+      clearTimeout(latestMoveTimer);
+      latestMoveTimer = null;
+    }
+    latestMove = null;
+    latestMoveFlash = true;
     if (roomChannel) {
       roomChannel.untrack();
       supabase?.removeChannel(roomChannel);

@@ -338,11 +338,32 @@
       aspect-ratio: 1 / 1;
       border-radius: 24px;
       background: var(--wood-image);
-      box-shadow: 0 24px 80px rgba(0, 0, 0, 0.42);
+      box-shadow:
+        0 24px 80px rgba(0, 0, 0, 0.42),
+        inset 0 1px 0 rgba(255, 255, 255, 0.15),
+        inset 0 -12px 24px rgba(0, 0, 0, 0.16);
       overflow: hidden;
       display: flex;
       align-items: center;
       justify-content: center;
+      isolation: isolate;
+    }
+    .board-shell::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(circle at 20% 15%, rgba(255,255,255,0.16), transparent 28%),
+        radial-gradient(circle at 80% 85%, rgba(0,0,0,0.12), transparent 34%),
+        repeating-linear-gradient(95deg, rgba(255,255,255,0.03) 0 2px, rgba(0,0,0,0.03) 2px 6px);
+      opacity: 0.65;
+      pointer-events: none;
+      mix-blend-mode: soft-light;
+      z-index: 0;
+    }
+    canvas#goBoard {
+      position: relative;
+      z-index: 1;
     }
     canvas#goBoard {
       display: block;
@@ -483,6 +504,35 @@
       .topbar-actions .btn { flex: 1 1 0; }
       .card { padding: 20px; width: 92%; }
       #game-selection .card button { font-size: 0.95rem; padding: 12px 20px; }
+      .layout {
+        gap: 12px;
+        padding: 10px;
+      }
+      .sidebar, .panel, .selection-card, .card {
+        border-radius: 16px;
+      }
+      .board-shell {
+        width: min(100%, 94vmin);
+        border-radius: 18px;
+      }
+      .room-link {
+        flex-direction: column;
+      }
+      .room-link input,
+      .room-link button,
+      #room-panel .room-link button {
+        width: 100%;
+      }
+      .player-card {
+        align-items: flex-start;
+      }
+      .player-avatar {
+        width: 52px;
+        height: 52px;
+      }
+      .hint-list {
+        font-size: 12px;
+      }
     }
   </style>
 </head>
