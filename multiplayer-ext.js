@@ -1025,6 +1025,14 @@
 
   async function refreshRoomFromServer(room) {
     if (!room) return;
+    if (!state.roomCode) return;
+      try {
+        // ... 现有的同步逻辑 ...
+        const profile = await getPlayerProfile(someId); 
+        // ...
+      } catch (e) {
+        console.warn('[MP] 同步房间数据时发生非致命异常，已跳过。');
+    }
     if (room.board_state) {
       try {
         const snapshot = typeof room.board_state === 'string' ? JSON.parse(room.board_state) : room.board_state;
