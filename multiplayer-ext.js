@@ -30,11 +30,54 @@
 
   async function createRoom() {
     console.log('[MP] 正在发起创建房间请求...');
-    if (!state.supabase) {
-      alert("Supabase 未初始化，请检查配置");
+    const userId = await getUserId();
+    if (!userId) {
+      alert('请先登录后再创建房间');
+      window.location.href = 'login.html';
       return;
     }
-    // 此处保留您原始文件中定义的实际创建逻辑...
+    if (!state.supabase) {
+      alert('Supabase 未配置，无法创建房间');
+      return;
+    }
+
+    const code = generateRoomCode();
+    try {
+      const { error } = await state.supabase
+        .schema('game')
+        .from('game_rooms')
+        .insert({
+          code,
+          black_id: userId,
+          white_id: null,
+          status: 'waiting',
+          board_state: JSON.stringify(getBoardSnapshot()),
+          next_turn: 'black',
+          black_captures: 0,
+          white_captures: 0,
+        });
+      if (error) throw error;
+
+      state.roomCode = code;
+      state.myColor = 'black';
+      state.currentTurn = 'black';
+      state.isInRoom = true;
+      state.roomContext.roomId = code;
+      state.roomContext.inviteLink = buildInviteLink(code);
+      state.roomContext.blackName = '黑方玩家';
+      state.roomContext.whiteName = '白方玩家';
+
+      state.roomChannel = await initRoomChannel(code);
+      updateRoomPanel({ code, inviteLink: state.roomContext.inviteLink });
+      await refreshRoomFromServer({ black_id: userId, white_id: null, status: 'waiting' });
+      drawFullBoard();
+      updateProfilePanels();
+      showGameArea();
+      toast(`房间已创建：${code}`);
+    } catch (err) {
+      console.error('[multiplayer-ext] 创建房间失败:', err);
+      alert(`创建房间失败: ${err.message}`);
+    }
   }
 
   async function joinRoom(code) {
@@ -44,7 +87,62 @@
       return;
     }
     console.log('[MP] 正在加入房间:', cleanCode);
-    // 此处保留您原始文件中定义的实际加入逻辑...
+    const userId = await getUserId();
+    if (!userId) {
+      alert('请先登录后再加入房间');
+      window.location.href = 'login.html';
+      return;
+    }
+    if (!state.supabase) {
+      alert('Supabase 未配置，无法加入房间');
+      return;
+    }
+
+    try {
+      const { data: room, error } = await state.supabase
+        .schema('game')
+        .from('game_rooms')
+        .select('*')
+        .eq('code', code)
+        .single();
+      if (error || !room) {
+        alert('房间不存在或已过期');
+        return;
+      }
+
+      if (room.black_id === userId) {
+        state.myColor = 'black';
+      } else if (!room.white_id) {
+        const { error: updateErr } = await state.supabase
+          .schema('game')
+          .from('game_rooms')
+          .update({ white_id: userId, status: 'playing' })
+          .eq('code', code);
+        if (updateErr) throw updateErr;
+        state.myColor = 'white';
+      } else if (room.white_id === userId) {
+        state.myColor = 'white';
+      } else {
+        alert('该房间已满');
+        return;
+      }
+
+      state.roomCode = code;
+      state.currentTurn = 'black';
+      state.isInRoom = true;
+      state.roomContext.roomId = code;
+      state.roomContext.inviteLink = buildInviteLink(code);
+      state.roomChannel = await initRoomChannel(code);
+      await refreshRoomFromServer(room);
+      updateRoomPanel({ code, inviteLink: state.roomContext.inviteLink });
+      drawFullBoard();
+      updateProfilePanels();
+      showGameArea();
+      toast(`已加入房间：${code}`);
+    } catch (err) {
+      console.error('[multiplayer-ext] 加入房间失败:', err);
+      alert(`加入房间失败: ${err.message}`);
+    }
   }
 
   // --- 2. UI 注入 (严格匹配图片风格：深色、磨砂、紫色渐变) ---
