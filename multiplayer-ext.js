@@ -735,58 +735,101 @@
     return ch;
   }
 
+  /**
+ * 修复版：refreshRoomFromServer
+ * 解决 400 报错、LockGrantedCallback 异常及 UI 同步卡顿
+ */
   async function refreshRoomFromServer(room) {
     if (!room) return;
-    if (room.board_state) {
-      try {
-        const snapshot = typeof room.board_state === 'string' ? JSON.parse(room.board_state) : room.board_state;
-        setBoardSnapshot(snapshot);
-      } catch (err) {
-        console.warn('[multiplayer-ext] board_state 解析失败:', err);
+
+    // 1. 防止并发同步导致 Lock 异常 (加锁)
+    if (state.isSyncing) return;
+    state.isSyncing = true;
+
+    try {
+      // 2. 更新棋盘状态 (优先执行，确保落子可见)
+      if (room.board_state) {
+        try {
+          const snapshot = typeof room.board_state === 'string' 
+            ? JSON.parse(room.board_state) 
+            : room.board_state;
+          setBoardSnapshot(snapshot);
+        } catch (err) {
+          console.warn('[multiplayer-ext] board_state 解析失败:', err);
+        }
       }
+
+      // 更新提子数
+      if (typeof room.black_captures === 'number') state.blackCaptures = room.black_captures;
+      if (typeof room.white_captures === 'number') state.whiteCaptures = room.white_captures;
+
+      // 更新连接显示状态
+      if (room.status === 'ended') setConnectionStatus('已结束');
+      else if (room.status === 'playing') setConnectionStatus('实时同步中');
+      else setConnectionStatus('等待对手');
+
+      // 3. 异步获取玩家资料 (带异常保护，防止 400 错误中断全局)
+      const otherId = state.myColor === 'black' ? room.white_id : room.black_id;
+      const myId = state.myColor === 'black' ? room.black_id : room.white_id;
+
+      // 获取黑白双方资料 (Parallel 执行，提高效率)
+      const [blackProfile, whiteProfile, myProfile] = await Promise.allSettled([
+        room.black_id ? getPlayerProfile(room.black_id) : Promise.resolve(null),
+        room.white_id ? getPlayerProfile(room.white_id) : Promise.resolve(null),
+        myId ? getPlayerProfile(myId) : Promise.resolve(null)
+      ]);
+
+      // 处理黑方名字
+      state.roomContext.blackName = (blackProfile.status === 'fulfilled' && blackProfile.value?.nickname) 
+        ? blackProfile.value.nickname 
+        : (room.black_id ? '黑方玩家' : '黑方');
+
+      // 处理白方名字
+      state.roomContext.whiteName = (whiteProfile.status === 'fulfilled' && whiteProfile.value?.nickname) 
+        ? whiteProfile.value.nickname 
+        : (room.white_id ? '白方玩家' : '白方');
+
+      // 4. 更新 UI 文本 (DOM 操作)
+      const blackNameEl = $('black-player-name');
+      const whiteNameEl = $('white-player-name');
+      if (blackNameEl) blackNameEl.textContent = state.roomContext.blackName;
+      if (whiteNameEl) whiteNameEl.textContent = state.roomContext.whiteName;
+
+      // 更新对手面板
+      const oppStatus = $('opponent-status');
+      const oppName = $('opponent-nickname');
+      const oppSide = $('opponent-side');
+      if (oppStatus) {
+        oppStatus.textContent = otherId ? '在线' : '离线';
+        oppStatus.classList.toggle('offline', !otherId);
+      }
+      if (oppName) {
+        oppName.textContent = otherId 
+          ? (state.myColor === 'black' ? state.roomContext.whiteName : state.roomContext.blackName) 
+          : '等待对手';
+      }
+      if (oppSide) {
+        oppSide.textContent = `执色：${otherId ? (state.myColor === 'black' ? '白棋' : '黑棋') : '—'}`;
+      }
+
+      // 更新本地玩家面板
+      if (myProfile.status === 'fulfilled' && myProfile.value) {
+        const localName = $('user-nickname');
+        const rankEl = $('user-rank');
+        if (localName) localName.textContent = myProfile.value.nickname || '棋手';
+        if (rankEl) rankEl.textContent = myProfile.value.rank || '业余1段';
+      }
+
+      // 5. 触发重绘
+      updateProfilePanels();
+      drawFullBoard();
+
+    } catch (e) {
+      console.warn('[MP] 同步房间数据时发生非致命异常:', e.message);
+    } finally {
+      // 释放锁
+      state.isSyncing = false;
     }
-    if (typeof room.black_captures === 'number') state.blackCaptures = room.black_captures;
-    if (typeof room.white_captures === 'number') state.whiteCaptures = room.white_captures;
-
-    if (room.status === 'ended') setConnectionStatus('已结束');
-    else if (room.status === 'playing') setConnectionStatus('实时同步中');
-    else setConnectionStatus('等待对手');
-
-    const otherId = state.myColor === 'black' ? room.white_id : room.black_id;
-    const myId = state.myColor === 'black' ? room.black_id : room.white_id;
-    const blackNameEl = $('black-player-name');
-    const whiteNameEl = $('white-player-name');
-
-    const blackProfile = room.black_id ? await getPlayerProfile(room.black_id) : null;
-    const whiteProfile = room.white_id ? await getPlayerProfile(room.white_id) : null;
-    state.roomContext.blackName = blackProfile?.nickname || (room.black_id ? '黑方玩家' : '黑方');
-    state.roomContext.whiteName = whiteProfile?.nickname || (room.white_id ? '白方玩家' : '白方');
-
-    if (blackNameEl) blackNameEl.textContent = state.roomContext.blackName;
-    if (whiteNameEl) whiteNameEl.textContent = state.roomContext.whiteName;
-
-    const oppStatus = $('opponent-status');
-    const oppName = $('opponent-nickname');
-    const oppSide = $('opponent-side');
-    const oppActivity = $('opponent-activity');
-    if (oppStatus) {
-      oppStatus.textContent = otherId ? '在线' : '离线';
-      oppStatus.classList.toggle('offline', !otherId);
-    }
-    if (oppName) oppName.textContent = otherId ? (state.myColor === 'black' ? state.roomContext.whiteName : state.roomContext.blackName) : '等待对手';
-    if (oppSide) oppSide.textContent = `执色：${otherId ? (state.myColor === 'black' ? '白棋' : '黑棋') : '—'}`;
-    if (oppActivity) oppActivity.textContent = otherId ? '状态：已匹配' : '状态：等待加入';
-
-    if (myId) {
-      const profile = await getPlayerProfile(myId);
-      const localName = $('user-nickname');
-      const rankEl = $('user-rank');
-      if (localName) localName.textContent = profile?.nickname || '棋手';
-      if (rankEl) rankEl.textContent = profile?.rank || '业余1段';
-    }
-
-    updateProfilePanels();
-    drawFullBoard();
   }
 
   function buildInviteLink(code) {
