@@ -1,96 +1,134 @@
+/**
+ * multiplayer-ext.js
+ *
+ * Self-contained multiplayer extension for the Go game.
+ * - Room creation/joining
+ * - Realtime move sync
+ * - Latest move stone flashing
+ * - Resign confirmation flow
+ * - Room invite copy support
+ */
 (() => {
   'use strict';
 
-  const GoGame = window.GoGame;
-  if (!GoGame) return;
+  const SIZE = 19;
+  const EMPTY = 0;
+  const BLACK = 1;
+  const WHITE = 2;
+  const ROOM_CODE_LENGTH = 6;
+  const FLASH_DURATION = 2000;
+  const FLASH_INTERVAL = 200;
+
+  const DIRECTIONS = [
+    [-1, 0],
+    [1, 0],
+    [0, -1],
+    [0, 1],
+  ];
+
+  const SOUNDS = {
+    placeStone: 'assets/sounds/button-22.mp3',
+    capture: 'assets/sounds/button-21.mp3',
+    invalidMove: 'assets/sounds/button-12.mp3',
+    yourTurn: 'assets/sounds/button-3.mp3',
+    click: 'assets/sounds/button-25.mp3',
+  };
 
   const state = {
     supabase: null,
     roomChannel: null,
     roomCode: null,
     myColor: null,
+    currentTurn: 'black',
     isInRoom: false,
+    latestMove: null, // [row, col]
+    latestMoveVisible: true,
+    latestMoveTimer: null,
+    latestMoveBlinkTimer: null,
+    blackCaptures: 0,
+    whiteCaptures: 0,
     roomContext: {
-      roomId: null,
       inviteLink: '',
+      roomId: null,
       blackName: '黑方',
       whiteName: '白方',
-      blackPlayerId: null,
-      whitePlayerId: null,
     },
+    canvas: null,
+    ctx: null,
+    padding: 0,
+    cellSize: 0,
+    board: Array.from({ length: SIZE }, () => Array(SIZE).fill(EMPTY)),
+    resizeObserver: null,
+    boundOnce: false,
   };
 
   function $(id) {
     return document.getElementById(id);
   }
 
-  function normalizeSupabaseUrl(url) {
-    if (!url) return '';
-    return String(url).replace(/\/rest\/v1\/?$/i, '').replace(/\/$/, '');
+  function playSound(name) {
+    try {
+      const url = SOUNDS[name];
+      if (url) new Audio(url).play().catch(() => {});
+    } catch (_) {}
   }
 
-  function normalizeSide(side) {
-    return GoGame.normalizeSide(side);
-  }
-
-  function sideLabel(side) {
-    return GoGame.sideLabel(side);
-  }
-
-  function opponentSide(side) {
-    return GoGame.oppositeSide(side);
-  }
-
-  function buildInviteLink(code) {
-    return `${window.location.origin}${window.location.pathname}?room=${code}`;
-  }
-
-  function setConnectionStatus(text, locked = false) {
-    const el = $('connection-summary');
-    if (el) {
-      el.textContent = text;
-      if (locked) el.dataset.locked = '1';
-      else delete el.dataset.locked;
-    }
-    const pill = $('room-status-pill');
-    if (pill) {
-      pill.textContent = state.isInRoom ? '进行中' : '待连接';
-      pill.classList.toggle('offline', !state.isInRoom);
-      if (locked) pill.dataset.locked = '1';
-      else delete pill.dataset.locked;
-    }
-  }
-
-  function toast(message, duration = 2200) {
+  function toast(message) {
     const el = $('toast');
-    if (!el) return;
+    if (!el) {
+      console.log('[toast]', message);
+      return;
+    }
     el.textContent = message;
     el.classList.add('is-visible');
-    clearTimeout(toast._timer);
-    toast._timer = setTimeout(() => el.classList.remove('is-visible'), duration);
+    clearTimeout(el._hideTimer);
+    el._hideTimer = setTimeout(() => el.classList.remove('is-visible'), 2000);
+  }
+
+  function setConnectionStatus(text) {
+    const el = $('connection-summary');
+    if (el) el.textContent = text;
+  }
+
+  function normalizeSupabaseUrl(url) {
+    if (!url) return '';
+    return String(url)
+      .replace(/\/rest\/v1\/?$/i, '')
+      .replace(/\/$/, '');
   }
 
   function initSupabaseClient() {
     const cfg = window.APP_CONFIG || window.CONFIG || {};
     const url = normalizeSupabaseUrl(cfg.SUPABASE_URL || cfg.supabaseUrl || cfg.url);
     const key = cfg.SUPABASE_ANON_KEY || cfg.supabaseAnonKey || cfg.key;
-    if (!url || !key || !window.supabase?.createClient) return null;
-    if (!state.supabase) {
-      state.supabase = window.supabase.createClient(url, key, {
-        db: { schema: 'game' },
-        realtime: { params: { eventsPerSecond: 10 } },
-      });
+
+    if (!url || !key || !window.supabase?.createClient) {
+      console.warn('[multiplayer-ext] Supabase 未配置或 CDN 未加载，多人模式将保持离线。');
+      return null;
     }
+
+    state.supabase = window.supabase.createClient(url, key, {
+      db: { schema: 'game' },
+      realtime: { params: { eventsPerSecond: 10 } },
+    });
     return state.supabase;
   }
 
+  function generateRoomCode() {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    let code = '';
+    for (let i = 0; i < ROOM_CODE_LENGTH; i++) {
+      code += chars[Math.floor(Math.random() * chars.length)];
+    }
+    return code;
+  }
+
   async function getUserId() {
-    const client = state.supabase || initSupabaseClient();
-    if (!client) return null;
+    if (!state.supabase) return null;
     try {
-      const { data: { session } } = await client.auth.getSession();
+      const { data: { session } } = await state.supabase.auth.getSession();
       return session?.user?.id || null;
-    } catch {
+    } catch (_) {
       return null;
     }
   }
@@ -109,6 +147,405 @@
     }
   }
 
+  function updateProfilePanels() {
+    const blackCaptures = $('blackCaptures');
+    const whiteCaptures = $('whiteCaptures');
+    const currentPlayer = $('currentPlayer');
+
+    if (blackCaptures) blackCaptures.textContent = String(state.blackCaptures);
+    if (whiteCaptures) whiteCaptures.textContent = String(state.whiteCaptures);
+    if (currentPlayer) {
+      if (state.myColor) {
+        const isMine = state.currentTurn === state.myColor;
+        currentPlayer.textContent = `${state.currentTurn === 'black' ? '黑棋' : '白棋'}（${isMine ? '我方' : '对方'}）`;
+      } else {
+        currentPlayer.textContent = state.currentTurn === 'black' ? '黑棋' : '白棋';
+      }
+    }
+
+    const localSide = $('local-player-side');
+    const localTurn = $('local-player-turn');
+    const connSummary = $('connection-summary');
+    const blackName = $('black-player-name');
+    const whiteName = $('white-player-name');
+
+    if (localSide) localSide.textContent = `执色：${state.myColor === 'black' ? '黑棋' : state.myColor === 'white' ? '白棋' : '—'}`;
+    if (localTurn) localTurn.textContent = state.isInRoom
+      ? `状态：${state.currentTurn === state.myColor ? '轮到我方' : '等待对手'}`
+      : '状态：待进入对局';
+    if (connSummary) connSummary.textContent = state.isInRoom ? '已连接' : '未建立';
+    if (blackName) blackName.textContent = state.roomContext.blackName || '黑方';
+    if (whiteName) whiteName.textContent = state.roomContext.whiteName || '白方';
+  }
+
+  function updateRoomPanel({ code = state.roomCode, inviteLink = state.roomContext.inviteLink || '' } = {}) {
+    const roomIdEl = $('room-id');
+    const linkEl = $('room-invite-link');
+    const pill = $('room-status-pill');
+    if (roomIdEl) roomIdEl.textContent = code || '—';
+    if (linkEl) {
+      linkEl.value = inviteLink || '';
+      linkEl.readOnly = true;
+    }
+    if (pill) {
+      pill.textContent = state.isInRoom ? '进行中' : '待连接';
+      pill.classList.toggle('offline', !state.isInRoom);
+    }
+    bindCopyInviteButton();
+  }
+
+  function clearLatestMoveTimers() {
+    if (state.latestMoveTimer) clearTimeout(state.latestMoveTimer);
+    if (state.latestMoveBlinkTimer) clearInterval(state.latestMoveBlinkTimer);
+    state.latestMoveTimer = null;
+    state.latestMoveBlinkTimer = null;
+  }
+
+  function clearLatestMoveHighlight() {
+    clearLatestMoveTimers();
+    state.latestMove = null;
+    state.latestMoveVisible = true;
+  }
+
+  function setLatestMoveHighlight(row, col, duration = FLASH_DURATION) {
+    clearLatestMoveTimers();
+    state.latestMove = [row, col];
+    state.latestMoveVisible = true;
+    drawFullBoard();
+
+    state.latestMoveBlinkTimer = setInterval(() => {
+      state.latestMoveVisible = !state.latestMoveVisible;
+      drawFullBoard();
+    }, FLASH_INTERVAL);
+
+    state.latestMoveTimer = setTimeout(() => {
+      clearLatestMoveHighlight();
+      drawFullBoard();
+    }, duration);
+  }
+
+  function bindCopyInviteButton() {
+    const copyBtn = $('mp-copy-invite-btn');
+    const input = $('room-invite-link');
+    if (!copyBtn) return;
+
+    if (copyBtn.dataset.bound !== '1') {
+      copyBtn.addEventListener('click', async () => {
+        const text = (input && input.value) || state.roomContext.inviteLink || '';
+        if (!text) {
+          toast('暂无可复制的邀请链接');
+          return;
+        }
+
+        try {
+          if (navigator.clipboard?.writeText && window.isSecureContext) {
+            await navigator.clipboard.writeText(text);
+          } else if (input) {
+            input.removeAttribute('readonly');
+            input.focus();
+            input.select();
+            const ok = document.execCommand('copy');
+            input.setAttribute('readonly', 'readonly');
+            if (!ok) throw new Error('copy failed');
+          } else {
+            throw new Error('clipboard unavailable');
+          }
+          toast('已复制房间邀请链接');
+        } catch (err) {
+          console.warn('[multiplayer-ext] 复制失败:', err);
+          if (input) {
+            input.removeAttribute('readonly');
+            input.focus();
+            input.select();
+            const ok = document.execCommand('copy');
+            input.setAttribute('readonly', 'readonly');
+            if (ok) toast('已复制房间邀请链接');
+            else prompt('请手动复制邀请链接:', text);
+          } else {
+            prompt('请手动复制邀请链接:', text);
+          }
+        }
+      });
+
+      copyBtn.dataset.bound = '1';
+    }
+
+    copyBtn.disabled = !((input && input.value) || state.roomContext.inviteLink);
+    copyBtn.title = copyBtn.disabled ? '创建或加入房间后可复制邀请链接' : '复制房间邀请链接';
+  }
+
+  function getBoardSnapshot() {
+    return state.board.map((row) => row.slice());
+  }
+
+  function setBoardSnapshot(snapshot) {
+    if (!Array.isArray(snapshot) || snapshot.length !== SIZE) return;
+    state.board = snapshot.map((row) => Array.isArray(row) ? row.slice(0, SIZE) : Array(SIZE).fill(EMPTY));
+  }
+
+  function initCanvasParams() {
+    state.canvas = $('goBoard');
+    if (!state.canvas) return false;
+    state.ctx = state.canvas.getContext('2d');
+    resizeCanvas();
+    return true;
+  }
+
+  function resizeCanvas() {
+    if (!state.canvas || !state.ctx) return;
+    const parent = state.canvas.parentElement;
+    const shell = parent?.closest('.board-shell') || parent;
+    const cssSize = Math.max(320, Math.floor(Math.min(shell?.clientWidth || 0, shell?.clientHeight || shell?.clientWidth || 0) || 760));
+    const dpr = Math.max(1, Math.floor(window.devicePixelRatio || 1));
+    state.canvas.width = cssSize * dpr;
+    state.canvas.height = cssSize * dpr;
+    state.canvas.style.width = `${cssSize}px`;
+    state.canvas.style.height = `${cssSize}px`;
+    state.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    state.padding = cssSize / (SIZE + 1);
+    state.cellSize = (cssSize - state.padding * 2) / (SIZE - 1);
+    drawFullBoard();
+  }
+
+  function ensureCanvasSize() {
+    if (!state.canvas || !state.ctx) return;
+    const rect = state.canvas.getBoundingClientRect();
+    const size = Math.max(320, Math.floor(Math.min(rect.width || 0, rect.height || 0) || 760));
+    const current = state.canvas.width / Math.max(1, window.devicePixelRatio || 1);
+    if (Math.abs(current - size) > 1) resizeCanvas();
+  }
+
+  function clearLatestMoveTimers() {
+    if (state.latestMoveTimer) clearTimeout(state.latestMoveTimer);
+    if (state.latestMoveBlinkTimer) clearInterval(state.latestMoveBlinkTimer);
+    state.latestMoveTimer = null;
+    state.latestMoveBlinkTimer = null;
+  }
+
+  function clearLatestMoveHighlight() {
+    clearLatestMoveTimers();
+    state.latestMove = null;
+    state.latestMoveVisible = true;
+  }
+
+  function setLatestMoveHighlight(row, col, duration = FLASH_DURATION) {
+    clearLatestMoveTimers();
+    state.latestMove = [row, col];
+    state.latestMoveVisible = true;
+    drawFullBoard();
+
+    state.latestMoveBlinkTimer = setInterval(() => {
+      state.latestMoveVisible = !state.latestMoveVisible;
+      drawFullBoard();
+    }, FLASH_INTERVAL);
+
+    state.latestMoveTimer = setTimeout(() => {
+      clearLatestMoveHighlight();
+      drawFullBoard();
+    }, duration);
+  }
+
+  function bfsLiberties(startRow, startCol, color, boardState) {
+    const queue = [[startRow, startCol]];
+    const visited = new Set([`${startRow},${startCol}`]);
+    const group = [];
+    const countedLibs = new Set();
+    let liberties = 0;
+
+    while (queue.length) {
+      const [r, c] = queue.shift();
+      group.push([r, c]);
+      for (const [dr, dc] of DIRECTIONS) {
+        const nr = r + dr;
+        const nc = c + dc;
+        if (nr < 0 || nr >= SIZE || nc < 0 || nc >= SIZE) continue;
+        const key = `${nr},${nc}`;
+        if (boardState[nr][nc] === EMPTY) {
+          if (!countedLibs.has(key)) {
+            countedLibs.add(key);
+            liberties++;
+          }
+        } else if (boardState[nr][nc] === color && !visited.has(key)) {
+          visited.add(key);
+          queue.push([nr, nc]);
+        }
+      }
+    }
+
+    return { liberties, group };
+  }
+
+  function placeStone(row, col, color) {
+    if (state.board[row][col] !== EMPTY) {
+      return { success: false, reason: '该位置已有棋子' };
+    }
+
+    const opponent = color === BLACK ? WHITE : BLACK;
+    state.board[row][col] = color;
+
+    const capturedList = [];
+    let totalCaptured = 0;
+
+    for (const [dr, dc] of DIRECTIONS) {
+      const nr = row + dr;
+      const nc = col + dc;
+      if (nr < 0 || nr >= SIZE || nc < 0 || nc >= SIZE) continue;
+      if (state.board[nr][nc] !== opponent) continue;
+
+      const { liberties, group } = bfsLiberties(nr, nc, opponent, state.board);
+      if (liberties === 0) {
+        for (const [gr, gc] of group) {
+          state.board[gr][gc] = EMPTY;
+          capturedList.push([gr, gc]);
+        }
+        totalCaptured += group.length;
+      }
+    }
+
+    const { liberties: selfLiberties } = bfsLiberties(row, col, color, state.board);
+    if (selfLiberties === 0) {
+      state.board[row][col] = EMPTY;
+      for (const [r, c] of capturedList) state.board[r][c] = opponent;
+      return { success: false, reason: '禁止自杀（无气）' };
+    }
+
+    if (color === BLACK) state.blackCaptures += totalCaptured;
+    else state.whiteCaptures += totalCaptured;
+
+    return { success: true, captured: totalCaptured, capturedGroup: capturedList };
+  }
+
+  function switchTurn() {
+    state.currentTurn = state.currentTurn === 'black' ? 'white' : 'black';
+    updateProfilePanels();
+  }
+
+  function drawStone(row, col, color, isLatestMove = false) {
+    if (!state.ctx) return;
+    const cx = state.padding + col * state.cellSize;
+    const cy = state.padding + row * state.cellSize;
+    const radius = state.cellSize * 0.44;
+    const alpha = isLatestMove ? (state.latestMoveVisible ? 1 : 0.14) : 1;
+
+    state.ctx.save();
+    state.ctx.globalAlpha = 1;
+    state.ctx.beginPath();
+    state.ctx.arc(cx + 1.2, cy + 1.4, radius, 0, Math.PI * 2);
+    state.ctx.fillStyle = 'rgba(0,0,0,0.25)';
+    state.ctx.fill();
+    state.ctx.restore();
+
+    state.ctx.save();
+    state.ctx.globalAlpha = alpha;
+    state.ctx.beginPath();
+    state.ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+    const g = state.ctx.createRadialGradient(cx - radius * 0.32, cy - radius * 0.32, radius * 0.1, cx, cy, radius);
+    if (color === BLACK) {
+      g.addColorStop(0, '#575757');
+      g.addColorStop(1, '#101010');
+    } else {
+      g.addColorStop(0, '#ffffff');
+      g.addColorStop(1, '#bebebe');
+    }
+    state.ctx.fillStyle = g;
+    state.ctx.fill();
+    state.ctx.beginPath();
+    state.ctx.arc(cx - radius * 0.24, cy - radius * 0.24, radius * 0.26, 0, Math.PI * 2);
+    state.ctx.fillStyle = 'rgba(255,255,255,0.16)';
+    state.ctx.fill();
+    state.ctx.restore();
+  }
+
+  function drawFullBoard() {
+    if (!state.canvas || !state.ctx) return;
+    const size = state.canvas.clientWidth || state.canvas.width / Math.max(1, window.devicePixelRatio || 1);
+    const ctx = state.ctx;
+
+    ctx.clearRect(0, 0, size, size);
+
+    const wood = ctx.createRadialGradient(size * 0.28, size * 0.2, size * 0.05, size * 0.5, size * 0.5, size * 0.95);
+    wood.addColorStop(0, '#f3d1a4');
+    wood.addColorStop(0.45, '#d9ad73');
+    wood.addColorStop(1, '#b97d43');
+    ctx.fillStyle = wood;
+    ctx.fillRect(0, 0, size, size);
+
+    ctx.save();
+    ctx.globalAlpha = 0.16;
+    for (let i = 0; i < 12; i++) {
+      const y = size * (0.06 + i * 0.08);
+      ctx.beginPath();
+      ctx.moveTo(size * 0.03, y);
+      ctx.bezierCurveTo(size * 0.22, y - 7, size * 0.48, y + 10, size * 0.97, y - 2);
+      ctx.strokeStyle = i % 2 === 0 ? '#8e5a2d' : '#c8945a';
+      ctx.lineWidth = 1.1;
+      ctx.stroke();
+    }
+    ctx.restore();
+
+    ctx.save();
+    ctx.strokeStyle = 'rgba(45, 28, 15, 0.95)';
+    ctx.lineWidth = 1.1;
+    for (let i = 0; i < SIZE; i++) {
+      const pos = state.padding + i * state.cellSize;
+      ctx.beginPath();
+      ctx.moveTo(state.padding, pos);
+      ctx.lineTo(size - state.padding, pos);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(pos, state.padding);
+      ctx.lineTo(pos, size - state.padding);
+      ctx.stroke();
+    }
+    ctx.restore();
+
+    const stars = [[3, 3], [3, 9], [3, 15], [9, 3], [9, 9], [9, 15], [15, 3], [15, 9], [15, 15]];
+    ctx.save();
+    stars.forEach(([r, c]) => {
+      ctx.beginPath();
+      ctx.arc(state.padding + c * state.cellSize, state.padding + r * state.cellSize, 3.4, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(35, 22, 12, 0.96)';
+      ctx.fill();
+    });
+    ctx.restore();
+
+    for (let r = 0; r < SIZE; r++) {
+      for (let c = 0; c < SIZE; c++) {
+        if (state.board[r][c] !== EMPTY) {
+          const isLatest = Boolean(state.latestMove && state.latestMove[0] === r && state.latestMove[1] === c);
+          drawStone(r, c, state.board[r][c], isLatest);
+        }
+      }
+    }
+  }
+
+  function captureToBoardCoords(e) {
+    const rect = state.canvas.getBoundingClientRect();
+    const scaleX = state.canvas.width / rect.width;
+    const scaleY = state.canvas.height / rect.height;
+    const mouseX = (e.clientX - rect.left) * scaleX;
+    const mouseY = (e.clientY - rect.top) * scaleY;
+    const col = Math.round((mouseX - state.padding) / state.cellSize);
+    const row = Math.round((mouseY - state.padding) / state.cellSize);
+    if (row < 0 || row >= SIZE || col < 0 || col >= SIZE) return null;
+    return { row, col };
+  }
+
+  function canvasCaptureHandler(e) {
+    if (!state.isInRoom) return;
+    if (!state.myColor || state.currentTurn !== state.myColor) {
+      e.preventDefault();
+      e.stopPropagation();
+      playSound('invalidMove');
+      return;
+    }
+    e.preventDefault();
+    e.stopPropagation();
+    const pos = captureToBoardCoords(e);
+    if (!pos) return;
+    handleMultiplayerMove(pos.row, pos.col);
+  }
+
   async function persistRoomState(extra = {}) {
     if (!state.supabase || !state.roomCode) return;
     try {
@@ -116,10 +553,10 @@
         .schema('game')
         .from('game_rooms')
         .update({
-          board_state: JSON.stringify(GoGame.getBoardSnapshot()),
-          next_turn: GoGame.state.currentTurn,
-          black_captures: GoGame.state.blackCaptures,
-          white_captures: GoGame.state.whiteCaptures,
+          board_state: JSON.stringify(getBoardSnapshot()),
+          next_turn: state.currentTurn,
+          black_captures: state.blackCaptures,
+          white_captures: state.whiteCaptures,
           status: state.isInRoom ? 'playing' : 'ended',
           ...extra,
         })
@@ -129,98 +566,86 @@
     }
   }
 
-  function updateProfilePanels() {
-    const localSide = $('local-player-side');
-    const localTurn = $('local-player-turn');
-    const blackName = $('black-player-name');
-    const whiteName = $('white-player-name');
-    const roomId = $('room-id');
-    const link = $('room-invite-link');
-    const oppStatus = $('opponent-status');
-    const oppName = $('opponent-nickname');
-    const oppSide = $('opponent-side');
-    const oppActivity = $('opponent-activity');
-
-    if (roomId) roomId.textContent = state.roomCode || '—';
-    if (link) link.value = state.roomContext.inviteLink || '';
-    if (localSide) localSide.textContent = `执色：${sideLabel(state.myColor)}`;
-    if (localTurn) localTurn.textContent = state.isInRoom ? `状态：${GoGame.isMyTurn() ? '轮到我方' : '等待对手'}` : '状态：待进入对局';
-    if (blackName) blackName.textContent = state.roomContext.blackName || '黑方';
-    if (whiteName) whiteName.textContent = state.roomContext.whiteName || '白方';
-
-    if (oppStatus) {
-      const hasOpponent = Boolean(state.roomContext.blackPlayerId && state.roomContext.whitePlayerId);
-      oppStatus.textContent = hasOpponent ? '在线' : '离线';
-      oppStatus.classList.toggle('offline', !hasOpponent);
-    }
-    if (oppName) oppName.textContent = state.myColor === 'black' ? state.roomContext.whiteName : state.roomContext.blackName;
-    if (oppSide) oppSide.textContent = `执色：${sideLabel(opponentSide(state.myColor))}`;
-    if (oppActivity) oppActivity.textContent = state.isInRoom ? '状态：实时同步中' : '状态：等待加入';
-
-    GoGame.updateUI();
+  async function broadcastMove(row, col, color, capturedList) {
+    if (!state.roomChannel) return;
+    await state.roomChannel.send({
+      type: 'broadcast',
+      event: 'move',
+      payload: {
+        row,
+        col,
+        color,
+        captured: capturedList,
+        board_state: getBoardSnapshot(),
+        black_captures: state.blackCaptures,
+        white_captures: state.whiteCaptures,
+        next_turn: state.currentTurn,
+      },
+    });
   }
 
-  function applyRoomSnapshot(room) {
-    if (!room) return;
-    state.roomContext.roomId = room.code || state.roomCode;
-    state.roomContext.inviteLink = buildInviteLink(room.code || state.roomCode || '');
-    state.roomContext.blackPlayerId = room.black_id || null;
-    state.roomContext.whitePlayerId = room.white_id || null;
-    state.roomContext.blackName = room.black_id ? '黑方玩家' : '黑方';
-    state.roomContext.whiteName = room.white_id ? '白方玩家' : '白方';
-    if (room.board_state) {
-      try {
-        const snapshot = typeof room.board_state === 'string' ? JSON.parse(room.board_state) : room.board_state;
-        GoGame.setBoardSnapshot(snapshot);
-      } catch (err) {
-        console.warn('[multiplayer-ext] board_state 解析失败:', err);
-      }
+  async function handleMultiplayerMove(row, col) {
+    const color = state.myColor === 'black' ? BLACK : WHITE;
+    const result = placeStone(row, col, color);
+    if (!result.success) {
+      playSound('invalidMove');
+      toast(result.reason || '非法落子');
+      return;
     }
-    if (typeof room.black_captures === 'number') GoGame.state.blackCaptures = room.black_captures;
-    if (typeof room.white_captures === 'number') GoGame.state.whiteCaptures = room.white_captures;
-    if (room.next_turn) GoGame.setTurn(room.next_turn);
-    if (room.status === 'playing') setConnectionStatus('实时同步中');
-    else if (room.status === 'ended') setConnectionStatus('已结束');
-    else setConnectionStatus('等待对手');
-    updateProfilePanels();
-    GoGame.drawBoard();
+
+    playSound(result.captured > 0 ? 'capture' : 'placeStone');
+    setLatestMoveHighlight(row, col, FLASH_DURATION);
+    switchTurn();
+    drawFullBoard();
+
+    await broadcastMove(row, col, color, result.capturedGroup || []);
+    await persistRoomState();
   }
 
-  function refreshRoomFromMove(payload) {
+  function applyRemotePayload(payload) {
     if (!payload) return;
-    if (payload.board_state) {
-      try {
-        const snapshot = typeof payload.board_state === 'string' ? JSON.parse(payload.board_state) : payload.board_state;
-        GoGame.setBoardSnapshot(snapshot);
-      } catch (err) {
-        console.warn('[multiplayer-ext] move board_state 解析失败:', err);
-      }
-    } else if (typeof payload.row === 'number' && typeof payload.col === 'number' && payload.color) {
-      const board = GoGame.getBoardSnapshot();
-      board[payload.row][payload.col] = payload.color === 'black' ? 1 : 2;
-      if (Array.isArray(payload.captured)) {
-        for (const [r, c] of payload.captured) board[r][c] = 0;
-      }
-      GoGame.setBoardSnapshot(board);
-    }
-    if (typeof payload.black_captures === 'number') GoGame.state.blackCaptures = payload.black_captures;
-    if (typeof payload.white_captures === 'number') GoGame.state.whiteCaptures = payload.white_captures;
-    if (typeof payload.next_turn === 'string') GoGame.setTurn(payload.next_turn);
+    if (payload.board_state) setBoardSnapshot(payload.board_state);
+    if (typeof payload.black_captures === 'number') state.blackCaptures = payload.black_captures;
+    if (typeof payload.white_captures === 'number') state.whiteCaptures = payload.white_captures;
+    if (typeof payload.next_turn === 'string') state.currentTurn = payload.next_turn;
   }
 
   async function onOpponentMove(payload) {
-    if (!payload || typeof payload.row !== 'number' || typeof payload.col !== 'number') return;
-    refreshRoomFromMove(payload);
-    GoGame.setLatestMove(payload.row, payload.col, payload.color);
-    GoGame.drawBoard();
-    updateProfilePanels();
-    if (payload.captured?.length) {
-      // 让提示更明确，但不阻塞对局
-      toast('对手完成提子');
+    const { row, col, color, captured } = payload || {};
+    if (typeof row !== 'number' || typeof col !== 'number' || !color) return;
+
+    state.board[row][col] = color;
+    if (Array.isArray(captured)) {
+      for (const [r, c] of captured) state.board[r][c] = EMPTY;
     }
+
+    if (color === BLACK) state.blackCaptures += Array.isArray(captured) ? captured.length : 0;
+    else state.whiteCaptures += Array.isArray(captured) ? captured.length : 0;
+
+    state.currentTurn = state.myColor || (color === BLACK ? 'white' : 'black');
+    setLatestMoveHighlight(row, col);
+    playSound('yourTurn');
+    drawFullBoard();
+    updateProfilePanels();
   }
 
-  async function announceGameOver(winnerColor, loserColor, reason = 'game_over') {
+  function showGameOverOverlay(winnerColor, reason = 'game_over') {
+    const overlay = $('result-overlay');
+    const title = $('result-title');
+    const desc = $('result-desc');
+    if (!overlay || !title || !desc) return;
+
+    title.textContent = '对局结束';
+    desc.textContent = `${winnerColor === 'black' ? '黑方' : '白方'}获胜${reason === 'resign' ? '（对手认输）' : ''}`;
+    overlay.classList.add('is-open');
+  }
+
+  function hideGameOverOverlay() {
+    const overlay = $('result-overlay');
+    if (overlay) overlay.classList.remove('is-open');
+  }
+
+  async function announceGameOver(winnerColor, reason = 'game_over') {
     if (state.roomChannel) {
       await state.roomChannel.send({
         type: 'broadcast',
@@ -228,23 +653,20 @@
         payload: {
           type: 'GAME_OVER',
           winner: winnerColor,
-          loser: loserColor,
           reason,
         },
       });
     }
     await persistRoomState({ status: 'ended' });
-    GoGame.showGameEnd(winnerColor, loserColor, reason);
+    showGameOverOverlay(winnerColor, reason);
   }
 
   async function handleResignRequest(fromColor) {
     if (!state.isInRoom) return;
-    if (!fromColor || normalizeSide(fromColor) === normalizeSide(state.myColor)) return;
-    const winner = opponentSide(fromColor);
-    const loser = normalizeSide(fromColor);
-    const accepted = window.confirm(`对手请求认输。\n\n接受后将判定 ${sideLabel(winner)}获胜。`);
+    const winner = fromColor === 'black' ? 'white' : 'black';
+    const accepted = window.confirm(`对手请求认输。是否接受？\n\n接受后将判定 ${winner === 'black' ? '黑方' : '白方'} 获胜。`);
     if (!accepted) return;
-    await announceGameOver(winner, loser, 'resign');
+    await announceGameOver(state.myColor || winner, 'resign');
   }
 
   async function onRoomMessage(payload) {
@@ -254,10 +676,8 @@
       return;
     }
     if (payload.type === 'GAME_OVER') {
-      const winner = normalizeSide(payload.winner);
-      const loser = normalizeSide(payload.loser) || opponentSide(winner);
       await persistRoomState({ status: 'ended' });
-      GoGame.showGameEnd(winner, loser, payload.reason || 'game_over');
+      showGameOverOverlay(payload.winner, payload.reason || 'game_over');
     }
   }
 
@@ -266,7 +686,7 @@
     const ch = state.supabase.channel(`room:${code}`, { config: { broadcast: { self: false } } });
 
     ch.on('broadcast', { event: 'move' }, ({ payload }) => {
-      refreshRoomFromMove(payload);
+      applyRemotePayload(payload);
       onOpponentMove(payload);
     });
 
@@ -282,7 +702,7 @@
           .select('*')
           .eq('code', code)
           .single();
-        if (latestRoom) applyRoomSnapshot(latestRoom);
+        if (latestRoom) refreshRoomFromServer(latestRoom);
       } catch (err) {
         console.warn('[multiplayer-ext] 刷新房间失败:', err);
       }
@@ -294,7 +714,7 @@
       table: 'game_rooms',
       filter: `code=eq.${code}`,
     }, async ({ new: room }) => {
-      if (room) applyRoomSnapshot(room);
+      if (room) refreshRoomFromServer(room);
     });
 
     await ch.subscribe(async (status) => {
@@ -307,49 +727,62 @@
     return ch;
   }
 
-  function canLocalPlay() {
-    if (!state.isInRoom) return true;
-    return GoGame.isMyTurn();
-  }
-
-  async function handleLocalMove(row, col) {
-    if (!canLocalPlay()) {
-      toast('未轮到你落子');
-      return false;
+  async function refreshRoomFromServer(room) {
+    if (!room) return;
+    if (room.board_state) {
+      try {
+        const snapshot = typeof room.board_state === 'string' ? JSON.parse(room.board_state) : room.board_state;
+        setBoardSnapshot(snapshot);
+      } catch (err) {
+        console.warn('[multiplayer-ext] board_state 解析失败:', err);
+      }
     }
-    const color = normalizeSide(state.myColor) || 'black';
-    const result = GoGame.placeStone(row, col, color, { switchTurn: false });
-    if (!result.success) {
-      toast(result.reason || '非法落子');
-      return false;
+    if (typeof room.black_captures === 'number') state.blackCaptures = room.black_captures;
+    if (typeof room.white_captures === 'number') state.whiteCaptures = room.white_captures;
+
+    if (room.status === 'ended') setConnectionStatus('已结束');
+    else if (room.status === 'playing') setConnectionStatus('实时同步中');
+    else setConnectionStatus('等待对手');
+
+    const otherId = state.myColor === 'black' ? room.white_id : room.black_id;
+    const myId = state.myColor === 'black' ? room.black_id : room.white_id;
+    const blackNameEl = $('black-player-name');
+    const whiteNameEl = $('white-player-name');
+
+    const blackProfile = room.black_id ? await getPlayerProfile(room.black_id) : null;
+    const whiteProfile = room.white_id ? await getPlayerProfile(room.white_id) : null;
+    state.roomContext.blackName = blackProfile?.nickname || (room.black_id ? '黑方玩家' : '黑方');
+    state.roomContext.whiteName = whiteProfile?.nickname || (room.white_id ? '白方玩家' : '白方');
+
+    if (blackNameEl) blackNameEl.textContent = state.roomContext.blackName;
+    if (whiteNameEl) whiteNameEl.textContent = state.roomContext.whiteName;
+
+    const oppStatus = $('opponent-status');
+    const oppName = $('opponent-nickname');
+    const oppSide = $('opponent-side');
+    const oppActivity = $('opponent-activity');
+    if (oppStatus) {
+      oppStatus.textContent = otherId ? '在线' : '离线';
+      oppStatus.classList.toggle('offline', !otherId);
+    }
+    if (oppName) oppName.textContent = otherId ? (state.myColor === 'black' ? state.roomContext.whiteName : state.roomContext.blackName) : '等待对手';
+    if (oppSide) oppSide.textContent = `执色：${otherId ? (state.myColor === 'black' ? '白棋' : '黑棋') : '—'}`;
+    if (oppActivity) oppActivity.textContent = otherId ? '状态：已匹配' : '状态：等待加入';
+
+    if (myId) {
+      const profile = await getPlayerProfile(myId);
+      const localName = $('user-nickname');
+      const rankEl = $('user-rank');
+      if (localName) localName.textContent = profile?.nickname || '棋手';
+      if (rankEl) rankEl.textContent = profile?.rank || '业余1段';
     }
 
-    const nextTurn = color === 'black' ? 'white' : 'black';
-    GoGame.setTurn(nextTurn);
-    GoGame.setLatestMove(row, col, color);
-    GoGame.drawBoard();
-    await broadcastMove(row, col, color, result.capturedGroup || []);
-    await persistRoomState();
     updateProfilePanels();
-    return true;
+    drawFullBoard();
   }
 
-  async function broadcastMove(row, col, color, capturedList) {
-    if (!state.roomChannel) return;
-    await state.roomChannel.send({
-      type: 'broadcast',
-      event: 'move',
-      payload: {
-        row,
-        col,
-        color,
-        captured: capturedList,
-        board_state: GoGame.getBoardSnapshot(),
-        black_captures: GoGame.state.blackCaptures,
-        white_captures: GoGame.state.whiteCaptures,
-        next_turn: GoGame.state.currentTurn,
-      },
-    });
+  function buildInviteLink(code) {
+    return `${window.location.origin}${window.location.pathname}?room=${code}`;
   }
 
   async function createRoom() {
@@ -364,7 +797,7 @@
       return;
     }
 
-    const code = Math.random().toString(36).toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6) || 'ROOM01';
+    const code = generateRoomCode();
     try {
       const { error } = await state.supabase
         .schema('game')
@@ -374,7 +807,7 @@
           black_id: userId,
           white_id: null,
           status: 'waiting',
-          board_state: JSON.stringify(GoGame.getBoardSnapshot()),
+          board_state: JSON.stringify(getBoardSnapshot()),
           next_turn: 'black',
           black_captures: 0,
           white_captures: 0,
@@ -383,21 +816,19 @@
 
       state.roomCode = code;
       state.myColor = 'black';
+      state.currentTurn = 'black';
       state.isInRoom = true;
-      GoGame.state.isInRoom = true;
-      GoGame.state.myColor = 'black';
-      GoGame.setTurn('black');
       state.roomContext.roomId = code;
       state.roomContext.inviteLink = buildInviteLink(code);
-      state.roomContext.blackPlayerId = userId;
-      state.roomContext.whitePlayerId = null;
       state.roomContext.blackName = '黑方玩家';
       state.roomContext.whiteName = '白方玩家';
 
       state.roomChannel = await initRoomChannel(code);
-      setConnectionStatus('等待对手');
+      updateRoomPanel({ code, inviteLink: state.roomContext.inviteLink });
+      await refreshRoomFromServer({ black_id: userId, white_id: null, status: 'waiting' });
+      drawFullBoard();
       updateProfilePanels();
-      GoGame.drawBoard();
+      showGameArea();
       toast(`房间已创建：${code}`);
     } catch (err) {
       console.error('[multiplayer-ext] 创建房间失败:', err);
@@ -439,8 +870,6 @@
           .eq('code', code);
         if (updateErr) throw updateErr;
         state.myColor = 'white';
-        room.white_id = userId;
-        room.status = 'playing';
       } else if (room.white_id === userId) {
         state.myColor = 'white';
       } else {
@@ -449,18 +878,16 @@
       }
 
       state.roomCode = code;
+      state.currentTurn = 'black';
       state.isInRoom = true;
-      GoGame.state.isInRoom = true;
-      GoGame.state.myColor = state.myColor;
       state.roomContext.roomId = code;
       state.roomContext.inviteLink = buildInviteLink(code);
-      state.roomContext.blackPlayerId = room.black_id || null;
-      state.roomContext.whitePlayerId = room.white_id || null;
       state.roomChannel = await initRoomChannel(code);
-      applyRoomSnapshot(room);
-      setConnectionStatus(room.status === 'playing' ? '实时同步中' : '等待对手');
+      await refreshRoomFromServer(room);
+      updateRoomPanel({ code, inviteLink: state.roomContext.inviteLink });
+      drawFullBoard();
       updateProfilePanels();
-      GoGame.drawBoard();
+      showGameArea();
       toast(`已加入房间：${code}`);
     } catch (err) {
       console.error('[multiplayer-ext] 加入房间失败:', err);
@@ -468,8 +895,68 @@
     }
   }
 
+  function showGameArea() {
+    const selection = $('game-selection');
+    const app = document.querySelector('.app');
+    if (selection) selection.style.display = 'none';
+    if (app) app.style.display = 'grid';
+  }
+
+  function injectUIButtons() {
+    const card = document.querySelector('#game-selection .selection-card');
+    if (!card || $('mp-create-room-btn')) return;
+
+    const divider = document.createElement('div');
+    divider.style.cssText = 'margin:14px 0;border-top:1px solid rgba(255,255,255,0.1);';
+
+    const wrapper = document.createElement('div');
+    wrapper.style.cssText = 'display:flex;flex-direction:column;gap:10px;margin-top:12px;';
+
+    const createBtn = document.createElement('button');
+    createBtn.id = 'mp-create-room-btn';
+    createBtn.className = 'mode-btn primary';
+    createBtn.innerHTML = '<span>🆚 创建对战房间</span><span class="badge">多人</span>';
+    createBtn.addEventListener('click', createRoom);
+
+    const joinHint = document.createElement('p');
+    joinHint.style.cssText = 'margin:0;color:rgba(238,244,251,0.68);font-size:13px;line-height:1.6;';
+    joinHint.textContent = '收到邀请链接后，打开即可自动加入房间。';
+
+    wrapper.appendChild(createBtn);
+    wrapper.appendChild(joinHint);
+    card.appendChild(divider);
+    card.appendChild(wrapper);
+  }
+
+  function bindResignButtons() {
+    const bindOne = (el) => {
+      if (!el || el.dataset.bound === '1') return;
+      el.addEventListener('click', onResignClick);
+      el.dataset.bound = '1';
+    };
+    bindOne($('mp-resign-btn'));
+    bindOne($('surrender-btn'));
+  }
+
+  async function onResignClick() {
+    if (!state.isInRoom || !state.roomChannel) {
+      alert('当前不在对局中');
+      return;
+    }
+    await state.roomChannel.send({
+      type: 'broadcast',
+      event: 'message',
+      payload: {
+        type: 'RESIGN_REQUEST',
+        from: state.myColor,
+        room: state.roomCode,
+      },
+    });
+    toast('已发送认输请求');
+  }
+
   async function leaveRoom() {
-    GoGame.clearLatestMove();
+    clearLatestMoveHighlight();
     if (state.roomChannel) {
       try { await state.roomChannel.untrack(); } catch (_) {}
       try { await state.supabase?.removeChannel(state.roomChannel); } catch (_) {}
@@ -480,21 +967,238 @@
     state.myColor = null;
     state.roomContext.roomId = null;
     state.roomContext.inviteLink = '';
-    state.roomContext.blackPlayerId = null;
-    state.roomContext.whitePlayerId = null;
-    GoGame.state.isInRoom = false;
-    GoGame.state.myColor = null;
+    state.blackCaptures = 0;
+    state.whiteCaptures = 0;
     setConnectionStatus('未建立');
     updateProfilePanels();
+    updateRoomPanel({ code: '—', inviteLink: '' });
+    drawFullBoard();
   }
 
-  async function handleSurrender() {
+  function checkRoomParam() {
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get('room');
+    if (code && code.length === ROOM_CODE_LENGTH) {
+      setTimeout(() => joinRoom(code.toUpperCase()), 350);
+      return true;
+    }
+    return false;
+  }
+
+  async function handleSurrenderMessage(payload) {
+    if (!payload || payload.type !== 'RESIGN_REQUEST') return;
+    if (!state.myColor || payload.from === state.myColor) return;
+
+    const agree = window.confirm('对手请求认输，是否同意？');
+    if (!agree) return;
+
+    const winner = state.myColor;
+    await state.roomChannel?.send({
+      type: 'broadcast',
+      event: 'message',
+      payload: {
+        type: 'GAME_OVER',
+        winner,
+        reason: 'resign',
+      },
+    });
+    await persistRoomState({ status: 'ended' });
+    showGameOverOverlay(winner, 'resign');
+  }
+
+  async function onRoomMessage(payload) {
+    if (!payload) return;
+    if (payload.type === 'RESIGN_REQUEST') {
+      await handleSurrenderMessage(payload);
+    } else if (payload.type === 'GAME_OVER') {
+      await persistRoomState({ status: 'ended' });
+      showGameOverOverlay(payload.winner, payload.reason || 'game_over');
+    }
+  }
+
+  async function refreshRoomFromServer(room) {
+    if (!room) return;
+    if (room.board_state) {
+      try {
+        const snapshot = typeof room.board_state === 'string' ? JSON.parse(room.board_state) : room.board_state;
+        setBoardSnapshot(snapshot);
+      } catch (err) {
+        console.warn('[multiplayer-ext] board_state 解析失败:', err);
+      }
+    }
+    if (typeof room.black_captures === 'number') state.blackCaptures = room.black_captures;
+    if (typeof room.white_captures === 'number') state.whiteCaptures = room.white_captures;
+
+    if (room.status === 'ended') setConnectionStatus('已结束');
+    else if (room.status === 'playing') setConnectionStatus('实时同步中');
+    else setConnectionStatus('等待对手');
+
+    const otherId = state.myColor === 'black' ? room.white_id : room.black_id;
+    const myId = state.myColor === 'black' ? room.black_id : room.white_id;
+    const blackNameEl = $('black-player-name');
+    const whiteNameEl = $('white-player-name');
+
+    const blackProfile = room.black_id ? await getPlayerProfile(room.black_id) : null;
+    const whiteProfile = room.white_id ? await getPlayerProfile(room.white_id) : null;
+    state.roomContext.blackName = blackProfile?.nickname || (room.black_id ? '黑方玩家' : '黑方');
+    state.roomContext.whiteName = whiteProfile?.nickname || (room.white_id ? '白方玩家' : '白方');
+
+    if (blackNameEl) blackNameEl.textContent = state.roomContext.blackName;
+    if (whiteNameEl) whiteNameEl.textContent = state.roomContext.whiteName;
+
+    const oppStatus = $('opponent-status');
+    const oppName = $('opponent-nickname');
+    const oppSide = $('opponent-side');
+    const oppActivity = $('opponent-activity');
+    if (oppStatus) {
+      oppStatus.textContent = otherId ? '在线' : '离线';
+      oppStatus.classList.toggle('offline', !otherId);
+    }
+    if (oppName) oppName.textContent = otherId ? (state.myColor === 'black' ? state.roomContext.whiteName : state.roomContext.blackName) : '等待对手';
+    if (oppSide) oppSide.textContent = `执色：${otherId ? (state.myColor === 'black' ? '白棋' : '黑棋') : '—'}`;
+    if (oppActivity) oppActivity.textContent = otherId ? '状态：已匹配' : '状态：等待加入';
+
+    if (myId) {
+      const profile = await getPlayerProfile(myId);
+      const localName = $('user-nickname');
+      const rankEl = $('user-rank');
+      if (localName) localName.textContent = profile?.nickname || '棋手';
+      if (rankEl) rankEl.textContent = profile?.rank || '业余1段';
+    }
+
+    updateProfilePanels();
+    drawFullBoard();
+  }
+
+  function buildInviteLink(code) {
+    return `${window.location.origin}${window.location.pathname}?room=${code}`;
+  }
+
+  async function createRoom() {
+    const userId = await getUserId();
+    if (!userId) {
+      alert('请先登录后再创建房间');
+      window.location.href = 'login.html';
+      return;
+    }
+    if (!state.supabase) {
+      alert('Supabase 未配置，无法创建房间');
+      return;
+    }
+
+    const code = generateRoomCode();
+    try {
+      const { error } = await state.supabase
+        .schema('game')
+        .from('game_rooms')
+        .insert({
+          code,
+          black_id: userId,
+          white_id: null,
+          status: 'waiting',
+          board_state: JSON.stringify(getBoardSnapshot()),
+          next_turn: 'black',
+          black_captures: 0,
+          white_captures: 0,
+        });
+      if (error) throw error;
+
+      state.roomCode = code;
+      state.myColor = 'black';
+      state.currentTurn = 'black';
+      state.isInRoom = true;
+      state.roomContext.roomId = code;
+      state.roomContext.inviteLink = buildInviteLink(code);
+      state.roomContext.blackName = '黑方玩家';
+      state.roomContext.whiteName = '白方玩家';
+
+      state.roomChannel = await initRoomChannel(code);
+      updateRoomPanel({ code, inviteLink: state.roomContext.inviteLink });
+      await refreshRoomFromServer({ black_id: userId, white_id: null, status: 'waiting' });
+      drawFullBoard();
+      updateProfilePanels();
+      showGameArea();
+      toast(`房间已创建：${code}`);
+    } catch (err) {
+      console.error('[multiplayer-ext] 创建房间失败:', err);
+      alert(`创建房间失败: ${err.message}`);
+    }
+  }
+
+  async function joinRoom(code) {
+    const userId = await getUserId();
+    if (!userId) {
+      alert('请先登录后再加入房间');
+      window.location.href = 'login.html';
+      return;
+    }
+    if (!state.supabase) {
+      alert('Supabase 未配置，无法加入房间');
+      return;
+    }
+
+    try {
+      const { data: room, error } = await state.supabase
+        .schema('game')
+        .from('game_rooms')
+        .select('*')
+        .eq('code', code)
+        .single();
+      if (error || !room) {
+        alert('房间不存在或已过期');
+        return;
+      }
+
+      if (room.black_id === userId) {
+        state.myColor = 'black';
+      } else if (!room.white_id) {
+        const { error: updateErr } = await state.supabase
+          .schema('game')
+          .from('game_rooms')
+          .update({ white_id: userId, status: 'playing' })
+          .eq('code', code);
+        if (updateErr) throw updateErr;
+        state.myColor = 'white';
+      } else if (room.white_id === userId) {
+        state.myColor = 'white';
+      } else {
+        alert('该房间已满');
+        return;
+      }
+
+      state.roomCode = code;
+      state.currentTurn = 'black';
+      state.isInRoom = true;
+      state.roomContext.roomId = code;
+      state.roomContext.inviteLink = buildInviteLink(code);
+      state.roomChannel = await initRoomChannel(code);
+      await refreshRoomFromServer(room);
+      updateRoomPanel({ code, inviteLink: state.roomContext.inviteLink });
+      drawFullBoard();
+      updateProfilePanels();
+      showGameArea();
+      toast(`已加入房间：${code}`);
+    } catch (err) {
+      console.error('[multiplayer-ext] 加入房间失败:', err);
+      alert(`加入房间失败: ${err.message}`);
+    }
+  }
+
+  function bindResignButtons() {
+    const bindOne = (el) => {
+      if (!el || el.dataset.bound === '1') return;
+      el.addEventListener('click', onResignClick);
+      el.dataset.bound = '1';
+    };
+    bindOne($('mp-resign-btn'));
+    bindOne($('surrender-btn'));
+  }
+
+  async function onResignClick() {
     if (!state.isInRoom || !state.roomChannel) {
       alert('当前不在对局中');
       return;
     }
-    const winner = opponentSide(state.myColor);
-    const loser = normalizeSide(state.myColor);
     await state.roomChannel.send({
       type: 'broadcast',
       event: 'message',
@@ -504,98 +1208,168 @@
         room: state.roomCode,
       },
     });
-    await announceGameOver(winner, loser, 'resign');
     toast('已发送认输请求');
   }
 
-  function bindButtons() {
-    $('mp-copy-invite-btn')?.addEventListener('click', async () => {
-      const text = $('room-invite-link')?.value || state.roomContext.inviteLink || '';
-      if (!text) return toast('暂无可复制的邀请链接');
-      try {
-        if (navigator.clipboard?.writeText && window.isSecureContext) await navigator.clipboard.writeText(text);
-        else {
-          const input = $('room-invite-link');
-          if (input) {
-            input.removeAttribute('readonly');
-            input.focus();
-            input.select();
-            document.execCommand('copy');
-            input.setAttribute('readonly', 'readonly');
-          }
-        }
-        toast('已复制房间邀请链接');
-      } catch (err) {
-        console.warn('[multiplayer-ext] 复制失败:', err);
-        toast('复制失败，请手动复制');
-      }
-    });
-
-    const resignBtn = $('surrender-btn');
-    if (resignBtn && resignBtn.dataset.bound !== '1') {
-      resignBtn.dataset.bound = '1';
-      resignBtn.addEventListener('click', (event) => {
-        event.preventDefault();
-        event.stopImmediatePropagation();
-        const confirmSurrender = window.confirm('确定要认输吗？认输后本局将结束。');
-        if (confirmSurrender) handleSurrender();
-      }, true);
-    }
+  function hideGameOverOverlay() {
+    const overlay = $('result-overlay');
+    if (overlay) overlay.classList.remove('is-open');
   }
 
-  function bindQuit() {
-    const quitBtn = $('quit-game-btn');
-    if (quitBtn && quitBtn.dataset.bound !== '1') {
-      quitBtn.dataset.bound = '1';
-      quitBtn.addEventListener('click', async (event) => {
-        event.preventDefault();
-        event.stopImmediatePropagation();
-        const ok = window.confirm('确定要退出当前对局吗？');
-        if (!ok) return;
-        await leaveRoom();
-        const app = document.querySelector('.app');
-        const selection = document.getElementById('game-selection');
-        if (app) app.style.display = 'none';
-        if (selection) selection.style.display = 'flex';
-      }, true);
+  function showGameOverOverlay(winnerColor, reason = 'game_over') {
+    const overlay = $('result-overlay');
+    const title = $('result-title');
+    const desc = $('result-desc');
+    if (!overlay || !title || !desc) return;
+    title.textContent = '对局结束';
+    desc.textContent = `${winnerColor === 'black' ? '黑方' : '白方'}获胜${reason === 'resign' ? '（对手认输）' : ''}`;
+    overlay.classList.add('is-open');
+  }
+
+  async function leaveRoom() {
+    clearLatestMoveHighlight();
+    if (state.roomChannel) {
+      try { await state.roomChannel.untrack(); } catch (_) {}
+      try { await state.supabase?.removeChannel(state.roomChannel); } catch (_) {}
+      state.roomChannel = null;
     }
+    state.isInRoom = false;
+    state.roomCode = null;
+    state.myColor = null;
+    state.roomContext.roomId = null;
+    state.roomContext.inviteLink = '';
+    state.blackCaptures = 0;
+    state.whiteCaptures = 0;
+    setConnectionStatus('未建立');
+    updateProfilePanels();
+    updateRoomPanel({ code: '—', inviteLink: '' });
+    drawFullBoard();
   }
 
   function checkRoomParam() {
     const params = new URLSearchParams(window.location.search);
     const code = params.get('room');
-    if (code && code.length === 6) {
-      setTimeout(() => joinRoom(code.toUpperCase()), 300);
+    if (code && code.length === ROOM_CODE_LENGTH) {
+      setTimeout(() => joinRoom(code.toUpperCase()), 350);
       return true;
     }
     return false;
   }
 
-  function bootstrap() {
-    initSupabaseClient();
-    bindButtons();
-    bindQuit();
-    updateProfilePanels();
-    if (!checkRoomParam()) {
-      setConnectionStatus('未建立');
+  async function handleSurrenderMessage(payload) {
+    if (!payload || payload.type !== 'RESIGN_REQUEST') return;
+    if (!state.myColor || payload.from === state.myColor) return;
+
+    const agree = window.confirm('对手请求认输，是否同意？');
+    if (!agree) return;
+
+    const winner = state.myColor;
+    await state.roomChannel?.send({
+      type: 'broadcast',
+      event: 'message',
+      payload: {
+        type: 'GAME_OVER',
+        winner,
+        reason: 'resign',
+      },
+    });
+    await persistRoomState({ status: 'ended' });
+    showGameOverOverlay(winner, 'resign');
+  }
+
+  async function onRoomMessage(payload) {
+    if (!payload) return;
+    if (payload.type === 'RESIGN_REQUEST') {
+      await handleSurrenderMessage(payload);
+    } else if (payload.type === 'GAME_OVER') {
+      await persistRoomState({ status: 'ended' });
+      showGameOverOverlay(payload.winner, payload.reason || 'game_over');
     }
   }
 
+  function showGameArea() {
+    const selection = $('game-selection');
+    const app = document.querySelector('.app');
+    if (selection) selection.style.display = 'none';
+    if (app) app.style.display = 'grid';
+  }
+
+  function injectUIButtons() {
+    const card = document.querySelector('#game-selection .selection-card');
+    if (!card || $('mp-create-room-btn')) return;
+
+    const divider = document.createElement('div');
+    divider.style.cssText = 'margin:14px 0;border-top:1px solid rgba(255,255,255,0.1);';
+
+    const wrapper = document.createElement('div');
+    wrapper.style.cssText = 'display:flex;flex-direction:column;gap:10px;margin-top:12px;';
+
+    const createBtn = document.createElement('button');
+    createBtn.id = 'mp-create-room-btn';
+    createBtn.className = 'mode-btn primary';
+    createBtn.innerHTML = '<span>🆚 创建对战房间</span><span class="badge">多人</span>';
+    createBtn.addEventListener('click', createRoom);
+
+    const joinHint = document.createElement('p');
+    joinHint.style.cssText = 'margin:0;color:rgba(238,244,251,0.68);font-size:13px;line-height:1.6;';
+    joinHint.textContent = '收到邀请链接后，打开即可自动加入房间。';
+
+    wrapper.appendChild(createBtn);
+    wrapper.appendChild(joinHint);
+    card.appendChild(divider);
+    card.appendChild(wrapper);
+  }
+
+  async function init() {
+    if (state.boundOnce) return;
+    state.boundOnce = true;
+
+    initSupabaseClient();
+    injectUIButtons();
+    bindCopyInviteButton();
+    bindResignButtons();
+    checkRoomParam();
+
+    if (!initCanvasParams()) return;
+    drawFullBoard();
+    updateProfilePanels();
+
+    state.canvas.addEventListener('click', canvasCaptureHandler, { capture: true });
+
+    if (state.resizeObserver) state.resizeObserver.disconnect();
+    state.resizeObserver = new ResizeObserver(() => {
+      ensureCanvasSize();
+      drawFullBoard();
+    });
+    const shell = state.canvas.parentElement;
+    if (shell) state.resizeObserver.observe(shell);
+    window.addEventListener('resize', () => {
+      ensureCanvasSize();
+      drawFullBoard();
+    });
+
+    const closeBtn = $('result-close-btn');
+    if (closeBtn && closeBtn.dataset.bound !== '1') {
+      closeBtn.addEventListener('click', () => hideGameOverOverlay());
+      closeBtn.dataset.bound = '1';
+    }
+
+    console.log('[multiplayer-ext] loaded');
+  }
+
   window.MP = {
-    bootstrap,
     createRoom,
     joinRoom,
     leaveRoom,
-    handleSurrender,
-    handleLocalMove,
-    isMyTurn: () => {
-      if (!state.isInRoom) return GoGame.isMyTurn();
-      return GoGame.isMyTurn();
-    },
-    getLocalColor: () => state.myColor,
+    getRoomCode: () => state.roomCode,
+    getMyColor: () => state.myColor,
+    isInRoom: () => state.isInRoom,
+    handleSurrender: onResignClick,
   };
 
-  window.addEventListener('DOMContentLoaded', () => {
-    bootstrap();
-  });
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init, { once: true });
+  } else {
+    init();
+  }
 })();
