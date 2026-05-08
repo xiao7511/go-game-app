@@ -18,6 +18,6 @@
  */
 
 window.APP_CONFIG_LOCAL = {
-  SUPABASE_URL: 'https://kogjjfccyncdszuuwlun.supabase.co/rest/v1/',
-  SUPABASE_ANON_KEY: 'sb_publishable_sUhEUYYHIr7hQl6A_iE4zQ_F-P3KENr',
+  SUPABASE_URL: '',
+  SUPABASE_ANON_KEY: '',
 };
