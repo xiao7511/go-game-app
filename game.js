@@ -16,11 +16,24 @@
       // 如果已经有实例，直接返回，不再重新创建或执行逻辑
       if (supabaseInstance) return supabaseInstance; 
 
-      const { createClient } = window.supabase; 
-      if (window.CONFIG.SUPABASE_URL && window.CONFIG.SUPABASE_ANON_KEY) {
+      //const { createClient } = window.supabase; 
+      //if (window.CONFIG.SUPABASE_URL && window.CONFIG.SUPABASE_ANON_KEY) {
           // 创建唯一实例[cite: 2]
-          supabaseInstance = createClient(window.CONFIG.SUPABASE_URL, window.CONFIG.SUPABASE_ANON_KEY); 
-      }
+         // supabaseInstance = createClient(window.CONFIG.SUPABASE_URL, window.CONFIG.SUPABASE_ANON_KEY); 
+    //  }
+
+    const response = await fetch('/get-config');
+    const config = await response.json();
+    
+    if (config.SUPABASE_ANON_KEY) {
+        // 2. 拿到 Key 后再初始化 Supabase
+        supabaseInstance = supabase.createClient('你的SupabaseURL', config.SUPABASE_ANON_KEY);
+        // 3. 执行后续登录或游戏逻辑
+        console.log("Supabase 已就绪");
+    } else {
+        alert("配置加载失败，请检查网络");
+    }
+
       return supabaseInstance;
   }
   
