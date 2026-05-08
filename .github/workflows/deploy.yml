@@ -35,12 +35,14 @@ jobs:
           import os
           from pathlib import Path
 
+          # 修改后
           config = {
               "SUPABASE_URL": os.environ.get("SUPABASE_URL", ""),
               "SUPABASE_ANON_KEY": os.environ.get("SUPABASE_ANON_KEY", ""),
           }
-          Path("config.js").write_text(
-              "window.APP_CONFIG = " + json.dumps(config, ensure_ascii=False, indent=2) + ";\n",
+          # 注意这里：文件名改为 config.local.js，变量名建议直接按需匹配
+          Path("config.local.js").write_text(
+              "window.CONFIG = " + json.dumps(config, ensure_ascii=False, indent=2) + ";\n",
               encoding="utf-8"
           )
           PY
