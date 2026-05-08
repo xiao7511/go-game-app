@@ -88,12 +88,14 @@
       btn.innerText = '登录中...';
 
       try {
-        const cfg = window.APP_CONFIG || {};
-        if (!cfg.SUPABASE_URL || !cfg.SUPABASE_ANON_KEY) {
+        //const cfg = window.APP_CONFIG || {};
+        const response = await fetch('/get-config');
+        const config = await response.json();
+        if (!config.SUPABASE_URL || !config.SUPABASE_ANON_KEY) {
           throw new Error('配置缺失，请检查 config.local.js');
         }
         const { createClient } = window.supabase;
-        const client = createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY);
+        const client = createClient(config.SUPABASE_URL, config.SUPABASE_ANON_KEY);
         const { data, error } = await client.auth.signInWithPassword({ email, password });
         if (error) throw error;
 
