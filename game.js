@@ -27,7 +27,7 @@
     const config = window.APP_CONFIG
     if (config.SUPABASE_ANON_KEY) {
         // 2. 拿到 Key 后再初始化 Supabase
-        supabaseInstance = supabase.createClient('你的SupabaseURL', config.SUPABASE_ANON_KEY);
+        supabaseInstance = supabase.createClient(config.SUPABASE_URL, config.SUPABASE_ANON_KEY);
         // 3. 执行后续登录或游戏逻辑
         console.log("Supabase 已就绪");
     } else {
