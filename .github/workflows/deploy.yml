@@ -21,6 +21,11 @@ env:
 jobs:
   build:
     runs-on: ubuntu-latest
+    # 添加以下三行显式声明权限
+    permissions:
+      contents: write
+      pages: write
+      id-token: write
     env:
       SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
       SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
