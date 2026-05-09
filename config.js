@@ -15,10 +15,12 @@
 
 (function () {
   'use strict';
-
+  const response = await fetch('/get-config');
+  const config = await response.json();
+  
   var DEFAULT_CONFIG = {
-    SUPABASE_URL: '',
-    SUPABASE_ANON_KEY: '',
+    SUPABASE_URL: config.SUPABASE_URL,
+    SUPABASE_ANON_KEY: config.SUPABASE_ANON_KEY,
   };
 
   var LOCAL_CONFIG = window.APP_CONFIG_LOCAL || {};
