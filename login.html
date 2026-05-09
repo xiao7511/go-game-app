@@ -78,43 +78,55 @@
 
   <script>
     async function handleLogin(event) {
-      event.preventDefault();
-      const btn = document.getElementById('login-btn');
-      const errorEl = document.getElementById('login-error');
-      const email = document.getElementById('login-email').value.trim();
-      const password = document.getElementById('login-password').value;
+    event.preventDefault();
+    const btn = document.getElementById('login-btn');
+    const errorEl = document.getElementById('login-error');
+    const email = document.getElementById('login-email').value.trim();
+    const password = document.getElementById('login-password').value;
 
-      errorEl.style.display = 'none';
-      btn.disabled = true;
-      btn.innerText = '登录中...';
+    errorEl.style.display = 'none';
+    btn.disabled = true;
+    btn.innerText = '登录中...';
 
-      try {
-        //const cfg = window.APP_CONFIG || {};
-        const response = await fetch('/get-config');
-        const config = await response.json();
-        if (!config.SUPABASE_URL || !config.SUPABASE_ANON_KEY) {
-          throw new Error('配置缺失，请检查 config.local.js');
-        }
-        const { createClient } = window.supabase;
-        const client = createClient(config.SUPABASE_URL, config.SUPABASE_ANON_KEY);
-        const { data, error } = await client.auth.signInWithPassword({ email, password });
-        if (error) throw error;
-
-        const userInfo = {
-          uid: data.user.id,
-          nickname: data.user.user_metadata.nickname || '新玩家',
-          avatar: data.user.user_metadata.avatar_url || `https://api.dicebear.com/7.x/pixel-art/svg?seed=${data.user.id}`,
-          rank: data.user.user_metadata.rank || '1 Dan'
-        };
-        sessionStorage.setItem('userInfo', JSON.stringify(userInfo));
-        window.location.href = 'game.html';
-      } catch (err) {
-        errorEl.textContent = '登录失败: ' + err.message;
-        errorEl.style.display = 'block';
-        btn.disabled = false;
-        btn.innerText = '登录';
+    try {
+      // --- 关键修改：直接使用 config.js 准备好的全局变量 ---
+      const config = window.APP_CONFIG;
+      
+      if (!config || !config.SUPABASE_URL || !config.SUPABASE_ANON_KEY) {
+        // 如果配置还没加载完，可以提示用户稍等或尝试重新获取
+        throw new Error('系统配置加载中，请稍后重试或检查 config.local.js');
       }
+
+      // 检查 SDK 是否就绪
+      if (!window.supabase) {
+        throw new Error('Supabase SDK 加载失败，请检查网络连接');
+      }
+
+      const { createClient } = window.supabase;
+      const client = createClient(config.SUPABASE_URL, config.SUPABASE_ANON_KEY);
+      
+      const { data, error } = await client.auth.signInWithPassword({ email, password });
+      if (error) throw error;
+
+      // 用户信息处理
+      const userInfo = {
+        uid: data.user.id,
+        nickname: data.user.user_metadata?.nickname || '新玩家',
+        avatar: data.user.user_metadata?.avatar_url || `https://api.dicebear.com/7.x/pixel-art/svg?seed=${data.user.id}`,
+        rank: data.user.user_metadata?.rank || '1 Dan'
+      };
+      
+      sessionStorage.setItem('userInfo', JSON.stringify(userInfo));
+      window.location.href = 'game.html';
+    } catch (err) {
+      // 针对不同类型的错误给出更友好的提示
+      console.error('Login Detail:', err);
+      errorEl.textContent = '登录失败: ' + (err.message || '未知错误');
+      errorEl.style.display = 'block';
+      btn.disabled = false;
+      btn.innerText = '登录';
     }
+  }
   </script>
 </body>
 </html>
