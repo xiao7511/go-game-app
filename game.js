@@ -22,9 +22,9 @@
          // supabaseInstance = createClient(window.CONFIG.SUPABASE_URL, window.CONFIG.SUPABASE_ANON_KEY); 
     //  }
 
-    const response = await fetch('/get-config');
-    const config = await response.json();
-    
+   // const response = await fetch('/get-config');
+   // const config = await response.json();
+    const config = window.APP_CONFIG
     if (config.SUPABASE_ANON_KEY) {
         // 2. 拿到 Key 后再初始化 Supabase
         supabaseInstance = supabase.createClient('你的SupabaseURL', config.SUPABASE_ANON_KEY);
