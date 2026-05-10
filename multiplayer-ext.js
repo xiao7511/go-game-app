@@ -379,24 +379,23 @@
     drawFullBoard();
   }*/
   function resizeCanvas() {
-    const dpr = window.devicePixelRatio || 1;
+    // 获取屏幕最小边作为棋盘尺寸
     const size = Math.min(window.innerWidth, window.innerHeight) - 20;
-    // CSS 显示大小
+
+    // 设置 canvas 显示大小
     state.canvas.style.width = size + 'px';
     state.canvas.style.height = size + 'px';
 
-    // 实际渲染像素
-    state.canvas.width = size * dpr;
-    state.canvas.height = size * dpr;
+    // 设置 canvas 渲染像素和显示像素一致（不放大）
+    state.canvas.width = size;
+    state.canvas.height = size;
 
-    // 坐标缩放
-    state.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    state.ctx = state.canvas.getContext('2d');
 
-    // 棋盘逻辑尺寸
-    state.boardPx = size;
-
+    // 计算每个格子的像素大小
     state.cellSize = size / (state.boardSize - 1);
 
+    // 棋盘边距
     state.padding = 0;
   }
 
@@ -664,11 +663,9 @@
     return { row, col };
   }*/
     function captureToBoardCoords(e) {
-
       const rect = state.canvas.getBoundingClientRect();
 
-      let clientX;
-      let clientY;
+      let clientX, clientY;
 
       if (e.touches && e.touches.length > 0) {
         clientX = e.touches[0].clientX;
@@ -681,7 +678,6 @@
         clientY = e.clientY;
       }
 
-      // 注意：这里不要再乘 scale
       const x = clientX - rect.left;
       const y = clientY - rect.top;
 
@@ -694,7 +690,7 @@
       col = Math.max(0, Math.min(boardSize - 1, col));
 
       return { row, col };
-  }
+    }
   /*
   function canvasCaptureHandler(e) {
     if (!state.isInRoom) return;
