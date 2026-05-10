@@ -24,17 +24,36 @@
 
    // const response = await fetch('/get-config');
    // const config = await response.json();
-    const config = window.APP_CONFIG
-    if (config.SUPABASE_ANON_KEY) {
+    //const config = window.APP_CONFIG
+   // if (config.SUPABASE_ANON_KEY) {
         // 2. 拿到 Key 后再初始化 Supabase
-        supabaseInstance = supabase.createClient(config.SUPABASE_URL, config.SUPABASE_ANON_KEY);
+    //    supabaseInstance = supabase.createClient(config.SUPABASE_URL, config.SUPABASE_ANON_KEY);
         // 3. 执行后续登录或游戏逻辑
-        console.log("Supabase 已就绪");
-    } else {
-        alert("配置加载失败，请检查网络");
+     //   console.log("Supabase 已就绪");
+   // } else {
+   //     alert("配置加载失败，请检查网络");
+   // }
+
+   //   return supabaseInstance;
+//     if (supabaseInstance) return supabaseInstance;
+
+    // 如果配置还没加载完，则等待最多 3 秒
+    let retry = 0;
+    while (!window.APP_CONFIG?.SUPABASE_URL && retry < 30) {
+        await new Promise(r => setTimeout(r, 100));
+        retry++;
     }
 
-      return supabaseInstance;
+    const config = window.APP_CONFIG;
+    if (config && config.SUPABASE_URL && config.SUPABASE_ANON_KEY) {
+        const { createClient } = window.supabase;
+        supabaseInstance = createClient(config.SUPABASE_URL, config.SUPABASE_ANON_KEY);
+        console.log("Supabase 初始化成功");
+        return supabaseInstance;
+    } else {
+        alert("配置加载失败，请刷新页面或检查网络");
+        return null;
+    }
   }
   
 
