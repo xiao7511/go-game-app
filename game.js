@@ -12,37 +12,34 @@
   // 优化后的定义方式
   let supabaseInstance = null; // 顶层定义变量
 
-// 1. 定义一个全局变量来存放实例
-let supabaseInstance = null;
+  // 2. 方案 B：监听配置就绪事件
+  window.addEventListener('configReady', function(event) {
+      const config = event.detail; // 从事件中获取清洗过的配置
+      
+      if (config && config.SUPABASE_URL && config.SUPABASE_ANON_KEY) {
+          try {
+              // 3. 执行初始化
+              const { createClient } = window.supabase;
+              supabaseInstance = createClient(config.SUPABASE_URL, config.SUPABASE_ANON_KEY);
+              console.log("Supabase 客户端已成功初始化");
 
-// 2. 方案 B：监听配置就绪事件
-window.addEventListener('configReady', function(event) {
-    const config = event.detail; // 从事件中获取清洗过的配置
-    
-    if (config && config.SUPABASE_URL && config.SUPABASE_ANON_KEY) {
-        try {
-            // 3. 执行初始化
-            const { createClient } = window.supabase;
-            supabaseInstance = createClient(config.SUPABASE_URL, config.SUPABASE_ANON_KEY);
-            console.log("Supabase 客户端已成功初始化");
+              // 4. 初始化成功后，在这里调用你的游戏启动函数
+              // startGame(); 
+          } catch (err) {
+              console.error("Supabase 初始化发生错误:", err);
+          }
+      } else {
+          console.error("配置加载失败，获取到的配置不完整");
+      }
+  });
 
-            // 4. 初始化成功后，在这里调用你的游戏启动函数
-            // startGame(); 
-        } catch (err) {
-            console.error("Supabase 初始化发生错误:", err);
-        }
-    } else {
-        console.error("配置加载失败，获取到的配置不完整");
-    }
-});
-
-// 3. 原有的函数可以简化为一个简单的获取器
-function getSupabaseClient() {
-    if (!supabaseInstance) {
-        console.warn("Supabase 尚未初始化，请稍后再试或检查配置");
-    }
-    return supabaseInstance;
-}
+  // 3. 原有的函数可以简化为一个简单的获取器
+  function getSupabaseClient() {
+      if (!supabaseInstance) {
+          console.warn("Supabase 尚未初始化，请稍后再试或检查配置");
+      }
+      return supabaseInstance;
+  }
 
   //function getSupabaseClient() {
       // 如果已经有实例，直接返回，不再重新创建或执行逻辑
