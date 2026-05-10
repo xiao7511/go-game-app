@@ -42,10 +42,24 @@
 
   // 3. 原有的函数可以简化为一个简单的获取器
   function getSupabaseClient() {
-      if (!supabaseInstance) {
-          console.warn("Supabase 尚未初始化，请稍后再试或检查配置");
-      }
-      return supabaseInstance;
+      // 1. 如果已经有了，直接返回
+    if (supabaseInstance) return supabaseInstance;
+
+    // 2. 尝试从全局变量实时创建
+    const config = window.APP_CONFIG;
+    if (config && config.SUPABASE_URL && config.SUPABASE_ANON_KEY) {
+        try {
+            const { createClient } = window.supabase;
+            // 再次清洗 URL 确保万无一失
+            const pureUrl = config.SUPABASE_URL.trim().replace(/\/rest\/v1\/?$/, '');
+            supabaseInstance = createClient(pureUrl, config.SUPABASE_ANON_KEY);
+            console.log("Supabase 客户端实时初始化成功");
+            return supabaseInstance;
+        } catch (err) {
+            console.error("Supabase 实时初始化失败:", err);
+        }
+    }
+    return null;
   }
 
   //function getSupabaseClient() {

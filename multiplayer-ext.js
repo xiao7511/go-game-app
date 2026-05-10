@@ -97,7 +97,7 @@
       .replace(/\/rest\/v1\/?$/i, '')
       .replace(/\/$/, '');
   }
-
+/*
   function initSupabaseClient() {
     const cfg = window.APP_CONFIG || window.CONFIG || {};
     const url = normalizeSupabaseUrl(cfg.SUPABASE_URL || cfg.supabaseUrl || cfg.url);
@@ -113,6 +113,50 @@
       realtime: { params: { eventsPerSecond: 10 } },
     });
     return state.supabase;
+  }*/
+ // 修改后的初始化函数，支持异步等待配置
+  async function initSupabaseClient() {
+      // 1. 如果已经初始化过，直接返回实例
+      if (state.supabase) return state.supabase;
+
+      // 2. 增加重试机制，等待 config.js 加载完成 (最多等待 3 秒)
+      let retry = 0;
+      while (!window.APP_CONFIG?.SUPABASE_URL && retry < 30) {
+          await new Promise(r => setTimeout(r, 100)); // 每 100ms 检查一次
+          retry++;
+      }
+
+      // 3. 获取最新的配置
+      const cfg = window.APP_CONFIG || window.CONFIG || {};
+      
+      // 强制清洗 URL，防止 /rest/v1 导致的 404 错误
+      const rawUrl = cfg.SUPABASE_URL || cfg.supabaseUrl || cfg.url;
+      const url = rawUrl ? rawUrl.trim().replace(/\/rest\/v1\/?$/, '') : null;
+      const key = cfg.SUPABASE_ANON_KEY || cfg.supabaseAnonKey || cfg.key;
+
+      // 4. 校验环境
+      if (!url || !key || !window.supabase?.createClient) {
+          console.warn('[multiplayer-ext] Supabase 配置缺失或 CDN 未加载，正在重试或保持离线...');
+          return null;
+      }
+
+      try {
+          // 5. 创建实例
+          state.supabase = window.supabase.createClient(url, key, {
+              db: { schema: 'game' },
+              realtime: { 
+                  params: { eventsPerSecond: 10 },
+                  // 确保开启 Realtime，这是看到对手落子的关键
+                  config: { broadcast: { self: true }, presence: { key: 'player' } }
+              },
+          });
+          
+          console.log('[multiplayer-ext] Supabase 实例已成功创建');
+          return state.supabase;
+      } catch (err) {
+          console.error('[multiplayer-ext] 初始化异常:', err);
+          return null;
+      }
   }
 
   function generateRoomCode() {

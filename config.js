@@ -60,8 +60,10 @@
 
   // 7. 挂载到全局
   window.APP_CONFIG = finalConfig;
-  console.log('[Config] 全局配置已就绪:', window.APP_CONFIG);
+  //console.log('[Config] 全局配置已就绪:', window.APP_CONFIG);
   
   // 8. 发送就绪事件，通知其他业务脚本 (如 login.js, game.js)
-  window.dispatchEvent(new CustomEvent('configReady', { detail: finalConfig }));
+  setTimeout(() => {
+      window.dispatchEvent(new CustomEvent('configReady', { detail: finalConfig }));
+  }, 0);
 })();
