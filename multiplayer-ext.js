@@ -178,6 +178,7 @@
     }
   }
 
+  /*
  async function getPlayerProfile(playerId) {
     try {
       // 关键修复：确保参数名 p_id 与数据库函数定义一致
@@ -196,6 +197,25 @@
       // 捕获 LockGrantedCallback 等浏览器底层的异步异常
       console.error('[MP] getPlayerProfile 发生异常:', err);
       return { nickname: '棋手', avatar_url: null };
+    }
+  }*/
+  async function getPlayerProfile(playerId) { //调用玩家信息  by 0510
+    try {
+      const { data, error } = await state.supabase.rpc(
+        'get_player_profile',
+        { p_id: playerId }
+      );
+
+      if (error) {
+        console.warn('[MP] RPC 调用失败:', error.message);
+        return null;
+      }
+
+      return Array.isArray(data) ? data[0] : data;
+
+    } catch (err) {
+      console.error('[MP] getPlayerProfile 异常:', err);
+      return null;
     }
   }
 
@@ -674,7 +694,8 @@
     if (color === BLACK) state.blackCaptures += Array.isArray(captured) ? captured.length : 0;
     else state.whiteCaptures += Array.isArray(captured) ? captured.length : 0;
 
-    state.currentTurn = state.myColor || (color === BLACK ? 'white' : 'black');
+    //state.currentTurn = state.myColor || (color === BLACK ? 'white' : 'black');
+    state.currentTurn = color === BLACK ? 'white' : 'black';
     setLatestMoveHighlight(row, col);
     playSound('yourTurn');
     drawFullBoard();
@@ -978,7 +999,16 @@
       state.roomContext.roomId = code;
       state.roomContext.inviteLink = buildInviteLink(code);
       state.roomChannel = await initRoomChannel(code);
-      await refreshRoomFromServer(room);
+      //await refreshRoomFromServer(room);
+      const { data: latestRoom } = await state.supabase
+        .schema('game')
+        .from('game_rooms')
+        .select('*')
+        .eq('code', code)
+        .single();
+
+      await refreshRoomFromServer(latestRoom);  //修复new
+
       updateRoomPanel({ code, inviteLink: state.roomContext.inviteLink });
       drawFullBoard();
       updateProfilePanels();
@@ -1100,7 +1130,7 @@
     await persistRoomState({ status: 'ended' });
     showGameOverOverlay(winner, 'resign');
   }
-
+/*
   async function onRoomMessage(payload) {
     if (!payload) return;
     if (payload.type === 'RESIGN_REQUEST') {
@@ -1109,12 +1139,13 @@
       await persistRoomState({ status: 'ended' });
       showGameOverOverlay(payload.winner, payload.reason || 'game_over');
     }
-  }
+  }*/
 
   /**
  * 修复版：refreshRoomFromServer
  * 解决 400 报错、LockGrantedCallback 异常及 UI 同步卡顿
  */
+/*
 async function refreshRoomFromServer(room) {
   if (!room) return;
 
@@ -1206,12 +1237,12 @@ async function refreshRoomFromServer(room) {
     // 释放锁
     state.isSyncing = false;
   }
-}
+} */
 
   function buildInviteLink(code) {
     return `${window.location.origin}${window.location.pathname}?room=${code}`;
   }
-
+/*
   async function createRoom() {
     const userId = await getUserId();
     if (!userId) {
@@ -1261,8 +1292,8 @@ async function refreshRoomFromServer(room) {
       console.error('[multiplayer-ext] 创建房间失败:', err);
       alert(`创建房间失败: ${err.message}`);
     }
-  }
-
+  } */
+ /*
   async function joinRoom(code) {
     const userId = await getUserId();
     if (!userId) {
@@ -1320,7 +1351,7 @@ async function refreshRoomFromServer(room) {
       console.error('[multiplayer-ext] 加入房间失败:', err);
       alert(`加入房间失败: ${err.message}`);
     }
-  }
+  }*/
 
   function bindResignButtons() {
     const bindOne = (el) => {
@@ -1414,7 +1445,7 @@ async function refreshRoomFromServer(room) {
     await persistRoomState({ status: 'ended' });
     showGameOverOverlay(winner, 'resign');
   }
-
+ /*
   async function onRoomMessage(payload) {
     if (!payload) return;
     if (payload.type === 'RESIGN_REQUEST') {
@@ -1423,7 +1454,7 @@ async function refreshRoomFromServer(room) {
       await persistRoomState({ status: 'ended' });
       showGameOverOverlay(payload.winner, payload.reason || 'game_over');
     }
-  }
+  }*/
 
   function showGameArea() {
     const selection = $('game-selection');
@@ -1494,6 +1525,10 @@ async function refreshRoomFromServer(room) {
 
     console.log('[multiplayer-ext] loaded');
   }
+  state.canvas.addEventListener('touchstart', canvasCaptureHandler, {
+    passive: false,
+    capture: true
+  });
 
   window.MP = {
     createRoom,
