@@ -362,7 +362,7 @@
     resizeCanvas();
     return true;
   }
-
+  /*
   function resizeCanvas() {
     if (!state.canvas || !state.ctx) return;
     const parent = state.canvas.parentElement;
@@ -377,6 +377,27 @@
     state.padding = cssSize / (SIZE + 1);
     state.cellSize = (cssSize - state.padding * 2) / (SIZE - 1);
     drawFullBoard();
+  }*/
+  function resizeCanvas() {
+    const dpr = window.devicePixelRatio || 1;
+    const size = Math.min(window.innerWidth, window.innerHeight) - 20;
+    // CSS 显示大小
+    state.canvas.style.width = size + 'px';
+    state.canvas.style.height = size + 'px';
+
+    // 实际渲染像素
+    state.canvas.width = size * dpr;
+    state.canvas.height = size * dpr;
+
+    // 坐标缩放
+    state.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+    // 棋盘逻辑尺寸
+    state.boardPx = size;
+
+    state.cellSize = size / (state.boardSize - 1);
+
+    state.padding = 0;
   }
 
   function ensureCanvasSize() {
@@ -642,39 +663,37 @@
 
     return { row, col };
   }*/
-  function captureToBoardCoords(e) {
+    function captureToBoardCoords(e) {
 
-    const rect = state.canvas.getBoundingClientRect();
+      const rect = state.canvas.getBoundingClientRect();
 
-    let clientX;
-    let clientY;
+      let clientX;
+      let clientY;
 
-    if (e.touches && e.touches.length > 0) {
-      clientX = e.touches[0].clientX;
-      clientY = e.touches[0].clientY;
-    } else if (e.changedTouches && e.changedTouches.length > 0) {
-      clientX = e.changedTouches[0].clientX;
-      clientY = e.changedTouches[0].clientY;
-    } else {
-      clientX = e.clientX;
-      clientY = e.clientY;
-    }
+      if (e.touches && e.touches.length > 0) {
+        clientX = e.touches[0].clientX;
+        clientY = e.touches[0].clientY;
+      } else if (e.changedTouches && e.changedTouches.length > 0) {
+        clientX = e.changedTouches[0].clientX;
+        clientY = e.changedTouches[0].clientY;
+      } else {
+        clientX = e.clientX;
+        clientY = e.clientY;
+      }
 
-    const scaleX = state.canvas.width / rect.width;
-    const scaleY = state.canvas.height / rect.height;
+      // 注意：这里不要再乘 scale
+      const x = clientX - rect.left;
+      const y = clientY - rect.top;
 
-    const x = (clientX - rect.left) * scaleX;
-    const y = (clientY - rect.top) * scaleY;
+      const boardSize = state.boardSize || 19;
 
-    const boardSize = state.boardSize || 19;
+      let col = Math.round((x - state.padding) / state.cellSize);
+      let row = Math.round((y - state.padding) / state.cellSize);
 
-    let col = Math.round((x - state.padding) / state.cellSize);
-    let row = Math.round((y - state.padding) / state.cellSize);
+      row = Math.max(0, Math.min(boardSize - 1, row));
+      col = Math.max(0, Math.min(boardSize - 1, col));
 
-    row = Math.max(0, Math.min(boardSize - 1, row));
-    col = Math.max(0, Math.min(boardSize - 1, col));
-
-    return { row, col };
+      return { row, col };
   }
   /*
   function canvasCaptureHandler(e) {
