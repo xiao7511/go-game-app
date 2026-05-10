@@ -602,7 +602,7 @@
     if (row < 0 || row >= SIZE || col < 0 || col >= SIZE) return null;
     return { row, col };
   }*/
- function captureToBoardCoords(e) {
+ /*function captureToBoardCoords(e) {
     const rect = state.canvas.getBoundingClientRect();
     let clientX;
     let clientY;
@@ -631,12 +631,48 @@
     const col = Math.round((x - state.padding) / state.cellSize);
     const row = Math.round((y - state.padding) / state.cellSize);
 
+    const boardSize = state.boardSize || 19;
+    
     if (
-      row < 0 || row >= BOARD_SIZE ||
-      col < 0 || col >= BOARD_SIZE
+      row < 0 || row >= boardSize ||
+      col < 0 || col >= boardSize
     ) {
       return null;
     }
+
+    return { row, col };
+  }*/
+  function captureToBoardCoords(e) {
+
+    const rect = state.canvas.getBoundingClientRect();
+
+    let clientX;
+    let clientY;
+
+    if (e.touches && e.touches.length > 0) {
+      clientX = e.touches[0].clientX;
+      clientY = e.touches[0].clientY;
+    } else if (e.changedTouches && e.changedTouches.length > 0) {
+      clientX = e.changedTouches[0].clientX;
+      clientY = e.changedTouches[0].clientY;
+    } else {
+      clientX = e.clientX;
+      clientY = e.clientY;
+    }
+
+    const scaleX = state.canvas.width / rect.width;
+    const scaleY = state.canvas.height / rect.height;
+
+    const x = (clientX - rect.left) * scaleX;
+    const y = (clientY - rect.top) * scaleY;
+
+    const boardSize = state.boardSize || 19;
+
+    let col = Math.round((x - state.padding) / state.cellSize);
+    let row = Math.round((y - state.padding) / state.cellSize);
+
+    row = Math.max(0, Math.min(boardSize - 1, row));
+    col = Math.max(0, Math.min(boardSize - 1, col));
 
     return { row, col };
   }
