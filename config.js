@@ -1,72 +1,67 @@
 /**
  * ============================================================================
- *  config.js — Supabase 运行时配置加载器
- * ============================================================================
- *
- * ⚠️ 安全警告: 此文件不包含任何真实密钥。
- * 真实密钥通过以下两种方式注入:
- *
- * 1. 本地开发: 创建 config.local.js（已在 .gitignore 中排除）
- * 2. 生产部署: 由构建流程或环境变量注入
- *
- * 严禁将包含真实密钥的文件提交到 Git。
+ * config.js — Supabase 运行时配置加载器 (优化版)
  * ============================================================================
  */
 
 (async function () {
   'use strict';
 
-  // 1. 默认配置（初始化为空）
-  var DEFAULT_CONFIG = {
+  // 1. 基础配置容器
+  var finalConfig = {
     SUPABASE_URL: '',
     SUPABASE_ANON_KEY: '',
   };
 
-  // 2. 尝试从后端/Worker 获取配置 (添加 try-catch 增强健壮性)
+  // 2. 尝试从后端/Worker 获取配置 (例如 Cloudflare Pages Functions)
   try {
-    // 如果你使用 Cloudflare Worker，请将此处替换为完整的 Worker URL
     const response = await fetch('/get-config'); 
     if (response.ok) {
       const remoteConfig = await response.json();
-      DEFAULT_CONFIG.SUPABASE_URL = remoteConfig.SUPABASE_URL;
-      DEFAULT_CONFIG.SUPABASE_ANON_KEY = remoteConfig.SUPABASE_ANON_KEY;
+      if (remoteConfig.SUPABASE_URL) finalConfig.SUPABASE_URL = remoteConfig.SUPABASE_URL;
+      if (remoteConfig.SUPABASE_ANON_KEY) finalConfig.SUPABASE_ANON_KEY = remoteConfig.SUPABASE_ANON_KEY;
+      console.log('[Config] 已从远程接口加载配置');
     }
   } catch (e) {
-    console.log('[Config] 未能从远程接口获取配置，尝试使用本地配置');
+    console.log('[Config] 未能从远程接口获取配置，将尝试本地/注入配置');
   }
 
-  // 3. 读取本地 config.local.js 中的配置
-  var LOCAL_CONFIG = window.APP_CONFIG_LOCAL || {};
+  // 3. 读取本地 config.local.js 中的配置 (由构建流程注入)
+  // 注意：变量名需与 config.local.js 中保持一致
+  var LOCAL_CONFIG = window.APP_CONFIG_LOCAL || window.LOCAL_CONFIG || {};
 
-  // 4. 合并配置 (本地优先)
-  var merged = {};
-  var keys = Object.keys(DEFAULT_CONFIG);
+  // 4. 合并配置 (本地/注入配置 优先级最高)
+  if (LOCAL_CONFIG.SUPABASE_URL) finalConfig.SUPABASE_URL = LOCAL_CONFIG.SUPABASE_URL;
+  if (LOCAL_CONFIG.SUPABASE_ANON_KEY) finalConfig.SUPABASE_ANON_KEY = LOCAL_CONFIG.SUPABASE_ANON_KEY;
 
-  for (var i = 0; i < keys.length; i++) {
-    var key = keys[i];
-    merged[key] = Object.prototype.hasOwnProperty.call(DEFAULT_CONFIG, key)
-      ? DEFAULT_CONFIG[key]
-      : DEFAULT_CONFIG[key];
+  // 5. 【核心修复】URL 自动清洗逻辑
+  // 强制删除可能存在的 /rest/v1 后缀，并去除前后空格
+  if (finalConfig.SUPABASE_URL) {
+    finalConfig.SUPABASE_URL = finalConfig.SUPABASE_URL
+      .trim()
+      .replace(/\/rest\/v1\/?$/, '')
+      .replace(/\/$/, ''); // 同时移除末尾多余的斜杠
   }
 
-  // 5. 校验逻辑
+  // 6. 校验逻辑
   function isValidUrl(value) {
     return typeof value === 'string' && /^https?:\/\//i.test(value.trim());
   }
 
-  if (!merged.SUPABASE_URL || !merged.SUPABASE_ANON_KEY) {
-    console.warn(
-      '[Supabase Config] 缺少配置：远程接口和本地 config.local.js 均无有效值。'
+  if (!finalConfig.SUPABASE_URL || !finalConfig.SUPABASE_ANON_KEY) {
+    console.error(
+      '[Supabase Config] 严重错误：未找到有效配置，请检查环境变量或 config.local.js'
     );
-  } else if (!isValidUrl(merged.SUPABASE_URL)) {
-    console.warn(
-      '[Supabase Config] SUPABASE_URL 格式不正确：' + merged.SUPABASE_URL
+  } else if (!isValidUrl(finalConfig.SUPABASE_URL)) {
+    console.error(
+      '[Supabase Config] URL 格式非法，请检查：' + finalConfig.SUPABASE_URL
     );
   }
 
-  // 6. 挂载到全局
-  window.APP_CONFIG = merged;
+  // 7. 挂载到全局
+  window.APP_CONFIG = finalConfig;
+  console.log('[Config] 全局配置已就绪:', window.APP_CONFIG);
   
-  // 发送配置就绪事件，通知 login.js 等脚本
-  window.dispatchEvent(new CustomEvent('configReady', { detail: merged }));
+  // 8. 发送就绪事件，通知其他业务脚本 (如 login.js, game.js)
+  window.dispatchEvent(new CustomEvent('configReady', { detail: finalConfig }));
 })();
