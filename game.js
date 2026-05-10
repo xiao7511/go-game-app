@@ -11,18 +11,24 @@
    */
   // 优化后的定义方式
   let supabaseInstance = null; // 顶层定义变量
+  let isInitializing = false; // 防止重复初始化
 
   // 2. 方案 B：监听配置就绪事件
   window.addEventListener('configReady', function(event) {
+      if (isInitializing || supabaseInstance) return;
+      isInitializing = true;
+
       const config = event.detail; // 从事件中获取清洗过的配置
-      
       if (config && config.SUPABASE_URL && config.SUPABASE_ANON_KEY) {
           try {
               // 3. 执行初始化
               const { createClient } = window.supabase;
               supabaseInstance = createClient(config.SUPABASE_URL, config.SUPABASE_ANON_KEY);
               console.log("Supabase 客户端已成功初始化");
-
+            // 【关键】初始化成功后，手动触发后续依赖逻辑
+              if (window.onSupabaseReady) {
+                  window.onSupabaseReady(supabaseInstance);
+              }
               // 4. 初始化成功后，在这里调用你的游戏启动函数
               // startGame(); 
           } catch (err) {
@@ -31,6 +37,7 @@
       } else {
           console.error("配置加载失败，获取到的配置不完整");
       }
+      isInitializing = false;
   });
 
   // 3. 原有的函数可以简化为一个简单的获取器
