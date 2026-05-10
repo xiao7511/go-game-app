@@ -1456,7 +1456,7 @@ async function refreshRoomFromServer(room) {
     }
   }*/
 
-  function showGameArea() {
+    /*function showGameArea() {
     const selection = $('game-selection');
     const app = document.querySelector('.app');
     if (selection) selection.style.display = 'none';
@@ -1487,7 +1487,7 @@ async function refreshRoomFromServer(room) {
     wrapper.appendChild(joinHint);
     card.appendChild(divider);
     card.appendChild(wrapper);
-  }
+  }*/
 
   async function init() {
     if (state.boundOnce) return;
