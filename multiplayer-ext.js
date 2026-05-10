@@ -1499,11 +1499,20 @@ async function refreshRoomFromServer(room) {
     bindResignButtons();
     checkRoomParam();
 
-    if (!initCanvasParams()) return;
+    //if (!initCanvasParams()) return;
+    if (!initCanvasParams()) {
+      console.error('[multiplayer-ext] goBoard 初始化失败');
+      return;
+    }
     drawFullBoard();
     updateProfilePanels();
 
     state.canvas.addEventListener('click', canvasCaptureHandler, { capture: true });
+    /**添加监听 */
+    state.canvas.addEventListener('touchstart', canvasCaptureHandler, {
+      passive: false,
+      capture: true
+    });
 
     if (state.resizeObserver) state.resizeObserver.disconnect();
     state.resizeObserver = new ResizeObserver(() => {
@@ -1525,11 +1534,6 @@ async function refreshRoomFromServer(room) {
 
     console.log('[multiplayer-ext] loaded');
   }
-  state.canvas.addEventListener('touchstart', canvasCaptureHandler, {
-    passive: false,
-    capture: true
-  });
-
   window.MP = {
     createRoom,
     joinRoom,
