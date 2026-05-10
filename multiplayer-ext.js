@@ -590,7 +590,7 @@
       }
     }
   }
-
+  /*
   function captureToBoardCoords(e) {
     const rect = state.canvas.getBoundingClientRect();
     const scaleX = state.canvas.width / rect.width;
@@ -601,8 +601,46 @@
     const row = Math.round((mouseY - state.padding) / state.cellSize);
     if (row < 0 || row >= SIZE || col < 0 || col >= SIZE) return null;
     return { row, col };
-  }
+  }*/
+ function captureToBoardCoords(e) {
+    const rect = state.canvas.getBoundingClientRect();
+    let clientX;
+    let clientY;
+    // 触摸事件
+    if (e.touches && e.touches.length > 0) {
+      clientX = e.touches[0].clientX;
+      clientY = e.touches[0].clientY;
+    }
+    // touchend
+    else if (e.changedTouches && e.changedTouches.length > 0) {
+      clientX = e.changedTouches[0].clientX;
+      clientY = e.changedTouches[0].clientY;
+    }
+    // 鼠标 / pointer
+    else {
+      clientX = e.clientX;
+      clientY = e.clientY;
+    }
+    // 修复移动端缩放坐标
+    const scaleX = state.canvas.width / rect.width;
+    const scaleY = state.canvas.height / rect.height;
 
+    const x = (clientX - rect.left) * scaleX;
+    const y = (clientY - rect.top) * scaleY;
+
+    const col = Math.round((x - state.padding) / state.cellSize);
+    const row = Math.round((y - state.padding) / state.cellSize);
+
+    if (
+      row < 0 || row >= BOARD_SIZE ||
+      col < 0 || col >= BOARD_SIZE
+    ) {
+      return null;
+    }
+
+    return { row, col };
+  }
+  /*
   function canvasCaptureHandler(e) {
     if (!state.isInRoom) return;
     if (!state.myColor || state.currentTurn !== state.myColor) {
@@ -613,6 +651,18 @@
     }
     e.preventDefault();
     e.stopPropagation();
+    const pos = captureToBoardCoords(e);
+    if (!pos) return;
+    handleMultiplayerMove(pos.row, pos.col);
+  }*/
+ function canvasCaptureHandler(e) {
+    if (!state.isInRoom) return;
+    if (!state.myColor || state.currentTurn !== state.myColor) {
+      e.preventDefault();
+      playSound('invalidMove');
+      return;
+    }
+    e.preventDefault();
     const pos = captureToBoardCoords(e);
     if (!pos) return;
     handleMultiplayerMove(pos.row, pos.col);
@@ -1507,9 +1557,14 @@ async function refreshRoomFromServer(room) {
     drawFullBoard();
     updateProfilePanels();
 
-    state.canvas.addEventListener('click', canvasCaptureHandler, { capture: true });
+   // state.canvas.addEventListener('click', canvasCaptureHandler, { capture: true });
     /**添加监听 */
-    state.canvas.addEventListener('touchstart', canvasCaptureHandler, {
+    //state.canvas.addEventListener('touchstart', canvasCaptureHandler, {
+    //  passive: false,
+     // capture: true
+   // });
+    /*统一监听 */
+    state.canvas.addEventListener('pointerdown', canvasCaptureHandler, {
       passive: false,
       capture: true
     });
