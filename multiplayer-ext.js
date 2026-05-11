@@ -378,6 +378,68 @@
     state.cellSize = (cssSize - state.padding * 2) / (SIZE - 1);
     drawFullBoard();
   }
+  function drawFullBoard() {
+    if (!state.canvas || !state.ctx) return;
+    const size = state.canvas.clientWidth || state.canvas.width / Math.max(1, window.devicePixelRatio || 1);
+    const ctx = state.ctx;
+
+    ctx.clearRect(0, 0, size, size);
+
+    const wood = ctx.createRadialGradient(size * 0.28, size * 0.2, size * 0.05, size * 0.5, size * 0.5, size * 0.95);
+    wood.addColorStop(0, '#f3d1a4');
+    wood.addColorStop(0.45, '#d9ad73');
+    wood.addColorStop(1, '#b97d43');
+    ctx.fillStyle = wood;
+    ctx.fillRect(0, 0, size, size);
+
+    ctx.save();
+    ctx.globalAlpha = 0.16;
+    for (let i = 0; i < 12; i++) {
+      const y = size * (0.06 + i * 0.08);
+      ctx.beginPath();
+      ctx.moveTo(size * 0.03, y);
+      ctx.bezierCurveTo(size * 0.22, y - 7, size * 0.48, y + 10, size * 0.97, y - 2);
+      ctx.strokeStyle = i % 2 === 0 ? '#8e5a2d' : '#c8945a';
+      ctx.lineWidth = 1.1;
+      ctx.stroke();
+    }
+    ctx.restore();
+
+    ctx.save();
+    ctx.strokeStyle = 'rgba(45, 28, 15, 0.95)';
+    ctx.lineWidth = 1.1;
+    for (let i = 0; i < SIZE; i++) {
+      const pos = state.padding + i * state.cellSize;
+      ctx.beginPath();
+      ctx.moveTo(state.padding, pos);
+      ctx.lineTo(size - state.padding, pos);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(pos, state.padding);
+      ctx.lineTo(pos, size - state.padding);
+      ctx.stroke();
+    }
+    ctx.restore();
+
+    const stars = [[3, 3], [3, 9], [3, 15], [9, 3], [9, 9], [9, 15], [15, 3], [15, 9], [15, 15]];
+    ctx.save();
+    stars.forEach(([r, c]) => {
+      ctx.beginPath();
+      ctx.arc(state.padding + c * state.cellSize, state.padding + r * state.cellSize, 3.4, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(35, 22, 12, 0.96)';
+      ctx.fill();
+    });
+    ctx.restore();
+
+    for (let r = 0; r < SIZE; r++) {
+      for (let c = 0; c < SIZE; c++) {
+        if (state.board[r][c] !== EMPTY) {
+          const isLatest = Boolean(state.latestMove && state.latestMove[0] === r && state.latestMove[1] === c);
+          drawStone(r, c, state.board[r][c], isLatest);
+        }
+      }
+    }
+  }
   /*function resizeCanvas() {
     // 获取屏幕最小边作为棋盘尺寸
     const size = Math.min(window.innerWidth, window.innerHeight) - 20;
@@ -548,68 +610,7 @@
     state.ctx.restore();
   }
 
-  function drawFullBoard() {
-    if (!state.canvas || !state.ctx) return;
-    const size = state.canvas.clientWidth || state.canvas.width / Math.max(1, window.devicePixelRatio || 1);
-    const ctx = state.ctx;
-
-    ctx.clearRect(0, 0, size, size);
-
-    const wood = ctx.createRadialGradient(size * 0.28, size * 0.2, size * 0.05, size * 0.5, size * 0.5, size * 0.95);
-    wood.addColorStop(0, '#f3d1a4');
-    wood.addColorStop(0.45, '#d9ad73');
-    wood.addColorStop(1, '#b97d43');
-    ctx.fillStyle = wood;
-    ctx.fillRect(0, 0, size, size);
-
-    ctx.save();
-    ctx.globalAlpha = 0.16;
-    for (let i = 0; i < 12; i++) {
-      const y = size * (0.06 + i * 0.08);
-      ctx.beginPath();
-      ctx.moveTo(size * 0.03, y);
-      ctx.bezierCurveTo(size * 0.22, y - 7, size * 0.48, y + 10, size * 0.97, y - 2);
-      ctx.strokeStyle = i % 2 === 0 ? '#8e5a2d' : '#c8945a';
-      ctx.lineWidth = 1.1;
-      ctx.stroke();
-    }
-    ctx.restore();
-
-    ctx.save();
-    ctx.strokeStyle = 'rgba(45, 28, 15, 0.95)';
-    ctx.lineWidth = 1.1;
-    for (let i = 0; i < SIZE; i++) {
-      const pos = state.padding + i * state.cellSize;
-      ctx.beginPath();
-      ctx.moveTo(state.padding, pos);
-      ctx.lineTo(size - state.padding, pos);
-      ctx.stroke();
-      ctx.beginPath();
-      ctx.moveTo(pos, state.padding);
-      ctx.lineTo(pos, size - state.padding);
-      ctx.stroke();
-    }
-    ctx.restore();
-
-    const stars = [[3, 3], [3, 9], [3, 15], [9, 3], [9, 9], [9, 15], [15, 3], [15, 9], [15, 15]];
-    ctx.save();
-    stars.forEach(([r, c]) => {
-      ctx.beginPath();
-      ctx.arc(state.padding + c * state.cellSize, state.padding + r * state.cellSize, 3.4, 0, Math.PI * 2);
-      ctx.fillStyle = 'rgba(35, 22, 12, 0.96)';
-      ctx.fill();
-    });
-    ctx.restore();
-
-    for (let r = 0; r < SIZE; r++) {
-      for (let c = 0; c < SIZE; c++) {
-        if (state.board[r][c] !== EMPTY) {
-          const isLatest = Boolean(state.latestMove && state.latestMove[0] === r && state.latestMove[1] === c);
-          drawStone(r, c, state.board[r][c], isLatest);
-        }
-      }
-    }
-  }
+  
   /*
   function captureToBoardCoords(e) {
     const rect = state.canvas.getBoundingClientRect();
