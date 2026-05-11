@@ -1054,7 +1054,7 @@
     }
   }
 
-  async function joinRoom(code) {
+  /*async function joinRoom(code) {
     const userId = await getUserId();
     if (!userId) {
       alert('请先登录后再加入房间');
@@ -1115,6 +1115,81 @@
       drawFullBoard();
       updateProfilePanels();
       showGameArea();
+      toast(`已加入房间：${code}`);
+    } catch (err) {
+      console.error('[multiplayer-ext] 加入房间失败:', err);
+      alert(`加入房间失败: ${err.message}`);
+    }
+  }*/
+  async function joinRoom(code) {
+    const userId = await getUserId();
+    if (!userId) {
+      alert('请先登录后再加入房间');
+      window.location.href = 'login.html';
+      return;
+    }
+    if (!state.supabase) {
+      alert('Supabase 未配置，无法加入房间');
+      return;
+    }
+
+    try {
+      // 1️⃣ 获取房间信息
+      const { data: room, error } = await state.supabase
+        .schema('game')
+        .from('game_rooms')
+        .select('*')
+        .eq('code', code)
+        .single();
+      if (error || !room) {
+        alert('房间不存在或已过期');
+        return;
+      }
+
+      // 2️⃣ 判断玩家身份
+      if (room.black_id === userId) {
+        state.myColor = 'black';
+      } else if (!room.white_id) {
+        // 如果白方为空，更新数据库加入白方
+        const { error: updateErr } = await state.supabase
+          .schema('game')
+          .from('game_rooms')
+          .update({ white_id: userId, status: 'playing' })
+          .eq('code', code);
+        if (updateErr) throw updateErr;
+        state.myColor = 'white';
+      } else if (room.white_id === userId) {
+        state.myColor = 'white';
+      } else {
+        alert('该房间已满');
+        return;
+      }
+
+      state.roomCode = code;
+      state.currentTurn = 'black';
+      state.isInRoom = true;
+      state.roomContext.roomId = code;
+      state.roomContext.inviteLink = buildInviteLink(code);
+
+      // 3️⃣ 初始化 Realtime 通道
+      state.roomChannel = await initRoomChannel(code);
+
+      // 4️⃣ 刷新最新房间信息，确保 white_id 等信息获取到
+      const { data: latestRoom, error: latestErr } = await state.supabase
+        .schema('game')
+        .from('game_rooms')
+        .select('*')
+        .eq('code', code)
+        .single();
+      if (latestErr) throw latestErr;
+
+      await refreshRoomFromServer(latestRoom);
+
+      // 5️⃣ 更新 UI
+      updateRoomPanel({ code, inviteLink: state.roomContext.inviteLink });
+      drawFullBoard();       // 绘制棋盘
+      updateProfilePanels(); // 更新玩家头像
+      showGameArea();        // 显示游戏区域
       toast(`已加入房间：${code}`);
     } catch (err) {
       console.error('[multiplayer-ext] 加入房间失败:', err);
