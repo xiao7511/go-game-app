@@ -758,6 +758,30 @@
     });
   }
 
+  // --------------------------
+  // 🟢 修改 2026-05-10：落子闪烁逻辑
+  // --------------------------
+  let blinkInterval = null;
+
+  function startBlink(row, col) {
+    let visible = true;
+    clearBlink(); // 避免重复
+    blinkInterval = setInterval(() => {
+      state.latestMoveVisible = visible;
+      drawFullBoard();
+      visible = !visible;
+    }, FLASH_INTERVAL);
+  }
+
+  function clearBlink() {
+    if (blinkInterval) {
+      clearInterval(blinkInterval);
+      blinkInterval = null;
+      state.latestMoveVisible = true;
+    }
+  }
+
+  // handleMultiplayerMove 修改
   async function handleMultiplayerMove(row, col) {
     const color = state.myColor === 'black' ? BLACK : WHITE;
     const result = placeStone(row, col, color);
@@ -768,7 +792,11 @@
     }
 
     playSound(result.captured > 0 ? 'capture' : 'placeStone');
-    setLatestMoveHighlight(row, col, FLASH_DURATION);
+
+    // 🟢 修改 2026-05-10：落子闪烁，直到对手落子停止
+    state.latestMove = [row, col];
+    startBlink(row, col);
+
     switchTurn();
     drawFullBoard();
 
@@ -776,6 +804,49 @@
     await persistRoomState();
   }
 
+  // onOpponentMove 修改，停止闪烁
+  async function onOpponentMove(payload) {
+    const { row, col, color, captured } = payload || {};
+    if (typeof row !== 'number' || typeof col !== 'number' || !color) return;
+
+    state.board[row][col] = color;
+    if (Array.isArray(captured)) {
+      for (const [r, c] of captured) state.board[r][c] = EMPTY;
+    }
+
+    if (color === BLACK) state.blackCaptures += Array.isArray(captured) ? captured.length : 0;
+    else state.whiteCaptures += Array.isArray(captured) ? captured.length : 0;
+
+    state.currentTurn = color === BLACK ? 'white' : 'black';
+
+    // 🟢 修改 2026-05-10：对手落子后停止闪烁
+    clearBlink();
+
+    setLatestMoveHighlight(row, col);
+    playSound('yourTurn');
+    drawFullBoard();
+    updateProfilePanels();
+  }
+  /*
+  async function handleMultiplayerMove(row, col) {
+    const color = state.myColor === 'black' ? BLACK : WHITE;
+    const result = placeStone(row, col, color);
+    if (!result.success) {
+      playSound('invalidMove');
+      toast(result.reason || '非法落子');
+      return;
+    }
+
+    playSound(result.captured > 0 ? 'capture' : 'placeStone');
+
+    setLatestMoveHighlight(row, col, FLASH_DURATION);
+    switchTurn();
+    drawFullBoard();
+
+    await broadcastMove(row, col, color, result.capturedGroup || []);
+    await persistRoomState();
+  }
+  */
   function applyRemotePayload(payload) {
     if (!payload) return;
     if (payload.board_state) setBoardSnapshot(payload.board_state);
@@ -783,7 +854,7 @@
     if (typeof payload.white_captures === 'number') state.whiteCaptures = payload.white_captures;
     if (typeof payload.next_turn === 'string') state.currentTurn = payload.next_turn;
   }
-
+  /*
   async function onOpponentMove(payload) {
     const { row, col, color, captured } = payload || {};
     if (typeof row !== 'number' || typeof col !== 'number' || !color) return;
@@ -802,7 +873,7 @@
     playSound('yourTurn');
     drawFullBoard();
     updateProfilePanels();
-  }
+  }*/
 
   function showGameOverOverlay(winnerColor, reason = 'game_over') {
     const overlay = $('result-overlay');
@@ -835,13 +906,30 @@
     await persistRoomState({ status: 'ended' });
     showGameOverOverlay(winnerColor, reason);
   }
-
+  /*
   async function handleResignRequest(fromColor) {
     if (!state.isInRoom) return;
     const winner = fromColor === 'black' ? 'white' : 'black';
     const accepted = window.confirm(`对手请求认输。是否接受？\n\n接受后将判定 ${winner === 'black' ? '黑方' : '白方'} 获胜。`);
     if (!accepted) return;
     await announceGameOver(state.myColor || winner, 'resign');
+  }*/
+  // --------------------------
+  // 🟢 修改 2026-05-10：认输逻辑
+  // --------------------------
+  async function handleResignRequest(fromColor) {
+    if (!state.isInRoom) return;
+
+    // 判定胜者
+    const winner = fromColor === 'black' ? 'white' : 'black';
+    const accepted = window.confirm(`对手请求认输，是否接受？\n\n接受后将判定 ${winner === 'black' ? '黑方' : '白方'} 获胜。`);
+    if (!accepted) return;
+
+    // 广播游戏结束
+    await announceGameOver(winner, 'resign');
+
+    // 自动退出房间
+    leaveRoom(); // 🟢 修改 2026-05-10
   }
 
   async function onRoomMessage(payload) {
