@@ -46,7 +46,8 @@
     if (supabaseInstance) return supabaseInstance;
 
     // 2. 尝试从全局变量实时创建
-    const config = window.APP_CONFIG;
+    //const config = window.APP_CONFIG;
+    const config = window.CONFIG;
     if (config && config.SUPABASE_URL && config.SUPABASE_ANON_KEY) {
         try {
             const { createClient } = window.supabase;

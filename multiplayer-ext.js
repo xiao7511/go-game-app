@@ -140,7 +140,6 @@
           console.warn('[multiplayer-ext] Supabase 配置缺失或 CDN 未加载，正在重试或保持离线...');
           return null;
       }
-
       try {
           // 5. 创建实例
           state.supabase = window.supabase.createClient(url, key, {
@@ -363,7 +362,7 @@
     resizeCanvas();
     return true;
   }
-  /*
+  
   function resizeCanvas() {
     if (!state.canvas || !state.ctx) return;
     const parent = state.canvas.parentElement;
@@ -378,8 +377,8 @@
     state.padding = cssSize / (SIZE + 1);
     state.cellSize = (cssSize - state.padding * 2) / (SIZE - 1);
     drawFullBoard();
-  }*/
-  function resizeCanvas() {
+  }
+  /*function resizeCanvas() {
     // 获取屏幕最小边作为棋盘尺寸
     const size = Math.min(window.innerWidth, window.innerHeight) - 20;
 
@@ -398,7 +397,7 @@
 
     // 棋盘边距
     state.padding = 0;
-  }
+  }*
 
   function ensureCanvasSize() {
     if (!state.canvas || !state.ctx) return;
