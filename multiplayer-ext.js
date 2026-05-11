@@ -459,7 +459,7 @@
 
     // 棋盘边距
     state.padding = 0;
-  }*
+  }*/
 
   function ensureCanvasSize() {
     if (!state.canvas || !state.ctx) return;
