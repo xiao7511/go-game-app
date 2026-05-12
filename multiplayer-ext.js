@@ -435,7 +435,16 @@
       for (let c = 0; c < SIZE; c++) {
         if (state.board[r][c] !== EMPTY) {
           const isLatest = Boolean(state.latestMove && state.latestMove[0] === r && state.latestMove[1] === c);
-          drawStone(r, c, state.board[r][c], isLatest);
+          //drawStone(r, c, state.board[r][c], isLatest);
+          // 🟢 修改 2026-05-13：最后一步棋闪烁绘制
+          const isBlinking =
+            blinkingMove &&
+            blinkingMove.row === row &&
+            blinkingMove.col === col;
+
+          if (!isBlinking || blinkingMove.visible) {
+            drawStone(row, col, color);
+          }
         }
       }
     }
@@ -747,8 +756,9 @@
   // 🟢 修改 2026-05-10：落子闪烁逻辑
   // --------------------------
   let blinkInterval = null;
+  let blinkingMove = null; //2025-05-13
 
-  function startBlink(row, col) {
+ /* function startBlink(row, col) {
     let visible = true;
     clearBlink(); // 避免重复
     blinkInterval = setInterval(() => {
@@ -756,14 +766,43 @@
       drawFullBoard();
       visible = !visible;
     }, FLASH_INTERVAL);
-  }
+  }*/
 
+  // 🟢 修改 2026-05-13：最后一步棋持续闪烁，直到下一步出现
+  function startBlink(row, col, color) {
+    clearBlink();
+
+    blinkingMove = {
+      row,
+      col,
+      color,
+      visible: true
+    };
+
+    blinkInterval = setInterval(() => {
+      if (!blinkingMove) return;
+
+      blinkingMove.visible = !blinkingMove.visible;
+
+      drawFullBoard();
+    }, FLASH_INTERVAL || 500);
+  }
+  /*
   function clearBlink() {
     if (blinkInterval) {
       clearInterval(blinkInterval);
       blinkInterval = null;
       state.latestMoveVisible = true;
     }
+  }*/
+  // 🟢 修改 2026-05-13：清除闪烁状态
+  function clearBlink() {
+    if (blinkInterval) {
+      clearInterval(blinkInterval);
+      blinkInterval = null;
+    }
+
+    blinkingMove = null;
   }
 
   // handleMultiplayerMove 修改
@@ -780,7 +819,9 @@
 
     // 🟢 修改 2026-05-10：落子闪烁，直到对手落子停止
     state.latestMove = [row, col];
-    startBlink(row, col);
+    //startBlink(row, col);
+    // 🟢 修改 2026-05-13：新落子出现时替换闪烁目标
+    startBlink(row, col, color);
 
     switchTurn();
     drawFullBoard();
@@ -805,7 +846,9 @@
     state.currentTurn = color === BLACK ? 'white' : 'black';
 
     // 🟢 修改 2026-05-10：对手落子后停止闪烁
-    clearBlink();
+    //clearBlink();
+    // 🟢 修改 2026-05-13：对手落子后，新棋子成为新的闪烁目标
+    startBlink(row, col, color);
 
     setLatestMoveHighlight(row, col);
     playSound('yourTurn');
