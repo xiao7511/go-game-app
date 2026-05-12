@@ -482,22 +482,7 @@
     state.latestMoveVisible = true;
   }
 
-  function setLatestMoveHighlight(row, col, duration = FLASH_DURATION) {
-    clearLatestMoveTimers();
-    state.latestMove = [row, col];
-    state.latestMoveVisible = true;
-    drawFullBoard();
-
-    state.latestMoveBlinkTimer = setInterval(() => {
-      state.latestMoveVisible = !state.latestMoveVisible;
-      drawFullBoard();
-    }, FLASH_INTERVAL);
-
-    state.latestMoveTimer = setTimeout(() => {
-      clearLatestMoveHighlight();
-      drawFullBoard();
-    }, duration);
-  }
+  
 
   function bfsLiberties(startRow, startCol, color, boardState) {
     const queue = [[startRow, startCol]];
