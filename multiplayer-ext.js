@@ -13,8 +13,10 @@
 
   const SIZE = 19;
   const EMPTY = 0;
-  const BLACK = 1;
-  const WHITE = 2;
+ // const BLACK = 1;
+ // const WHITE = 2;
+  const BLACK = 'black';
+  const WHITE = 'white';
   const ROOM_CODE_LENGTH = 6;
   const FLASH_DURATION = 2000;
   const FLASH_INTERVAL = 200;
@@ -563,9 +565,20 @@
     return { success: true, captured: totalCaptured, capturedGroup: capturedList };
   }
 
+ // function switchTurn() {
+ //   state.currentTurn = state.currentTurn === 'black' ? 'white' : 'black';
+  //  updateProfilePanels();
+ // }
+  // 🟢 修改 2026-05-13：统一轮次切换
   function switchTurn() {
-    state.currentTurn = state.currentTurn === 'black' ? 'white' : 'black';
-    updateProfilePanels();
+    state.currentTurn =
+      state.currentTurn === BLACK
+        ? WHITE
+        : BLACK;
+    console.log(
+      '[轮次切换]',
+      state.currentTurn
+    );
   }
 
   function drawStone(row, col, color, isLatestMove = false) {
@@ -886,8 +899,15 @@
     startBlink(row, col, color);
     setLatestMoveHighlight(row, col);
     playSound('yourTurn');
+    switchTurn();  // 🟢 修改 2026-05-13：对手落子后立即切换轮次，保持界面响应
     drawFullBoard();
     updateProfilePanels();
+
+    console.log(  // 🟢 修改 2026-05-10：对手落子日志
+      '[收到对手落子]',
+      'after:',
+      state.currentTurn
+    );
   }
   /*
   async function handleMultiplayerMove(row, col) {
@@ -1166,7 +1186,7 @@
 
         updateProfilePanels();
 
-        updatePlayerUI();
+        //updatePlayerUI();
 
         console.log(
           '[Realtime] 当前轮次:',
