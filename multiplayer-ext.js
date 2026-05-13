@@ -435,16 +435,16 @@
       for (let c = 0; c < SIZE; c++) {
         if (state.board[r][c] !== EMPTY) {
           const isLatest = Boolean(state.latestMove && state.latestMove[0] === r && state.latestMove[1] === c);
-          //drawStone(r, c, state.board[r][c], isLatest);
+          drawStone(r, c, state.board[r][c], isLatest);
           // 🟢 修改 2026-05-13：最后一步棋闪烁绘制
-          const isBlinking =
-            blinkingMove &&
-            blinkingMove.row === row &&
-            blinkingMove.col === col;
+         // const isBlinking =
+          //  blinkingMove &&
+          //  blinkingMove.row === row &&
+          //  blinkingMove.col === col;
 
-          if (!isBlinking || blinkingMove.visible) {
-            drawStone(row, col, color);
-          }
+        //  if (!isBlinking || blinkingMove.visible) {
+           // drawStone(row, col, color);
+         // }
         }
       }
     }
