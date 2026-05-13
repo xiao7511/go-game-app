@@ -13,10 +13,10 @@
 
   const SIZE = 19;
   const EMPTY = 0;
- // const BLACK = 1;
- // const WHITE = 2;
-  const BLACK = 'black';
-  const WHITE = 'white';
+  const BLACK = 1;
+  const WHITE = 2;
+ // const BLACK = 'black';
+ // const WHITE = 'white';
   const ROOM_CODE_LENGTH = 6;
   const FLASH_DURATION = 2000;
   const FLASH_INTERVAL = 200;
