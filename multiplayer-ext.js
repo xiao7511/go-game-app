@@ -712,6 +712,18 @@
     const pos = captureToBoardCoords(e);
     if (!pos) return;
     handleMultiplayerMove(pos.row, pos.col);
+    /**
+     * 点击检测 2026-05-13
+     */
+    console.log(
+      '[点击检测]',
+      'myColor:',
+      state.myColor,
+      'currentTurn:',
+      state.currentTurn,
+      'isInRoom:',
+      state.isInRoom
+    );
   }
 
   async function persistRoomState(extra = {}) {
@@ -826,8 +838,32 @@
     switchTurn();
     drawFullBoard();
 
+    // 🟢 修改 2026-05-13：同步当前轮次
+    await syncCurrentTurn();
     await broadcastMove(row, col, color, result.capturedGroup || []);
     await persistRoomState();
+  }
+
+  // 🟢 修改 2026-05-13：同步当前轮次到数据库
+  async function syncCurrentTurn() {
+    if (!state.roomCode) return;
+
+    const turn =
+      state.currentTurn === BLACK
+        ? 'black'
+        : 'white';
+
+    const { error } = await state.supabase
+      .schema('game')
+      .from('game_rooms')
+      .update({
+        current_turn: turn
+      })
+      .eq('code', state.roomCode);
+
+    if (error) {
+      console.error('同步轮次失败', error);
+    }
   }
 
   // onOpponentMove 修改，停止闪烁
@@ -970,7 +1006,7 @@
     }
   }
 
-  async function initRoomChannel(code) {
+  /*async function initRoomChannel(code) {
     if (!state.supabase) return null;
     const ch = state.supabase.channel(`room:${code}`, { config: { broadcast: { self: false } } });
 
@@ -1014,7 +1050,156 @@
     });
 
     return ch;
+  }*/
+  /**
+   * 修改落子同步问题，对手方无法落子且不闪烁等问题  2026-05-13
+   */
+  async function initRoomChannel(code) {
+    if (!state.supabase) return null;
+
+    const ch = state.supabase.channel(`room:${code}`, {
+      config: {
+        broadcast: { self: false }
+      }
+    });
+
+    // -------------------------
+    // 对手落子同步
+    // -------------------------
+    ch.on('broadcast', { event: 'move' }, ({ payload }) => {
+
+      console.log('[Realtime] 收到落子:', payload);
+
+      applyRemotePayload(payload);
+
+      // 🟢 修改 2026-05-13：对手落子后切换闪烁目标
+      if (
+        typeof payload.row === 'number' &&
+        typeof payload.col === 'number'
+      ) {
+
+        startBlink(
+          payload.row,
+          payload.col,
+          payload.color
+        );
+      }
+
+      onOpponentMove(payload);
+    });
+
+    // -------------------------
+    // 房间消息
+    // -------------------------
+    ch.on('broadcast', { event: 'message' }, ({ payload }) => {
+      onRoomMessage(payload);
+    });
+
+    // -------------------------
+    // Presence 同步
+    // -------------------------
+    ch.on('presence', { event: 'sync' }, async () => {
+
+      try {
+
+        const { data: latestRoom } = await state.supabase
+          .schema('game')
+          .from('game_rooms')
+          .select('*')
+          .eq('code', code)
+          .single();
+
+        if (latestRoom) {
+
+          // 🟢 修改 2026-05-13：刷新完整房间状态
+          await refreshRoomFromServer(latestRoom);
+
+          console.log(
+            '[Presence] 房间同步:',
+            latestRoom
+          );
+        }
+
+      } catch (err) {
+
+        console.warn(
+          '[multiplayer-ext] 刷新房间失败:',
+          err
+        );
+      }
+    });
+
+    // -------------------------
+    // 🟢 修改 2026-05-13：监听房间状态同步
+    // -------------------------
+    ch.on(
+      'postgres_changes',
+      {
+        event: 'UPDATE',
+        schema: 'game',
+        table: 'game_rooms',
+        filter: `code=eq.${code}`,
+      },
+      async ({ new: room }) => {
+
+        if (!room) return;
+
+        console.log(
+          '[Realtime] 房间状态更新:',
+          room
+        );
+
+        // 🟢 修改 2026-05-13：同步 room
+        state.room = room;
+
+        // 🟢 修改 2026-05-13：同步当前轮次
+        state.currentTurn = room.current_turn || 'black';
+
+        // 🟢 修改 2026-05-13：重新加载双方信息
+        state.blackProfile = await getPlayerProfile(room.black_id);
+        state.whiteProfile = await getPlayerProfile(room.white_id);
+
+        // 🟢 修改 2026-05-13：刷新整个房间状态
+        await refreshRoomFromServer(room);
+
+        drawFullBoard();
+
+        updateProfilePanels();
+
+        updatePlayerUI();
+
+        console.log(
+          '[Realtime] 当前轮次:',
+          state.currentTurn,
+          '我的颜色:',
+          state.myColor
+        );
+      }
+    );
+
+    // -------------------------
+    // 订阅
+    // -------------------------
+    await ch.subscribe(async (status) => {
+
+      console.log(
+        '[Realtime] channel状态:',
+        status
+      );
+
+      if (status === 'SUBSCRIBED') {
+
+        await ch.track({
+          online: true
+        });
+
+        setConnectionStatus('已连接');
+      }
+    });
+
+    return ch;
   }
+
 
   /**
  * 修复版：refreshRoomFromServer
