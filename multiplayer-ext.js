@@ -433,50 +433,50 @@
     });
     ctx.restore();
 
-    for (let r = 0; r < SIZE; r++) {
-      for (let c = 0; c < SIZE; c++) {
-        if (state.board[r][c] !== EMPTY) {
-          const isLatest = Boolean(state.latestMove && state.latestMove[0] === r && state.latestMove[1] === c);
-          drawStone(r, c, state.board[r][c], isLatest);
-          // 🟢 修改 2026-05-13：最后一步棋闪烁绘制
-         // const isBlinking =
-          //  blinkingMove &&
-          //  blinkingMove.row === row &&
-          //  blinkingMove.col === col;
+    // --------------------------
+// 🟢 修改 2026-05-16：修复闪烁作用域异常
+    // --------------------------
+    for (let row = 0; row < BOARD_SIZE; row++) {
+      for (let col = 0; col < BOARD_SIZE; col++) {
+        const color = state.board[row][col];
+        if (color === EMPTY) continue;
+        // 棋盘坐标
+        const boardX =
+          state.padding +
+          col * state.cellSize;
+        const boardY =
+          state.padding +
+          row * state.cellSize;
+        // 正常绘制棋子
+        drawStone(row, col, color);
+        // --------------------------
+        // 🟢 修改 2026-05-16：最后一步闪烁高亮
+        // --------------------------
+        if (
+          blinkingMove &&
+          blinkingMove.row === row &&
+          blinkingMove.col === col &&
+          blinkingMove.visible
+        ) {
 
-        //  if (!isBlinking || blinkingMove.visible) {
-           // drawStone(row, col, color);
-         // }
-            // --------------------------
-            // 🟢 修改 2026-05-16：最后一步闪烁高亮
-            // --------------------------
-            if (
-              blinkingMove &&
-              blinkingMove.row === r &&
-              blinkingMove.col === c &&
-              blinkingMove.visible
-            ) {
+          ctx.beginPath();
 
-              ctx.beginPath();
+          ctx.arc(
+            boardX,
+            boardY,
+            state.cellSize * 0.34,
+            0,
+            Math.PI * 2
+          );
 
-              ctx.arc(
-                boardX,
-                boardY,
-                state.cellSize * 0.34,
-                0,
-                Math.PI * 2
-              );
+          ctx.lineWidth = 3;
 
-              ctx.lineWidth = 3;
+          ctx.strokeStyle =
+            color === BLACK
+              ? 'rgba(255,255,0,0.95)'
+              : 'rgba(255,80,80,0.95)';
 
-              ctx.strokeStyle =
-                color === BLACK
-                  ? 'rgba(255,255,0,0.95)'
-                  : 'rgba(255,80,80,0.95)';
-
-              ctx.stroke();
-            }
-
+          ctx.stroke();
         }
       }
     }
