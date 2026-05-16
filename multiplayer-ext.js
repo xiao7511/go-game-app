@@ -436,8 +436,8 @@
     // --------------------------
 // 🟢 修改 2026-05-16：修复闪烁作用域异常
     // --------------------------
-    for (let row = 0; row < BOARD_SIZE; row++) {
-      for (let col = 0; col < BOARD_SIZE; col++) {
+    for (let row = 0; row < state.boardSize; row++) {
+      for (let col = 0; col < state.boardSize; col++) {
         const color = state.board[row][col];
         if (color === EMPTY) continue;
         // 棋盘坐标
