@@ -1339,14 +1339,13 @@
 
       const code = generateRoomCode();
       
-      // 💡 仅发送最精简的、满足 RLS (auth.uid() = black_id) 安全策略的数据
       const { data, error } = await state.supabase
         .from('game_rooms')
         .insert([
           {
             code: code,
             black_id: user.id,
-            next_turn: 'black', // 确保全小写
+            next_turn: 'black', 
             status: 'waiting'
           },
         ])
@@ -1354,7 +1353,6 @@
         .single();
 
       if (error) {
-        // 如果这里依然报错，把 error 完整打印到控制台
         console.error('[Supabase 返回错误详情]:', error);
         throw error;
       }
@@ -1365,25 +1363,27 @@
       state.room = data;
 
       await initRoomChannel(code);
-      // ✨【关键修复点】：不调用 showRoomOverlay，直接通过 DOM 展现或兼容原有逻辑
-      // 1. 尝试寻找你项目中的弹窗元素（通常带有 room-overlay、room-modal 或 6位码展示区的 id）
-      const overlay = $('room-overlay') || $('match-overlay') || $('room-modal') || document.querySelector('.room-overlay');
-      const codeDisplay = $('room-code-display') || $('download-url') || document.querySelector('.room-code');
+
+      // 💡【核心修复：替代 showRoomOverlay】
+      // 1. 尝试自动匹配你前端 HTML 中的弹窗组件 id 或 class
+      const overlay = $('room-overlay') || $('match-overlay') || $('room-modal') || document.querySelector('.room-overlay') || document.querySelector('#roomModal');
+      const codeDisplay = $('room-code-display') || $('download-url') || document.querySelector('.room-code') || document.querySelector('#share-code');
       
       if (overlay) {
         overlay.style.display = 'flex'; // 或者 'block'
       }
       if (codeDisplay) {
-        codeDisplay.textContent = code; // 将 6 位邀请码填入界面
-        if(codeDisplay.tagName === 'INPUT') codeDisplay.value = code;
+        codeDisplay.textContent = code; 
+        if (codeDisplay.tagName === 'INPUT') codeDisplay.value = code;
       }
-      // 2. 保底兜底：万一界面找不到任何弹窗元素，直接用弹窗把 6 位码给用户，确保能继续玩
-      alert(`房间创建成功！房间邀请码为：${code}\n请将此代码复制给白方玩家。`);
+
+      // 2. 兜底保护：万一 DOM 没匹配上，直接用系统弹窗把 6 位码给黑方，确保对局能继续！
+      alert(`房间创建成功！\n您的对局邀请码为：${code}\n\n请将此代码复制发给白方玩家。`);
+
       toast('房间创建成功，等待白方加入...');
       return data;
     } catch (err) {
       console.error('[createRoom] 失败:', err);
-      // 弹出具体错误，方便直观定位
       toast(`创建失败: ${err.message || JSON.stringify(err)}`);
     }
   }
