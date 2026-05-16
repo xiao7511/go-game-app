@@ -1365,7 +1365,20 @@
       state.room = data;
 
       await initRoomChannel(code);
-      showRoomOverlay(code);
+      // ✨【关键修复点】：不调用 showRoomOverlay，直接通过 DOM 展现或兼容原有逻辑
+      // 1. 尝试寻找你项目中的弹窗元素（通常带有 room-overlay、room-modal 或 6位码展示区的 id）
+      const overlay = $('room-overlay') || $('match-overlay') || $('room-modal') || document.querySelector('.room-overlay');
+      const codeDisplay = $('room-code-display') || $('download-url') || document.querySelector('.room-code');
+      
+      if (overlay) {
+        overlay.style.display = 'flex'; // 或者 'block'
+      }
+      if (codeDisplay) {
+        codeDisplay.textContent = code; // 将 6 位邀请码填入界面
+        if(codeDisplay.tagName === 'INPUT') codeDisplay.value = code;
+      }
+      // 2. 保底兜底：万一界面找不到任何弹窗元素，直接用弹窗把 6 位码给用户，确保能继续玩
+      alert(`房间创建成功！房间邀请码为：${code}\n请将此代码复制给白方玩家。`);
       toast('房间创建成功，等待白方加入...');
       return data;
     } catch (err) {
@@ -1493,7 +1506,10 @@
       // 4. 强制拉取并渲染一次最新的棋盘状态，确保画面同步
       await refreshRoomFromServer(room);
       
-      hideRoomOverlay();
+      //hideRoomOverlay();
+      const overlay = $('room-overlay') || $('match-overlay') || $('room-modal') || document.querySelector('.room-overlay');
+      if (overlay) overlay.style.display = 'none';
+
       toast(`成功加入房间！您执: ${role === 'black' ? '黑子' : role === 'white' ? '白子' : '观战'}`);
     } catch (err) {
       console.error('[joinRoom] 失败:', err);
