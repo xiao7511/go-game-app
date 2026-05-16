@@ -179,6 +179,23 @@
       return null;
     }
   }
+  /**
+     * 补全缺失的获取当前用户函数
+     */
+    async function getCurrentUser() {
+      if (!state.supabase) {
+        console.error('[multiplayer-ext] Supabase 实例未初始化');
+        return null;
+      }
+      // 从 Supabase Auth 中获取当前登录的用户会话
+      const { data: { user }, error } = await state.supabase.auth.getUser();
+      if (error) {
+        console.error('[getCurrentUser] 获取用户失败:', error);
+        return null;
+      }
+      return user;
+    }
+
 
   /*
  async function getPlayerProfile(playerId) {
@@ -1317,7 +1334,7 @@
 
   async function createRoom() {
     try {
-      const user = await getUserId();
+      const user = await getCurrentUser();
       if (!user) throw new Error('未登录用户，请先登录');
 
       const code = generateRoomCode();
@@ -1431,7 +1448,7 @@
       return;
     }
     try {
-      const user = await getUserId();
+      const user = await getCurrentUser();
       if (!user) throw new Error('未登录用户');
 
       // 1. 获取最新房间数据
