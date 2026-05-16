@@ -1173,62 +1173,99 @@
     return ch;
   }*/
   /**
-   * 修改落子同步问题，对手方无法落子且不闪烁等问题  2026-05-13
+   * 修复版：订阅实时通道，打通进房通道
    */
-  async function initRoomChannel(code) {
-    if (state.roomChannel) {
-      await state.supabase.removeChannel(state.roomChannel);
-    }
+    async function initRoomChannel(code) {
+      if (!state.supabase) return null;
+      
+      // 移除 ch.unsubscribe，确保每次都建立干净的连接
+      if (state.roomChannel) {
+        try { await state.roomChannel.unsubscribe(); } catch(_) {}
+      }
 
-    const ch = state.supabase.channel(`room:${code}`);
-    state.roomChannel = ch;
+      const ch = state.supabase.channel(`room:${code}`, { config: { broadcast: { self: false } } });
+      state.roomChannel = ch; // 挂载到全局状态中
 
-    // 监听广播：对手落子
-    ch.on('broadcast', { event: 'move' }, ({ payload }) => {
-      console.log('[Realtime] 收到对手落子广播:', payload);
-      onOpponentMove(payload);
-    });
-
-    // 监听数据库变更：防止轮次倒退和强行覆盖
-    ch.on(
-      'postgres_changes',
-      {
-        event: 'UPDATE',
-        schema: 'game',
-        table: 'game_rooms',
-        filter: `code=eq.${code}`,
-      },
-      async ({ new: room }) => {
-        if (!room) return;
-        console.log('[Realtime] 数据库更新触发:', room);
-
-        state.room = room;
-        
-        // 安全清洗服务器返回的轮次数据
-        const serverNextTurn = (room.next_turn || 'black').toLowerCase();
-
-        // 【安全屏障】：如果本地方位已经进入自己的回合，拒绝接收由于延迟导致的旧数据回滚
-        if (state.currentTurn === state.myColor && serverNextTurn !== state.myColor) {
-          console.log('[Realtime 拦截] 本地正在己方回合中，忽略不一致的旧轮次同步');
-        } else {
-          state.currentTurn = serverNextTurn;
+      // 1. 对手落子同步
+      ch.on('broadcast', { event: 'move' }, ({ payload }) => {
+        console.log('[Realtime] 收到对手落子广播:', payload);
+        applyRemotePayload(payload);
+        if (typeof payload.row === 'number' && typeof payload.col === 'number') {
+          startBlink(payload.row, payload.col, payload.color);
         }
+        onOpponentMove(payload);
+      });
 
-        // 只有在非本地落子提交期间，才允许刷新完整棋盘
-        if (!state.isSyncing) {
-          await refreshRoomFromServer(room);
-        } else {
+      // 2. 房间控制消息（如认输、游戏结束）
+      ch.on('broadcast', { event: 'message' }, ({ payload }) => {
+        onRoomMessage(payload);
+      });
+
+      // 3. Presence 状态同步
+      ch.on('presence', { event: 'sync' }, async () => {
+        try {
+          const { data: latestRoom } = await state.supabase
+            .schema('game')
+            .from('game_rooms')
+            .select('*')
+            .eq('code', code)
+            .single();
+          if (latestRoom) {
+            await refreshRoomFromServer(latestRoom);
+          }
+        } catch (err) {
+          console.warn('[multiplayer-ext] Presence 刷新失败:', err);
+        }
+      });
+
+      // 4. ✨【核心修复点】：去掉不稳定的单条 filter，改为接收全量更新后在前端过滤
+      ch.on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'game', table: 'game_rooms' }, // 👈 去掉无法订阅的 filter
+        async (payload) => {
+          const room = payload.new;
+          if (!room || room.code !== code) return; // 👈 在前端精确匹配当前房间号，100% 安全稳定
+
+          console.log('[Realtime] 捕捉到当前房间状态更新:', room);
+          
+          state.room = room;
+          // 兼容处理字段：同时支持 next_turn 和 current_turn
+          state.currentTurn = room.next_turn || room.current_turn || 'black'; 
+          
+          // 只要白方进入了（white_id 存在），或者状态变为 playing/waiting，即激活房间激活状态
+          if (room.white_id || room.status === 'playing') {
+            state.isInRoom = true;
+          }
+
+          // 加载玩家 profile
           state.blackProfile = await getPlayerProfile(room.black_id);
           state.whiteProfile = await getPlayerProfile(room.white_id);
-          updateProfilePanels();
-        }
-      }
-    );
 
-    await ch.subscribe((status) => {
-      console.log(`[Realtime] 通道状态变更: ${status}`);
-    });
-  }
+          // 刷新页面渲染
+          await refreshRoomFromServer(room);
+          drawFullBoard();
+          updateProfilePanels();
+          
+          // 顺手把遮罩层关闭，让对局大厅呈现出来
+          const overlay = $('room-overlay') || $('match-overlay') || $('room-modal') || document.querySelector('.room-overlay');
+          if (overlay && room.white_id) {
+            overlay.style.display = 'none'; // 白方来了，自动关闭弹窗进入棋盘
+            toast('白方已加入，对局正式开始！');
+          }
+        }
+      );
+
+      // 5. 激活通道订阅
+      await ch.subscribe(async (status) => {
+        console.log('[Realtime] 通道当前状态:', status);
+        if (status === 'SUBSCRIBED') {
+          await ch.track({ online: true });
+          setConnectionStatus('已连接');
+        }
+      });
+
+      return ch;
+    }
 
 
   /**
