@@ -1317,7 +1317,7 @@
 
   async function createRoom() {
     try {
-      const user = await getCurrentUser();
+      const user = await getUserId();
       if (!user) throw new Error('未登录用户');
 
       const code = generateRoomCode();
@@ -1426,7 +1426,7 @@
       return;
     }
     try {
-      const user = await getCurrentUser();
+      const user = await getUserId();
       if (!user) throw new Error('未登录用户');
 
       // 1. 获取最新房间数据
