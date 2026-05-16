@@ -447,6 +447,36 @@
         //  if (!isBlinking || blinkingMove.visible) {
            // drawStone(row, col, color);
          // }
+            // --------------------------
+            // 🟢 修改 2026-05-16：最后一步闪烁高亮
+            // --------------------------
+            if (
+              blinkingMove &&
+              blinkingMove.row === row &&
+              blinkingMove.col === col &&
+              blinkingMove.visible
+            ) {
+
+              ctx.beginPath();
+
+              ctx.arc(
+                boardX,
+                boardY,
+                state.cellSize * 0.34,
+                0,
+                Math.PI * 2
+              );
+
+              ctx.lineWidth = 3;
+
+              ctx.strokeStyle =
+                color === BLACK
+                  ? 'rgba(255,255,0,0.95)'
+                  : 'rgba(255,80,80,0.95)';
+
+              ctx.stroke();
+            }
+
         }
       }
     }
@@ -777,12 +807,6 @@
     });
   }
 
-  // --------------------------
-  // 🟢 修改 2026-05-10：落子闪烁逻辑
-  // --------------------------
-  let blinkInterval = null;
-  let blinkingMove = null; //2025-05-13
-
  /* function startBlink(row, col) {
     let visible = true;
     clearBlink(); // 避免重复
@@ -793,10 +817,15 @@
     }, FLASH_INTERVAL);
   }*/
 
-  // 🟢 修改 2026-05-13：最后一步棋持续闪烁，直到下一步出现
-  function startBlink(row, col, color) {
-    clearBlink();
+  // --------------------------
+  // 🟢 修改 2026-05-16：最后一步持续闪烁
+  // --------------------------
+  let blinkInterval = null;
+  let blinkingMove = null;
 
+  function startBlink(row, col, color) {
+
+    // 新一步替换旧闪烁
     blinkingMove = {
       row,
       col,
@@ -804,13 +833,20 @@
       visible: true
     };
 
+    if (blinkInterval) {
+      clearInterval(blinkInterval);
+    }
+
     blinkInterval = setInterval(() => {
+
       if (!blinkingMove) return;
 
-      blinkingMove.visible = !blinkingMove.visible;
+      blinkingMove.visible =
+        !blinkingMove.visible;
 
       drawFullBoard();
-    }, FLASH_INTERVAL || 500);
+
+    }, 500);
   }
   /*
   function clearBlink() {
@@ -820,92 +856,152 @@
       state.latestMoveVisible = true;
     }
   }*/
-  // 🟢 修改 2026-05-13：清除闪烁状态
+  // --------------------------
+  // 🟢 修改 2026-05-16：清除闪烁
+  // --------------------------
   function clearBlink() {
     if (blinkInterval) {
       clearInterval(blinkInterval);
       blinkInterval = null;
     }
-
     blinkingMove = null;
+    drawFullBoard();
   }
 
-  // handleMultiplayerMove 修改
+  /// --------------------------
+// 🟢 修改 2026-05-16：修复多人落子同步、颜色异常、闪烁异常
+// --------------------------
   async function handleMultiplayerMove(row, col) {
-    const color = state.myColor === 'black' ? BLACK : WHITE;
+
+    // 未轮到自己
+    if (state.currentTurn !== state.myColor) {
+      playSound('invalidMove');
+      return;
+    }
+
+    // 已有棋子
+    if (state.board[row][col] !== EMPTY) {
+      playSound('invalidMove');
+      return;
+    }
+
+    // 真实颜色
+    const color =
+      state.myColor === 'black'
+        ? BLACK
+        : WHITE;
+
+    // 本地落子
     const result = placeStone(row, col, color);
+
     if (!result.success) {
       playSound('invalidMove');
       toast(result.reason || '非法落子');
       return;
     }
 
-    playSound(result.captured > 0 ? 'capture' : 'placeStone');
+    playSound(
+      result.captured > 0
+        ? 'capture'
+        : 'placeStone'
+    );
 
-    // 🟢 修改 2026-05-10：落子闪烁，直到对手落子停止
-    state.latestMove = [row, col];
-    //startBlink(row, col);
-    // 🟢 修改 2026-05-13：新落子出现时替换闪烁目标
+    // 🟢 修改 2026-05-16：最后一步闪烁
     startBlink(row, col, color);
 
-    switchTurn();
+    // 切换轮次
+    state.currentTurn =
+      color === BLACK
+        ? 'white'
+        : 'black';
+
     drawFullBoard();
 
-    // 🟢 修改 2026-05-13：同步当前轮次
-    await syncCurrentTurn();
-    await broadcastMove(row, col, color, result.capturedGroup || []);
-    await persistRoomState();
+    // 广播真实颜色
+    await broadcastMove(
+      row,
+      col,
+      color,
+      result.capturedGroup || []
+    );
+
+    // 同步房间
+    await persistRoomState({
+      next_turn: state.currentTurn
+    });
+
+    updateProfilePanels();
   }
 
-  // 🟢 修改 2026-05-13：同步当前轮次到数据库
-  async function syncCurrentTurn() {
-    if (!state.roomCode) return;
-
-    const turn =
-      state.currentTurn === BLACK
-        ? 'black'
-        : 'white';
-
-    const { error } = await state.supabase
-      .schema('game')
-      .from('game_rooms')
-      .update({
-        current_turn: turn
-      })
-      .eq('code', state.roomCode);
-
-    if (error) {
-      console.error('同步轮次失败', error);
-    }
-  }
-
-  // onOpponentMove 修改，停止闪烁
+  // --------------------------
+  // 🟢 修改 2026-05-16：修复远程落子重复切换轮次
+  // --------------------------
   async function onOpponentMove(payload) {
-    const { row, col, color, captured } = payload || {};
-    if (typeof row !== 'number' || typeof col !== 'number' || !color) return;
 
-    state.board[row][col] = color;
-    if (Array.isArray(captured)) {
-      for (const [r, c] of captured) state.board[r][c] = EMPTY;
+    const {
+      row,
+      col,
+      color,
+      captured
+    } = payload || {};
+
+    if (
+      typeof row !== 'number' ||
+      typeof col !== 'number' ||
+      !color
+    ) {
+      return;
     }
 
-    if (color === BLACK) state.blackCaptures += Array.isArray(captured) ? captured.length : 0;
-    else state.whiteCaptures += Array.isArray(captured) ? captured.length : 0;
+    // 已存在棋子
+    if (state.board[row][col] !== EMPTY) {
+      return;
+    }
 
-    state.currentTurn = color === BLACK ? 'white' : 'black';
+    // 使用真实颜色
+    state.board[row][col] = color;
 
-    // 🟢 修改 2026-05-10：对手落子后停止闪烁
-    //clearBlink();
+    // 提子
+    if (Array.isArray(captured)) {
+      for (const [r, c] of captured) {
+        state.board[r][c] = EMPTY;
+      }
+    }
+
+    // 吃子统计
+    if (color === BLACK) {
+      state.blackCaptures +=
+        Array.isArray(captured)
+          ? captured.length
+          : 0;
+    } else {
+      state.whiteCaptures +=
+        Array.isArray(captured)
+          ? captured.length
+          : 0;
+    }
+
+    // 🟢 修改 2026-05-16：轮次同步
+    state.currentTurn =
+      color === BLACK
+        ? 'white'
+        : 'black';
+
+    // 🟢 修改 2026-05-16：新一步成为闪烁目标
     startBlink(row, col, color);
-    setLatestMoveHighlight(row, col);
+
     playSound('yourTurn');
-    switchTurn();  // 🟢 修改 2026-05-13：对手落子后立即切换轮次，保持界面响应
+
     drawFullBoard();
+
     updateProfilePanels();
 
-    console.log(  // 🟢 修改 2026-05-10：对手落子日志
-      '[收到对手落子]',
-      'after:',
+    console.log(
+      '[远程落子]',
+      row,
+      col,
+      color,
+      'next:',
       state.currentTurn
     );
   }
@@ -929,12 +1025,32 @@
     await persistRoomState();
   }
   */
+  //function applyRemotePayload(payload) {
+   // if (!payload) return;
+   // if (payload.board_state) setBoardSnapshot(payload.board_state);
+   // if (typeof payload.black_captures === 'number') state.blackCaptures = payload.black_captures;
+   // if (typeof payload.white_captures === 'number') state.whiteCaptures = payload.white_captures;
+   // if (typeof payload.next_turn === 'string') state.currentTurn = payload.next_turn;
+  //}
+  // 🟢 修改 2026-05-16：禁止远程覆盖整个棋盘
   function applyRemotePayload(payload) {
+
     if (!payload) return;
-    if (payload.board_state) setBoardSnapshot(payload.board_state);
-    if (typeof payload.black_captures === 'number') state.blackCaptures = payload.black_captures;
-    if (typeof payload.white_captures === 'number') state.whiteCaptures = payload.white_captures;
-    if (typeof payload.next_turn === 'string') state.currentTurn = payload.next_turn;
+
+    if (typeof payload.black_captures === 'number') {
+      state.blackCaptures =
+        payload.black_captures;
+    }
+
+    if (typeof payload.white_captures === 'number') {
+      state.whiteCaptures =
+        payload.white_captures;
+    }
+
+    if (typeof payload.next_turn === 'string') {
+      state.currentTurn =
+        payload.next_turn;
+    }
   }
   /*
   async function onOpponentMove(payload) {
