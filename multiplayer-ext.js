@@ -1401,22 +1401,34 @@
 
       await initRoomChannel(code);
 
-      // 💡【核心修复：替代 showRoomOverlay】
-      // 1. 尝试自动匹配你前端 HTML 中的弹窗组件 id 或 class
-      const overlay = $('room-overlay') || $('match-overlay') || $('room-modal') || document.querySelector('.room-overlay') || document.querySelector('#roomModal');
-      const codeDisplay = $('room-code-display') || $('download-url') || document.querySelector('.room-code') || document.querySelector('#share-code');
-      
-      if (overlay) {
-        overlay.style.display = 'flex'; // 或者 'block'
+      // ==========================================
+      // ✨【完美的 UI 数据对齐闭环】✨
+      // ==========================================
+        
+      // 1. 获取你页面中真实存在的 DOM 元素
+      const roomIdSpan = document.getElementById('room-id');
+      const inviteInput = document.getElementById('room-invite-link');
+      const statusPill = document.getElementById('room-status-pill');
+
+      // 2. 拼装分享链接
+      const origin = window.location.origin + window.location.pathname;
+      const inviteLink = `${origin}?room=${code}`;
+
+      // 3. 把数据库下发的数据实时注入到右侧面板中
+      if (roomIdSpan) {
+        roomIdSpan.textContent = code; // 写入 6 位房间号
       }
-      if (codeDisplay) {
-        codeDisplay.textContent = code; 
-        if (codeDisplay.tagName === 'INPUT') codeDisplay.value = code;
+      if (inviteInput) {
+        inviteInput.value = inviteLink; // 写入自动生成的邀请链接
+      }
+      if (statusPill) {
+        statusPill.textContent = "等待对手...";
+        statusPill.style.background = "rgba(246, 196, 83, 0.15)"; // 黄色等待高亮
+        statusPill.style.color = "#f6c453";
       }
 
-      // 2. 兜底保护：万一 DOM 没匹配上，直接用系统弹窗把 6 位码给黑方，确保对局能继续！
-      alert(`房间创建成功！\n您的对局邀请码为：${code}\n\n请将此代码复制发给白方玩家。`);
-
+        // 4. 气泡及系统弹窗兜底提示，让黑方知道自己建房成功了
+      alert(`房间创建成功！\n邀请码为：${code}\n\n右侧【房间信息】面板已同步更新，您可以直接点击“复制链接”发送给白方！`);
       toast('房间创建成功，等待白方加入...');
       return data;
     } catch (err) {
