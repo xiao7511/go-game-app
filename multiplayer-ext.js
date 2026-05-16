@@ -1159,89 +1159,20 @@
    * 修改落子同步问题，对手方无法落子且不闪烁等问题  2026-05-13
    */
   async function initRoomChannel(code) {
-    if (!state.supabase) return null;
+    if (state.roomChannel) {
+      await state.supabase.removeChannel(state.roomChannel);
+    }
 
-    const ch = state.supabase.channel(`room:${code}`, {
-      config: {
-        broadcast: { self: false }
-      }
-    });
+    const ch = state.supabase.channel(`room:${code}`);
+    state.roomChannel = ch;
 
-    // -------------------------
-    // 对手落子同步
-    // -------------------------
+    // 监听广播：对手落子
     ch.on('broadcast', { event: 'move' }, ({ payload }) => {
-
-      console.log('[Realtime] 收到落子:', payload);
-
-      applyRemotePayload(payload);
-
-      // 🟢 修改 2026-05-13：对手落子后切换闪烁目标
-      if (
-        typeof payload.row === 'number' &&
-        typeof payload.col === 'number'
-      ) {
-
-        startBlink(
-          payload.row,
-          payload.col,
-          payload.color
-        );
-      }
-
+      console.log('[Realtime] 收到对手落子广播:', payload);
       onOpponentMove(payload);
     });
 
-    // -------------------------
-    // 房间消息
-    // -------------------------
-    ch.on('broadcast', { event: 'message' }, ({ payload }) => {
-      onRoomMessage(payload);
-    });
-
-    // -------------------------
-    // Presence 同步
-    // -------------------------
-    ch.on('presence', { event: 'sync' }, async () => {
-
-      try {
-
-        const { data: latestRoom } = await state.supabase
-          .schema('game')
-          .from('game_rooms')
-          .select('*')
-          .eq('code', code)
-          .single();
-
-        if (latestRoom) {
-
-          // 🟢 修改 2026-05-13：刷新完整房间状态
-          await refreshRoomFromServer(latestRoom);
-
-          console.log(
-            '[Presence] 房间同步:',
-            latestRoom
-          );
-        }
-
-      } catch (err) {
-
-        console.warn(
-          '[multiplayer-ext] 刷新房间失败:',
-          err
-        );
-      }
-    });
-
-    // -------------------------
-    // 🟢 修改 2026-05-13：监听房间状态同步
-    // -------------------------
-    // -------------------------
-    // 监听房间状态同步
-    // -------------------------
-    // -------------------------
-    // 监听房间状态同步 (请替换原 initRoomChannel 内的 postgres_changes 部分)
-    // -------------------------
+    // 监听数据库变更：防止轮次倒退和强行覆盖
     ch.on(
       'postgres_changes',
       {
@@ -1252,19 +1183,21 @@
       },
       async ({ new: room }) => {
         if (!room) return;
-        console.log('[Realtime] 房间状态更新:', room);
+        console.log('[Realtime] 数据库更新触发:', room);
 
         state.room = room;
         
-        // ✨【关键修复 1】：将 room.current_turn 修正为 room.next_turn 
-        // ✨【关键修复 2】：防止白方/黑方落子高频交互时，旧数据库数据把当前回合强行倒退
-        if (state.currentTurn === state.myColor && room.next_turn !== state.myColor) {
+        // 安全清洗服务器返回的轮次数据
+        const serverNextTurn = (room.next_turn || 'black').toLowerCase();
+
+        // 【安全屏障】：如果本地方位已经进入自己的回合，拒绝接收由于延迟导致的旧数据回滚
+        if (state.currentTurn === state.myColor && serverNextTurn !== state.myColor) {
           console.log('[Realtime 拦截] 本地正在己方回合中，忽略不一致的旧轮次同步');
         } else {
-          state.currentTurn = room.next_turn || 'black';
+          state.currentTurn = serverNextTurn;
         }
 
-        // 避免在落子事务提交中从服务器重刷棋盘，防止棋子一闪而逝
+        // 只有在非本地落子提交期间，才允许刷新完整棋盘
         if (!state.isSyncing) {
           await refreshRoomFromServer(room);
         } else {
@@ -1275,27 +1208,9 @@
       }
     );
 
-    // -------------------------
-    // 订阅
-    // -------------------------
-    await ch.subscribe(async (status) => {
-
-      console.log(
-        '[Realtime] channel状态:',
-        status
-      );
-
-      if (status === 'SUBSCRIBED') {
-
-        await ch.track({
-          online: true
-        });
-
-        setConnectionStatus('已连接');
-      }
+    await ch.subscribe((status) => {
+      console.log(`[Realtime] 通道状态变更: ${status}`);
     });
-
-    return ch;
   }
 
 
@@ -1401,53 +1316,40 @@
   }
 
   async function createRoom() {
-    const userId = await getUserId();
-    if (!userId) {
-      alert('请先登录后再创建房间');
-      window.location.href = 'login.html';
-      return;
-    }
-    if (!state.supabase) {
-      alert('Supabase 未配置，无法创建房间');
-      return;
-    }
-
-    const code = generateRoomCode();
     try {
-      const { error } = await state.supabase
-        .schema('game')
+      const user = await getCurrentUser();
+      if (!user) throw new Error('未登录用户');
+
+      const code = generateRoomCode();
+      const { data, error } = await state.supabase
         .from('game_rooms')
-        .insert({
-          code,
-          black_id: userId,
-          white_id: null,
-          status: 'waiting',
-          board_state: JSON.stringify(getBoardSnapshot()),
-          next_turn: 'black',
-          black_captures: 0,
-          white_captures: 0,
-        });
+        .insert([
+          {
+            code,
+            black_id: user.id,
+            white_id: null,
+            next_turn: 'black', // 明确初始化为小写字符串
+            board_state: JSON.stringify(Array(SIZE).fill(null).map(() => Array(SIZE).fill(EMPTY))),
+            status: 'waiting'
+          },
+        ])
+        .select()
+        .single();
+
       if (error) throw error;
 
       state.roomCode = code;
-      state.myColor = 'black';
+      state.myColor = 'black'; // 黑方创建者
       state.currentTurn = 'black';
-      state.isInRoom = true;
-      state.roomContext.roomId = code;
-      state.roomContext.inviteLink = buildInviteLink(code);
-      state.roomContext.blackName = '黑方玩家';
-      state.roomContext.whiteName = '白方玩家';
+      state.room = data;
 
-      state.roomChannel = await initRoomChannel(code);
-      updateRoomPanel({ code, inviteLink: state.roomContext.inviteLink });
-      await refreshRoomFromServer({ black_id: userId, white_id: null, status: 'waiting' });
-      drawFullBoard();
-      updateProfilePanels();
-      showGameArea();
-      toast(`房间已创建：${code}`);
+      await initRoomChannel(code);
+      showRoomOverlay(code);
+      toast('房间创建成功，等待白方加入...');
+      return data;
     } catch (err) {
-      console.error('[multiplayer-ext] 创建房间失败:', err);
-      alert(`创建房间失败: ${err.message}`);
+      console.error('[createRoom] 失败:', err);
+      toast('创建房间失败: ' + err.message);
     }
   }
 
@@ -1519,78 +1421,61 @@
     }
   }*/
   async function joinRoom(code) {
-    const userId = await getUserId();
-    if (!userId) {
-      alert('请先登录后再加入房间');
-      window.location.href = 'login.html';
+    if (!code || code.length !== ROOM_CODE_LENGTH) {
+      toast('请输入正确的6位房间号');
       return;
     }
-    if (!state.supabase) {
-      alert('Supabase 未配置，无法加入房间');
-      return;
-    }
-
     try {
-      // 1️⃣ 获取房间信息
-      const { data: room, error } = await state.supabase
-        .schema('game')
+      const user = await getCurrentUser();
+      if (!user) throw new Error('未登录用户');
+
+      // 1. 获取最新房间数据
+      const { data: room, error: fetchError } = await state.supabase
         .from('game_rooms')
         .select('*')
         .eq('code', code)
         .single();
-      if (error || !room) {
-        alert('房间不存在或已过期');
-        return;
-      }
 
-      // 2️⃣ 判断玩家身份
-      if (room.black_id === userId) {
-        state.myColor = 'black';
+      if (fetchError || !room) throw new Error('房间不存在');
+
+      let role = null;
+      if (room.black_id === user.id) {
+        role = 'black';
+      } else if (room.white_id === user.id) {
+        role = 'white';
       } else if (!room.white_id) {
-        // 如果白方为空，更新数据库加入白方
-        const { error: updateErr } = await state.supabase
-          .schema('game')
+        // 白方空缺，允许加入并绑定
+        const { error: updateError } = await state.supabase
           .from('game_rooms')
-          .update({ white_id: userId, status: 'playing' })
+          .update({ white_id: user.id, status: 'playing' })
           .eq('code', code);
-        if (updateErr) throw updateErr;
-        state.myColor = 'white';
-      } else if (room.white_id === userId) {
-        state.myColor = 'white';
+
+        if (updateError) throw updateError;
+        role = 'white';
       } else {
-        alert('该房间已满');
-        return;
+        toast('房间已满，您当前是观战模式');
+        role = 'viewer';
       }
 
+      // 2. 严格绑定本地身份状态（核心修复点）
       state.roomCode = code;
-      state.currentTurn = 'black';
-      state.isInRoom = true;
-      state.roomContext.roomId = code;
-      state.roomContext.inviteLink = buildInviteLink(code);
+      state.myColor = role; // 明确赋值 'white' 或 'black'
+      
+      // 强制转换服务器轮次状态为小写字符串
+      state.currentTurn = (room.next_turn || 'black').toLowerCase(); 
+      state.room = room;
 
-      // 3️⃣ 初始化 Realtime 通道
-      state.roomChannel = await initRoomChannel(code);
-
-      // 4️⃣ 刷新最新房间信息，确保 white_id 等信息获取到
-      const { data: latestRoom, error: latestErr } = await state.supabase
-        .schema('game')
-        .from('game_rooms')
-        .select('*')
-        .eq('code', code)
-        .single();
-      if (latestErr) throw latestErr;
-
-      await refreshRoomFromServer(latestRoom);
-
-      // 5️⃣ 更新 UI
-      updateRoomPanel({ code, inviteLink: state.roomContext.inviteLink });
-      drawFullBoard();       // 绘制棋盘
-      updateProfilePanels(); // 更新玩家头像
-      showGameArea();        // 显示游戏区域
-      toast(`已加入房间：${code}`);
+      // 3. 初始化并激活实时通道
+      await initRoomChannel(code);
+      
+      // 4. 强制拉取并渲染一次最新的棋盘状态，确保画面同步
+      await refreshRoomFromServer(room);
+      
+      hideRoomOverlay();
+      toast(`成功加入房间！您执: ${role === 'black' ? '黑子' : role === 'white' ? '白子' : '观战'}`);
     } catch (err) {
-      console.error('[multiplayer-ext] 加入房间失败:', err);
-      alert(`加入房间失败: ${err.message}`);
+      console.error('[joinRoom] 失败:', err);
+      toast(err.message);
     }
   }
 
