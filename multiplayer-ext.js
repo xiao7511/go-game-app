@@ -1219,7 +1219,7 @@
       });
 
       // 4. ✨【核心修复点】：去掉不稳定的单条 filter，改为接收全量更新后在前端过滤
-      ch.on(
+     /* ch.on(
         'postgres_changes',
         { event: 'UPDATE', schema: 'game', table: 'game_rooms' }, // 👈 去掉无法订阅的 filter
         async (payload) => {
@@ -1248,6 +1248,79 @@
           
           // 顺手把遮罩层关闭，让对局大厅呈现出来
           const overlay = $('room-overlay') || $('match-overlay') || $('room-modal') || document.querySelector('.room-overlay');
+          if (overlay && room.white_id) {
+            overlay.style.display = 'none'; // 白方来了，自动关闭弹窗进入棋盘
+            toast('白方已加入，对局正式开始！');
+          }
+        }
+      );*/
+      ch.on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'game', table: 'game_rooms' }, // 👈 去掉不稳定的单条 filter
+        async (payload) => {
+          const room = payload.new;
+          
+          // 在前端精确匹配当前房间号，100% 安全稳定
+          if (!room || room.code !== code) return; 
+
+          console.log('[Realtime] 捕捉到当前房间状态更新:', room);
+          
+          state.room = room;
+          // 兼容处理字段：同时支持 next_turn 和 current_turn
+          state.currentTurn = room.next_turn || room.current_turn || 'black'; 
+          
+          // 只要白方进入了（white_id 存在），或者状态变为 playing/waiting，即激活房间激活状态
+          if (room.white_id || room.status === 'playing') {
+            state.isInRoom = true;
+          }
+
+          // 🚀 核心跳转与界面点亮逻辑：当发现白方进房，打破大厅选择界面，切入对战盘面
+          if (room.white_id) {
+            const selectionPage = document.getElementById('game-selection');
+            const appPage = document.querySelector('.app');
+
+            if (selectionPage && selectionPage.style.display !== 'none') {
+              selectionPage.style.display = 'none'; // 隐藏游戏选择大厅
+              if (appPage) {
+                appPage.style.display = 'grid'; // 展现生产级棋盘布局
+              }
+              if (typeof resizeBoard === 'function') {
+                resizeBoard(); // 强制触发一次防缩放重绘
+              }
+            }
+          }
+
+          // 加载玩家 profile（通过类型校验保护，防止函数未定义时崩溃）
+          if (typeof getPlayerProfile === 'function') {
+            state.blackProfile = await getPlayerProfile(room.black_id);
+            state.whiteProfile = await getPlayerProfile(room.white_id);
+          }
+
+          // 动态对齐你 HTML 中的“对手信息”面板
+          const opponentNickname = document.getElementById('opponent-nickname');
+          const opponentStatus = document.getElementById('opponent-status');
+          if (room.white_id && opponentNickname) {
+            const isBlack = state.myColor === 'black';
+            opponentNickname.textContent = isBlack ? "白方已加入" : "黑方已就位";
+            if (opponentStatus) {
+              opponentStatus.textContent = "在线";
+              opponentStatus.className = "status-pill"; // 点亮绿色在线灯
+            }
+          }
+
+          // 刷新页面渲染与全量重绘
+          if (typeof refreshRoomFromServer === 'function') {
+            await refreshRoomFromServer(room);
+          }
+          if (typeof drawFullBoard === 'function') {
+            drawFullBoard();
+          }
+          if (typeof updateProfilePanels === 'function') {
+            updateProfilePanels();
+          }
+          
+          // 顺手把遮罩层关闭，让对局大厅呈现出来
+          const overlay = (typeof $ === 'function' ? ($('room-overlay') || $('match-overlay') || $('room-modal')) : null) || document.querySelector('.room-overlay');
           if (overlay && room.white_id) {
             overlay.style.display = 'none'; // 白方来了，自动关闭弹窗进入棋盘
             toast('白方已加入，对局正式开始！');
@@ -1405,31 +1478,26 @@
       // ✨【完美的 UI 数据对齐闭环】✨
       // ==========================================
         
-      // 1. 获取你页面中真实存在的 DOM 元素
+      // 1. 初始化右侧真实面板数据
       const roomIdSpan = document.getElementById('room-id');
       const inviteInput = document.getElementById('room-invite-link');
       const statusPill = document.getElementById('room-status-pill');
 
-      // 2. 拼装分享链接
-      const origin = window.location.origin + window.location.pathname;
-      const inviteLink = `${origin}?room=${code}`;
-
-      // 3. 把数据库下发的数据实时注入到右侧面板中
-      if (roomIdSpan) {
-        roomIdSpan.textContent = code; // 写入 6 位房间号
-      }
+      if (roomIdSpan) roomIdSpan.textContent = code;
       if (inviteInput) {
-        inviteInput.value = inviteLink; // 写入自动生成的邀请链接
+        const origin = window.location.origin + window.location.pathname;
+        inviteInput.value = `${origin}?room=${code}`;
       }
       if (statusPill) {
         statusPill.textContent = "等待对手...";
-        statusPill.style.background = "rgba(246, 196, 83, 0.15)"; // 黄色等待高亮
+        statusPill.style.background = "rgba(246, 196, 83, 0.15)";
         statusPill.style.color = "#f6c453";
       }
 
-        // 4. 气泡及系统弹窗兜底提示，让黑方知道自己建房成功了
-      alert(`房间创建成功！\n邀请码为：${code}\n\n右侧【房间信息】面板已同步更新，您可以直接点击“复制链接”发送给白方！`);
-      toast('房间创建成功，等待白方加入...');
+      // 🚀【关键修复】：黑方建房成功后，直接打破“选择游戏”遮罩，切入战场！
+      enterGameBoardUI(); 
+
+      toast('房间创建成功，正在大厅静候白方加入...');
       return data;
     } catch (err) {
       console.error('[createRoom] 失败:', err);
@@ -1437,6 +1505,28 @@
     }
   }
 
+
+    /**
+   * 核心跳转：从游戏选择大厅切换到真正的围棋对战棋盘
+   */
+  function enterGameBoardUI() {
+    const selectionPage = document.getElementById('game-selection');
+    const appPage = document.querySelector('.app');
+
+    if (selectionPage) {
+      selectionPage.style.display = 'none'; // 隐藏选择大厅
+    }
+    if (appPage) {
+      appPage.style.display = 'grid'; // 点亮并展开你的生产级对战布局 (grid 布局)
+      
+      // 强制触发一次棋盘大小重绘，防止 Canvas 渲染成 0x0 尺寸
+      if (typeof resizeBoard === 'function') {
+        resizeBoard();
+      } else if (typeof drawFullBoard === 'function') {
+        drawFullBoard();
+      }
+    }
+  }
   /*async function joinRoom(code) {
     const userId = await getUserId();
     if (!userId) {
@@ -1550,7 +1640,16 @@
       state.room = room;
 
       // 3. 初始化并激活实时通道
+      //await initRoomChannel(code);
+      // 白方加入数据库成功后
+      state.myColor = 'white';
+      state.isInRoom = true;
+      
       await initRoomChannel(code);
+      
+      // 🚀【关键修复】：白方加入成功，直接切入战场
+      enterGameBoardUI(); 
+      toast('成功进入对局！');
       
       // 4. 强制拉取并渲染一次最新的棋盘状态，确保画面同步
       await refreshRoomFromServer(room);
