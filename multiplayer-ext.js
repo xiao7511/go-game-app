@@ -872,138 +872,108 @@
 // 🟢 修改 2026-05-16：修复多人落子同步、颜色异常、闪烁异常
 // --------------------------
   async function handleMultiplayerMove(row, col) {
+      // 1. 严格轮次校验
+      if (state.currentTurn !== state.myColor) {
+        playSound('invalidMove');
+        return;
+      }
 
-    // 未轮到自己
-    if (state.currentTurn !== state.myColor) {
-      playSound('invalidMove');
-      return;
+      // 2. 避免重复落子或覆盖
+      if (state.board[row][col] !== EMPTY) {
+        playSound('invalidMove');
+        return;
+      }
+
+      // 防止在提交事务期间被 Realtime 异步刷新覆盖
+      if (state.isSyncing) return; 
+      state.isSyncing = true;
+
+      // 统一使用字符串颜色表达
+      const colorStr = state.myColor; // 'black' 或 'white'
+      const colorNum = colorStr === 'black' ? BLACK : WHITE;
+
+      // 本地落子物理判定
+      const result = placeStone(row, col, colorNum);
+
+      if (!result.success) {
+        state.isSyncing = false;
+        playSound('invalidMove');
+        toast(result.reason || '非法落子');
+        return;
+      }
+
+      playSound(result.captured > 0 ? 'capture' : 'placeStone');
+      startBlink(row, col, colorNum);
+
+      // 切换本地轮次
+      const nextTurn = colorStr === 'black' ? 'white' : 'black';
+      state.currentTurn = nextTurn;
+
+      drawFullBoard();
+      updateProfilePanels();
+
+      try {
+        // 广播给对手（带上最新轮次）
+        await broadcastMove(row, col, colorNum, result.capturedGroup || []);
+
+        // 实时持久化到数据库
+        await persistRoomState({
+          next_turn: nextTurn
+        });
+      } catch (err) {
+        console.error('[multiplayer-ext] 落子同步失败:', err);
+      } finally {
+        state.isSyncing = false;
+      }
     }
-
-    // 已有棋子
-    if (state.board[row][col] !== EMPTY) {
-      playSound('invalidMove');
-      return;
-    }
-
-    // 真实颜色
-    const color =
-      state.myColor === 'black'
-        ? BLACK
-        : WHITE;
-
-    // 本地落子
-    const result = placeStone(row, col, color);
-
-    if (!result.success) {
-      playSound('invalidMove');
-      toast(result.reason || '非法落子');
-      return;
-    }
-
-    playSound(
-      result.captured > 0
-        ? 'capture'
-        : 'placeStone'
-    );
-
-    // 🟢 修改 2026-05-16：最后一步闪烁
-    startBlink(row, col, color);
-
-    // 切换轮次
-    state.currentTurn =
-      color === BLACK
-        ? 'white'
-        : 'black';
-
-    drawFullBoard();
-
-    // 广播真实颜色
-    await broadcastMove(
-      row,
-      col,
-      color,
-      result.capturedGroup || []
-    );
-
-    // 同步房间
-    await persistRoomState({
-      next_turn: state.currentTurn
-    });
-
-    updateProfilePanels();
-  }
 
   // --------------------------
   // 🟢 修改 2026-05-16：修复远程落子重复切换轮次
   // --------------------------
   async function onOpponentMove(payload) {
+    const { row, col, color, captured, next_turn } = payload || {};
 
-    const {
-      row,
-      col,
-      color,
-      captured
-    } = payload || {};
-
-    if (
-      typeof row !== 'number' ||
-      typeof col !== 'number' ||
-      !color
-    ) {
+    if (typeof row !== 'number' || typeof col !== 'number' || !color) {
       return;
     }
 
-    // 已存在棋子
+    // 如果本地这个位置已经有子了，说明本地已经领先或同步过，不再重复处理
     if (state.board[row][col] !== EMPTY) {
+      if (next_turn) state.currentTurn = next_turn;
+      updateProfilePanels();
       return;
     }
 
-    // 使用真实颜色
+    // 写入棋盘
     state.board[row][col] = color;
 
-    // 提子
+    // 处理提子
     if (Array.isArray(captured)) {
       for (const [r, c] of captured) {
         state.board[r][c] = EMPTY;
       }
     }
 
-    // 吃子统计
+    // 统计提子
     if (color === BLACK) {
-      state.blackCaptures +=
-        Array.isArray(captured)
-          ? captured.length
-          : 0;
+      state.blackCaptures += Array.isArray(captured) ? captured.length : 0;
     } else {
-      state.whiteCaptures +=
-        Array.isArray(captured)
-          ? captured.length
-          : 0;
+      state.whiteCaptures += Array.isArray(captured) ? captured.length : 0;
     }
 
-    // 🟢 修改 2026-05-16：轮次同步
-    state.currentTurn =
-      color === BLACK
-        ? 'white'
-        : 'black';
+    // 依据广播携带的下个轮次直接对齐，防止时序错乱
+    if (next_turn) {
+      state.currentTurn = next_turn;
+    } else {
+      state.currentTurn = color === BLACK ? 'white' : 'black';
+    }
 
-    // 🟢 修改 2026-05-16：新一步成为闪烁目标
     startBlink(row, col, color);
-
     playSound('yourTurn');
-
     drawFullBoard();
-
     updateProfilePanels();
 
-    console.log(
-      '[远程落子]',
-      row,
-      col,
-      color,
-      'next:',
-      state.currentTurn
-    );
+    console.log('[远程落子同步成功]', row, col, '下一步:', state.currentTurn);
   }
   /*
   async function handleMultiplayerMove(row, col) {
@@ -1268,6 +1238,9 @@
     // -------------------------
     // 🟢 修改 2026-05-13：监听房间状态同步
     // -------------------------
+    // -------------------------
+    // 监听房间状态同步
+    // -------------------------
     ch.on(
       'postgres_changes',
       {
@@ -1277,39 +1250,27 @@
         filter: `code=eq.${code}`,
       },
       async ({ new: room }) => {
-
         if (!room) return;
+        console.log('[Realtime] 房间状态更新:', room);
 
-        console.log(
-          '[Realtime] 房间状态更新:',
-          room
-        );
-
-        // 🟢 修改 2026-05-13：同步 room
         state.room = room;
+        
+        // 🌟【关键修复】：如果当前轮到我方落子，拒绝让数据库旧的次序数据倒退覆盖本地状态
+        if (state.currentTurn === state.myColor && room.next_turn !== state.myColor) {
+          console.log('[Realtime 拦截] 我方正在回合中，忽略不一致的旧轮次同步');
+        } else {
+          state.currentTurn = room.next_turn || 'black';
+        }
 
-        // 🟢 修改 2026-05-13：同步当前轮次
-        state.currentTurn = room.current_turn || 'black';
-
-        // 🟢 修改 2026-05-13：重新加载双方信息
-        state.blackProfile = await getPlayerProfile(room.black_id);
-        state.whiteProfile = await getPlayerProfile(room.white_id);
-
-        // 🟢 修改 2026-05-13：刷新整个房间状态
-        await refreshRoomFromServer(room);
-
-        drawFullBoard();
-
-        updateProfilePanels();
-
-        //updatePlayerUI();
-
-        console.log(
-          '[Realtime] 当前轮次:',
-          state.currentTurn,
-          '我的颜色:',
-          state.myColor
-        );
+        // 加锁保护，如果在落子中，不从服务器重刷棋盘快照
+        if (!state.isSyncing) {
+          await refreshRoomFromServer(room);
+        } else {
+          // 仅更新UI基础面板
+          state.blackProfile = await getPlayerProfile(room.black_id);
+          state.whiteProfile = await getPlayerProfile(room.white_id);
+          updateProfilePanels();
+        }
       }
     );
 
