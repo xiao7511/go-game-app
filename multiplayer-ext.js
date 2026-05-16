@@ -1318,28 +1318,32 @@
   async function createRoom() {
     try {
       const user = await getUserId();
-      if (!user) throw new Error('未登录用户');
+      if (!user) throw new Error('未登录用户，请先登录');
 
       const code = generateRoomCode();
+      
+      // 💡 仅发送最精简的、满足 RLS (auth.uid() = black_id) 安全策略的数据
       const { data, error } = await state.supabase
         .from('game_rooms')
         .insert([
           {
-            code,
+            code: code,
             black_id: user.id,
-            white_id: null,
-            next_turn: 'black', // 明确初始化为小写字符串
-            board_state: JSON.stringify(Array(SIZE).fill(null).map(() => Array(SIZE).fill(EMPTY))),
+            next_turn: 'black', // 确保全小写
             status: 'waiting'
           },
         ])
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        // 如果这里依然报错，把 error 完整打印到控制台
+        console.error('[Supabase 返回错误详情]:', error);
+        throw error;
+      }
 
       state.roomCode = code;
-      state.myColor = 'black'; // 黑方创建者
+      state.myColor = 'black'; 
       state.currentTurn = 'black';
       state.room = data;
 
@@ -1349,7 +1353,8 @@
       return data;
     } catch (err) {
       console.error('[createRoom] 失败:', err);
-      toast('创建房间失败: ' + err.message);
+      // 弹出具体错误，方便直观定位
+      toast(`创建失败: ${err.message || JSON.stringify(err)}`);
     }
   }
 
