@@ -866,38 +866,91 @@
     }, 500);
   }*/
  /**
- * 方案 A：针对 HTML/CSS 棋子的纯本体闪烁（去掉边框，改透明度）
+ * 终极完美版：使用前端绝对定位遮罩实现棋子闪烁（去掉边框，完美本体闪烁）
  */
   function startBlink(row, col, color) {
-    // 1. 精准锁定那个刚落下的棋子 DOM 节点
-    // 💡 请根据你 game.js 里的实际选择器修改（比如 [data-row="${row}"][data-col="${col}"] 或 .stone）
-    const stone = document.querySelector(`[data-row="${row}"][data-col="${col}"]`) || 
-                  document.querySelector(`.stone-r${row}-c${col}`);
-    
-    if (!stone) return;
+    console.log(`[Blink] 开始触发棋子本体闪烁: [${row}, ${col}], 颜色: ${color}`);
 
-    // 2. 动态注入全局纯棋子闪烁动画（如果不存在的话）
-    if (!document.getElementById('stone-blink-style')) {
+    // 1. 自动寻找你的棋盘容器或 Canvas 元素
+    // 你的 game.html 中棋盘外层通常是 #board、#go-board 或 canvas
+    const boardContainer = document.getElementById('board') || 
+                          document.getElementById('canvas') || 
+                          document.querySelector('canvas') || 
+                          document.querySelector('.board-container');
+
+    if (!boardContainer) {
+      console.warn('[startBlink] 未能抓取到棋盘容器，无法渲染闪烁效果');
+      return;
+    }
+
+    // 2. 核心数学计算：动态获取棋盘在屏幕上的精准几何坐标和格子大小
+    const rect = boardContainer.getBoundingClientRect();
+    
+    // 围棋 19x19 盘面线数（如果是13或9路会自动适配）
+    const size = (window.game && window.game.size) || 19; 
+    
+    // 动态计算每个格子的间距 (宽度 / 线数)
+    const cellWidth = rect.width / size;
+    const cellHeight = rect.height / size;
+
+    // 计算当前落子点在屏幕上的绝对 X, Y 像素坐标位置（对齐到交叉点中心）
+    // 考虑到大多数围棋盘边缘有留白，这里做个标准交叉点中心对齐
+    const x = (col * cellWidth) + (cellWidth / 2);
+    const y = (row * cellHeight) + (cellHeight / 2);
+    
+    // 棋子直径通常为格子宽度的 90%
+    const stoneSize = cellWidth * 0.9;
+
+    // 3. 动态注入全局纯本体呼吸闪烁动画（优雅渐隐渐现，绝无难看外框）
+    if (!document.getElementById('perfect-stone-blink-style')) {
       const style = document.createElement('style');
-      style.id = 'stone-blink-style';
+      style.id = 'perfect-stone-blink-style';
       style.textContent = `
-        @keyframes stonePulse {
-          0% { opacity: 1; transform: scale(1); }
-          50% { opacity: 0.3; transform: scale(0.95); } /* 呼吸般自然闪烁 */
-          100% { opacity: 1; transform: scale(1); }
+        @keyframes perfectStonePulse {
+          0% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+          50% { opacity: 0.1; transform: translate(-50%, -50%) scale(0.95); }
+          100% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
         }
-        .stone-blinking {
-          animation: stonePulse 0.5s ease-in-out 3; /* 闪烁3次后回归正常 */
+        .perfect-blink-stone {
+          animation: perfectStonePulse 0.4s ease-in-out 3; /* 精准闪烁3次 */
+          pointer-events: none; /* 隐形防拦截，绝对不影响鼠标继续点棋盘 */
         }
       `;
       document.head.appendChild(style);
     }
 
-    // 3. 激活闪烁，并在动画结束后自动移除，防止影响后续对局
-    stone.classList.add('stone-blinking');
-    stone.addEventListener('animationend', () => {
-      stone.classList.remove('stone-blinking');
-    }, { once: true });
+    // 4. 动态在棋盘上建立一个独立的闪烁光斑
+    const blinkDot = document.createElement('div');
+    blinkDot.className = 'perfect-blink-stone';
+    
+    // 完美还原围棋子的质感与颜色
+    Object.assign(blinkDot.style, {
+      position: 'absolute',
+      left: `${x}px`,
+      top: `${y}px`,
+      width: `${stoneSize}px`,
+      height: `${stoneSize}px`,
+      borderRadius: '50%',
+      zIndex: '9999',
+      // 如果是黑子闪烁，就盖一层白色半透明光斑产生呼吸感；白子闪烁则盖一层黑色半透明
+      background: color === 'black' ? 'rgba(255, 255, 255, 0.75)' : 'rgba(0, 0, 0, 0.6)',
+      boxShadow: color === 'black' ? '0 0 8px rgba(255,255,255,0.5)' : '0 0 8px rgba(0,0,0,0.5)',
+    });
+
+    // 确保父级容器有定位属性，以便子级绝对定位
+    if (window.getComputedStyle(boardContainer).position === 'static') {
+      boardContainer.style.position = 'relative';
+    }
+
+    // 5. 挂载上屏，启动闪烁
+    boardContainer.appendChild(blinkDot);
+
+    // 6. 闪烁 3 次（1.2秒）后全自动销毁，不留下一丝垃圾代码
+    setTimeout(() => {
+      blinkDot.remove();
+      // 保底：触发一次整盘重绘，确保盘面最终状态完美无瑕
+      if (typeof drawFullBoard === 'function') drawFullBoard();
+    }, 1200);
   }
   /*
   function clearBlink() {
@@ -1530,52 +1583,66 @@
       }
       // 3. 🚀【核心修复】：为“复制链接”按钮绑定高兼容性点击事件
       if (copyBtn) {
-        copyBtn.onclick = async () => {
-          if (!inviteInput || !inviteInput.value) {
-            toast('暂无有效的邀请链接可复制');
-            return;
-          }
-
-          try {
-            // 现代浏览器标准 API 复制
-            if (navigator.clipboard && navigator.clipboard.writeText) {
-              await navigator.clipboard.writeText(inviteInput.value);
-            } else {
-              // 老版本浏览器/移动端 WebView 兼容降级方案
-              inviteInput.select();
-              inviteInput.setSelectionRange(0, 99999); // 兼容 iOS
-              document.execCommand('copy');
-            }
-
-            // 动态修改按钮样式和文字，提供极佳的用户视觉反馈
-            const originalText = copyBtn.textContent;
-            copyBtn.textContent = '✓ 已复制';
-            copyBtn.style.background = '#10b981'; // 变绿
+        // ==========================================
+        // ✨【终极自愈：全局事件委托绑定复制按钮】
+        // ==========================================
+        // 不管按钮何时加载，直接监听整个文档的点击事件
+        document.onpointerdown = null; // 清理可能的旧干扰
+        
+        document.addEventListener('click', async (e) => {
+          // 精准匹配按钮 ID
+          if (e.target && e.target.id === 'mp-copy-invite-btn') {
+            console.log('[Click] 捕获到复制按钮的点击动作');
             
-            // 顺便在面板下方的提示文字区给出高亮提醒
-            const copyHint = document.getElementById('room-copy-hint');
-            if (copyHint) {
-              copyHint.textContent = '链接已成功复制到剪贴板，快去发给好友加入对局吧！';
-              copyHint.style.color = '#10b981';
+            const inviteInput = document.getElementById('room-invite-link');
+            const copyBtn = e.target;
+
+            if (!inviteInput || !inviteInput.value) {
+              if (typeof toast === 'function') toast('暂无有效的邀请链接可复制');
+              return;
             }
 
-            toast('邀请链接已复制，快发给好友吧！');
-
-            // 1.5 秒后自动还原按钮初始状态
-            setTimeout(() => {
-              copyBtn.textContent = originalText;
-              copyBtn.style.background = ''; // 还原原有主题色
-              if (copyHint) {
-                copyHint.textContent = '复制房间邀请链接后可发送给好友加入对局。';
-                copyHint.style.color = 'var(--muted)';
+            try {
+              // 现代浏览器标准 API 复制
+              if (navigator.clipboard && navigator.clipboard.writeText) {
+                await navigator.clipboard.writeText(inviteInput.value);
+              } else {
+                // 老版本浏览器/移动端 WebView 兼容降级方案
+                inviteInput.select();
+                inviteInput.setSelectionRange(0, 99999); // 兼容 iOS
+                document.execCommand('copy');
               }
-            }, 2000);
 
-          } catch (err) {
-            console.error('复制失败:', err);
-            toast('自动复制失败，请手动长按输入框复制链接');
+              // 动态修改按钮样式和文字
+              const originalText = copyBtn.textContent;
+              copyBtn.textContent = '✓ 已复制';
+              const oldBg = copyBtn.style.background;
+              copyBtn.style.background = '#10b981'; // 变绿
+              
+              const copyHint = document.getElementById('room-copy-hint');
+              if (copyHint) {
+                copyHint.textContent = '链接已成功复制到剪贴板，快去发给好友加入对局吧！';
+                copyHint.style.color = '#10b981';
+              }
+
+              if (typeof toast === 'function') toast('邀请链接已复制，快发给好友吧！');
+
+              // 2秒后还原状态
+              setTimeout(() => {
+                copyBtn.textContent = originalText;
+                copyBtn.style.background = oldBg;
+                if (copyHint) {
+                  copyHint.textContent = '复制房间邀请链接后可发送给好友加入对局。';
+                  copyHint.style.color = 'var(--muted)';
+                }
+              }, 2000);
+
+            } catch (err) {
+              console.error('复制失败:', err);
+              if (typeof toast === 'function') toast('自动复制失败，请手动选择输入框复制');
+            }
           }
-        };
+        });
       }
 
       // 🚀【关键修复】：黑方建房成功后，直接打破“选择游戏”遮罩，切入战场！
