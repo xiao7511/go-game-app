@@ -452,8 +452,8 @@
             // --------------------------
             if (
               blinkingMove &&
-              blinkingMove.row === row &&
-              blinkingMove.col === col &&
+              blinkingMove.row === r &&
+              blinkingMove.col === c &&
               blinkingMove.visible
             ) {
 
