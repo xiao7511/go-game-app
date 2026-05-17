@@ -868,57 +868,58 @@
  /**
  * 终极完美版：使用前端绝对定位遮罩实现棋子闪烁（去掉边框，完美本体闪烁）
  */
+  /**
+ * 修复自愈版：精准对齐 Canvas 容器交叉点的棋子本体闪烁
+ */
   function startBlink(row, col, color) {
     console.log(`[Blink] 开始触发棋子本体闪烁: [${row}, ${col}], 颜色: ${color}`);
 
-    // 1. 自动寻找你的棋盘容器或 Canvas 元素
-    // 你的 game.html 中棋盘外层通常是 #board、#go-board 或 canvas
-    const boardContainer = document.getElementById('board') || 
-                          document.getElementById('canvas') || 
-                          document.querySelector('canvas') || 
-                          document.querySelector('.board-container');
+    // 1. 精准锁定你的 game.html 里的 canvas 棋盘元素
+    const boardContainer = document.getElementById('board') || document.querySelector('canvas');
 
     if (!boardContainer) {
-      console.warn('[startBlink] 未能抓取到棋盘容器，无法渲染闪烁效果');
+      console.warn('[startBlink] 未能抓取到 ID 为 board 的 Canvas 元素');
       return;
     }
-    // 2. 核心数学计算：动态获取棋盘在屏幕上的精准几何坐标和格子大小
-    const rect = boardContainer.getBoundingClientRect();
+
+    // 2. 获取当前 Canvas 在网页上实际展现的物理像素尺寸（排除屏幕滚动干扰）
+    const offsetWidth = boardContainer.offsetWidth;
+    const offsetHeight = boardContainer.offsetHeight;
     
-    // 围棋 19x19 盘面线数（如果是13或9路会自动适配）
+    // 3. 围棋路数与实际交叉点线数对齐
     const size = (window.game && window.game.size) || 19; 
     
-    // 动态计算每个格子的间距 (宽度 / 线数)
-    const cellWidth = rect.width / size;
-    const cellHeight = rect.height / size;
+    // 💡 围棋核心修正：19条线段之间只有 18 个格子，边缘通常还有半个格子宽度的留白
+    // 这里采用标准自适应比例：将棋盘等分为 size 份，两边各留半个格子作为安全边距
+    const cellWidth = offsetWidth / size;
+    const cellHeight = offsetHeight / size;
 
-    // 计算当前落子点在屏幕上的绝对 X, Y 像素坐标位置（对齐到交叉点中心）
-    // 考虑到大多数围棋盘边缘有留白，这里做个标准交叉点中心对齐
+    // 💡 核心修复：纯净相对坐标计算，不再叠加 getBoundingClientRect() 的屏幕偏移
     const x = (col * cellWidth) + (cellWidth / 2);
     const y = (row * cellHeight) + (cellHeight / 2);
     
-    // 棋子直径通常为格子宽度的 90%
-    const stoneSize = cellWidth * 0.9;
+    // 棋子直径
+    const stoneSize = cellWidth * 0.85;
 
-    // 3. 动态注入全局纯本体呼吸闪烁动画（优雅渐隐渐现，绝无难看外框）
+    // 4. 动态注入全局纯本体呼吸闪烁动画（引入 transform 保障层）
     if (!document.getElementById('perfect-stone-blink-style')) {
       const style = document.createElement('style');
       style.id = 'perfect-stone-blink-style';
       style.textContent = `
         @keyframes perfectStonePulse {
-          0% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
-          50% { opacity: 0.1; transform: translate(-50%, -50%) scale(0.95); }
-          100% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+          0% { opacity: 0.2; transform: translate(-50%, -50%) scale(0.6); }
+          50% { opacity: 0.9; transform: translate(-50%, -50%) scale(1.05); } /* 光斑呼吸扩散 */
+          100% { opacity: 0.2; transform: translate(-50%, -50%) scale(0.6); }
         }
         .perfect-blink-stone {
-          animation: perfectStonePulse 0.4s ease-in-out 3; /* 精准闪烁3次 */
-          pointer-events: none; /* 隐形防拦截，绝对不影响鼠标继续点棋盘 */
+          animation: perfectStonePulse 0.35s ease-in-out 3; /* 快速闪烁 3 次 */
+          pointer-events: none; /* 绝对不拦截底层的任何落子鼠标点击 */
         }
       `;
       document.head.appendChild(style);
     }
 
-    // 4. 动态在棋盘上建立一个独立的闪烁光斑
+    // 5. 动态在棋盘上建立一个独立的闪烁光斑
     const blinkDot = document.createElement('div');
     blinkDot.className = 'perfect-blink-stone';
     
@@ -931,25 +932,31 @@
       height: `${stoneSize}px`,
       borderRadius: '50%',
       zIndex: '9999',
-      // 如果是黑子闪烁，就盖一层白色半透明光斑产生呼吸感；白子闪烁则盖一层黑色半透明
-      background: color === 'black' ? 'rgba(255, 255, 255, 0.75)' : 'rgba(0, 0, 0, 0.6)',
-      boxShadow: color === 'black' ? '0 0 8px rgba(255,255,255,0.5)' : '0 0 8px rgba(0,0,0,0.5)',
+      // 💡 视觉反差修正：如果是黑子落下，闪烁白色半透明呼吸圈；如果是白子落下，闪烁黑色半透明圈
+      background: color === 'black' ? 'rgba(255, 255, 255, 0.85)' : 'rgba(15, 23, 32, 0.75)',
+      boxShadow: color === 'black' ? '0 0 10px #ffffff' : '0 0 10px #000000',
     });
 
-    // 确保父级容器有定位属性，以便子级绝对定位
-    if (window.getComputedStyle(boardContainer).position === 'static') {
-      boardContainer.style.position = 'relative';
+    // 6. 核心包裹层安全保底：Canvas 元素的父级必须具备 relative 定位，否则光斑会飘到外层
+    const parent = boardContainer.parentElement;
+    if (parent) {
+      if (window.getComputedStyle(parent).position === 'static') {
+        parent.style.position = 'relative';
+      }
+      // 将闪烁光斑挂载到 Canvas 的父级容器中，以便完美重叠在 Canvas 的图像上方
+      parent.appendChild(blinkDot);
+    } else {
+      // 备用方案
+      if (window.getComputedStyle(boardContainer).position === 'static') {
+        boardContainer.style.position = 'relative';
+      }
+      boardContainer.appendChild(blinkDot);
     }
 
-    // 5. 挂载上屏，启动闪烁
-    boardContainer.appendChild(blinkDot);
-
-    // 6. 闪烁 3 次（1.2秒）后全自动销毁，不留下一丝垃圾代码
+    // 7. 闪烁完毕（约 1.05 秒）后全自动销毁，不留下一丝垃圾代码
     setTimeout(() => {
       blinkDot.remove();
-      // 保底：触发一次整盘重绘，确保盘面最终状态完美无瑕
-      if (typeof drawFullBoard === 'function') drawFullBoard();
-    }, 1200);
+    }, 1100);
   }
   /*
   function clearBlink() {
