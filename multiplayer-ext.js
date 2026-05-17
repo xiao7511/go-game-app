@@ -511,13 +511,13 @@
             drawStone(row, col, color);
             
             // 可选：如果你在本体闪烁的同时还想保留一层淡淡的呼吸光圈点缀，可以保留下面这段；不需要直接删掉 ctx 块即可
-            ctx.save();
-            ctx.beginPath();
-            ctx.arc(boardX, boardY, state.cellSize * 0.40, 0, Math.PI * 2);
-            ctx.lineWidth = 2.5;
-            ctx.strokeStyle = color === BLACK ? 'rgba(255, 235, 59, 0.8)' : 'rgba(244, 67, 54, 0.8)';
-            ctx.stroke();
-            ctx.restore();
+            //ctx.save();
+            //ctx.beginPath();
+            //ctx.arc(boardX, boardY, state.cellSize * 0.40, 0, Math.PI * 2);
+            //ctx.lineWidth = 2.5;
+            //ctx.strokeStyle = color === BLACK ? 'rgba(255, 235, 59, 0.8)' : 'rgba(244, 67, 54, 0.8)';
+            //ctx.stroke();
+            //ctx.restore();
           } else {
             // ❌ 当 visible 为 false 时，不画本体，达到完美的本体闪烁/呼吸灯隐藏效果
             // 兼容手机移动端：画一个非常淡的残影，防止大面积闪烁给眼睛带来疲劳感，同时也完美解决部分手机 Canvas 隐藏元素不触发物理刷新的硬件缺陷
@@ -1080,7 +1080,7 @@
             drawFullBoard();
           });
         }
-      }, 400); 
+      }, 450); 
     }
   /*
   function clearBlink() {
