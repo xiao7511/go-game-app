@@ -498,20 +498,36 @@
        // -----------------------------------------------------------
         // 🟢 修改：从统一的 window.state 状态机中读取闪烁目标
         // -----------------------------------------------------------
-        const bMove = window.state.blinkingMove;
-        if (
-          bMove &&
-          bMove.row === row &&
-          bMove.col === col
-        ) {
-          // 如果当前处于不可见帧，则跳过外圈高亮绘制（或用 alpha 绘棋）
+        // -----------------------------------------------------------
+        // 🟢 移动端自愈：安全读取全局多端同步闪烁状态机
+        // -----------------------------------------------------------
+        const bMove = window.state ? window.state.blinkingMove : null;
+        const isCurrentBlinkMove = (bMove && bMove.row === row && bMove.col === col);
+
+        if (isCurrentBlinkMove) {
+          // 如果是最新一手闪烁棋子，根据呼吸开关 visible 来决定画不画本体（达成本体闪烁效果）
           if (bMove.visible) {
+            drawStone(row, col, color);
+            
+            // 可选：如果你在本体闪烁的同时还想保留一层淡淡的呼吸光圈点缀，可以保留下面这段；不需要直接删掉 ctx 块即可
+            ctx.save();
             ctx.beginPath();
-            ctx.arc(boardX, boardY, state.cellSize * 0.34, 0, Math.PI * 2);
-            ctx.lineWidth = 3;
-            ctx.strokeStyle = color === BLACK ? 'rgba(255,255,0,0.95)' : 'rgba(255,80,80,0.95)';
+            ctx.arc(boardX, boardY, state.cellSize * 0.40, 0, Math.PI * 2);
+            ctx.lineWidth = 2.5;
+            ctx.strokeStyle = color === BLACK ? 'rgba(255, 235, 59, 0.8)' : 'rgba(244, 67, 54, 0.8)';
             ctx.stroke();
+            ctx.restore();
+          } else {
+            // ❌ 当 visible 为 false 时，不画本体，达到完美的本体闪烁/呼吸灯隐藏效果
+            // 兼容手机移动端：画一个非常淡的残影，防止大面积闪烁给眼睛带来疲劳感，同时也完美解决部分手机 Canvas 隐藏元素不触发物理刷新的硬件缺陷
+            ctx.save();
+            ctx.globalAlpha = 0.08; 
+            drawStone(row, col, color);
+            ctx.restore();
           }
+        } else {
+          // 普通棋子正常绘制本体，保持不变
+          drawStone(row, col, color);
         }
       }
     }
@@ -1023,18 +1039,18 @@
       }
     }, 350); // 350ms 的切换频率，作为常驻提示非常柔和舒适，不刺眼
   }*/
-    /**
-     * 启动最新落子的常驻闪烁机制（直到下一次被 clearBlink 或新一轮 startBlink 覆灭）
-     */
+/**
+   * 启动最新落子棋子本体闪烁（持续进行，直到下一手棋落下被主动清空）
+   */
     function startBlink(row, col, color) {
-      console.log(`[Blink] 触发新落子闪烁: [${row}, ${col}], 颜色: ${color}`);
+      console.log(`[Blink Engine] 激活本体呼吸闪烁 -> 坐标: [${row}, ${col}], 颜色: ${color}`);
       
-      // 1. 强制清除旧的定时器，使上一手棋子立即停止闪烁
+      // 1. 强制熔断上一次建立的闪烁，使上一个棋子一瞬间恢复正常静止状态
       if (window.state.blinkTimer) {
         clearInterval(window.state.blinkTimer);
       }
 
-      // 2. 绑定最新的闪烁数据
+      // 2. 注入最新落子的核心比对对象（适配字符串和数字形态的 Color）
       window.state.blinkingMove = {
         row: parseInt(row),
         col: parseInt(col),
@@ -1042,20 +1058,25 @@
         visible: true
       };
 
-      // 3. 建立常驻常开的异步呼吸灯效果
+      // 3. 手机移动端调优：将高频 200ms 调整为 400ms，适配手机浏览器（降低能耗，防止掉帧看不到）
       window.state.blinkTimer = setInterval(() => {
         if (!window.state.blinkingMove) {
           clearInterval(window.state.blinkTimer);
           window.state.blinkTimer = null;
           return;
         }
-        // 切换可见状态
+        
+        // 反转当前棋子的隐显开关
         window.state.blinkingMove.visible = !window.state.blinkingMove.visible;
-        // 重绘棋盘
+        
+        // 4. 关键自愈：跨端环境异步更新，强制拉起画布请求重绘帧
         if (typeof drawFullBoard === 'function') {
-          drawFullBoard();
+          // 使用标准的 requestAnimationFrame 辅助重绘，完美解决 Safari/微信等移动浏览器内核 setInterval 重绘延迟、看不见闪烁的通病
+          requestAnimationFrame(() => {
+            drawFullBoard();
+          });
         }
-      }, 350); // 350ms 闪烁频率
+      }, 400); 
     }
   /*
   function clearBlink() {
@@ -1077,18 +1098,23 @@
     drawFullBoard();
   }*/
   /**
-   * 清除当前棋盘上的所有闪烁状态，并恢复棋子可见性
+   * 停止闪烁并恢复常态
    */
-  function clearBlink() {
-    if (window.state.blinkTimer) {
-      clearInterval(window.state.blinkTimer);
-      window.state.blinkTimer = null;
+    function clearBlink() {
+      if (window.state.blinkTimer) {
+        clearInterval(window.state.blinkTimer);
+        window.state.blinkTimer = null;
+      }
+      window.state.blinkingMove = null;
+      
+      // 全局防错，防止旧局部变量捣乱
+      if (typeof blinkInterval !== 'undefined') blinkInterval = null;
+      if (typeof blinkingMove !== 'undefined') blinkingMove = null;
+
+      if (typeof drawFullBoard === 'function') {
+        drawFullBoard();
+      }
     }
-    window.state.blinkingMove = null;
-    if (typeof drawFullBoard === 'function') {
-      drawFullBoard();
-    }
-  }
 
   /// --------------------------
 // 🟢 修改 2026-05-16：修复多人落子同步、颜色异常、闪烁异常
