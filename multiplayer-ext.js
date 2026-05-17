@@ -571,8 +571,91 @@
 
     return { liberties, group };
   }
+  /*========2016-05-17==========*/
+  window.state = window.state || {};
+  window.state.koPoint = null; // 存储当前被锁死的劫位坐标：{ row, col }
 
   function placeStone(row, col, color) {
+    // 🚀 核心修改 A：前置拦截劫争禁手
+    if (window.state.koPoint) {
+      if (window.state.koPoint.row === row && window.state.koPoint.col === col) {
+        return { success: false, captured: 0, reason: '🚫 处于劫争状态，当前不能立刻提回，请先在别处落子（寻劫）' };
+      }
+    }
+
+    // 检查位置是否为空
+    if (state.board[row][col] !== EMPTY) {
+      return { success: false, captured: 0, reason: '该位置已有棋子' };
+    }
+
+    const opponent = color === BLACK ? WHITE : BLACK;
+    
+    // 1. 临时落子
+    state.board[row][col] = color;
+
+    const capturedList = [];
+    let totalCaptured = 0;
+
+    // 2. 检查四周敌方棋子的气，执行提子
+    for (const [dr, dc] of DIRECTIONS) {
+      const nr = row + dr;
+      const nc = col + dc;
+      if (nr < 0 || nr >= SIZE || nc < 0 || nc >= SIZE) continue;
+      if (state.board[nr][nc] !== opponent) continue;
+
+      const { liberties, group } = bfsLiberties(nr, nc, opponent, state.board);
+      if (liberties === 0) {
+        for (const [gr, gc] of group) {
+          // 💡 核心自愈：执行去重判定，防止多个方向连接到同一个敌方单子时导致重复计数
+          if (!capturedList.some(([exR, exC]) => exR === gr && exC === gc)) {
+            state.board[gr][gc] = EMPTY;
+            capturedList.push([gr, gc]);
+          }
+        }
+      }
+    }
+    
+    // 根据真正去重后的数组确定物理提子总数
+    totalCaptured = capturedList.length;
+
+    // 3. 检查自己的棋串是否有气（防止自杀）
+    const { liberties: selfLiberties } = bfsLiberties(row, col, color, state.board);
+    if (selfLiberties === 0) {
+      // 自杀手，回滚落子
+      state.board[row][col] = EMPTY;
+      // 回滚误提的敌方棋子
+      for (const [r, c] of capturedList) {
+        state.board[r][c] = opponent;
+      }
+      return { success: false, captured: 0, reason: '禁止自杀（无气）' };
+    }
+
+    // 🚀 核心修改 B：更新或解锁打劫状态机
+    // 标准打劫判定：本次正好提了对方 1 颗子，且自己落子后这块棋也只剩下 1 气
+    if (totalCaptured === 1 && selfLiberties === 1) {
+      // 对方刚刚被提掉的那个格子，就是下一手对方不能立刻点入的反提劫位
+      window.state.koPoint = {
+        row: capturedList[0][0],
+        col: capturedList[0][1]
+      };
+      console.log(`[Ko Rule] 劫争触发！锁死对方反提坐标: [${window.state.koPoint.row}, ${window.state.koPoint.col}]`);
+    } else {
+      // 如果没有触发打劫（普通落子、或者提了2个子以上的大子），前一手的劫位自动无缝解禁
+      window.state.koPoint = null;
+    }
+
+    // 4. 更新捕获计数
+    if (color === BLACK) {
+      state.blackCaptures += totalCaptured;
+    } else {
+      state.whiteCaptures += totalCaptured;
+    }
+
+    // 💡 保持与调用端（result.capturedGroup）解构命名的绝对一致
+    return { success: true, captured: totalCaptured, capturedGroup: capturedList };
+  }
+
+  /*function placeStone(row, col, color) {
     if (state.board[row][col] !== EMPTY) {
       return { success: false, reason: '该位置已有棋子' };
     }
@@ -610,7 +693,7 @@
     else state.whiteCaptures += totalCaptured;
 
     return { success: true, captured: totalCaptured, capturedGroup: capturedList };
-  }
+  }*/
 
  // function switchTurn() {
  //   state.currentTurn = state.currentTurn === 'black' ? 'white' : 'black';
