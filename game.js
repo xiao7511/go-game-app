@@ -722,6 +722,15 @@ function judgeWinner(board, blackTerritory, whiteTerritory) {
     // 4. 绘制棋子（带最新落子闪烁效果）
     for (let r = 0; r < SIZE; r++) {
       for (let c = 0; c < SIZE; c++) {
+        // 🚀【核心拦截】：如果是当前最新的一手（正在持续闪烁的棋子），且当前帧处于“隐藏”周期
+        if (window.state && window.state.blinkingMove) {
+          if (window.state.blinkingMove.row === r && window.state.blinkingMove.col === c) {
+            if (!window.state.blinkingMove.visible) {
+              // 💡 跳过这一帧的绘制，从而在 Canvas 内部实现绝对原生态、无位移的本体闪烁！
+              continue; 
+            }
+          }
+        }
         if (board[r][c] !== EMPTY) {
           const isLatestMove = latestMove && latestMove.row === r && latestMove.col === c;
           if (isLatestMove && !latestMoveFlash) continue;

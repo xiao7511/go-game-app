@@ -861,80 +861,45 @@
   /**
  * 修复自愈版：精准对齐 Canvas 容器交叉点的棋子本体闪烁
  */
- /**
- * 完美自愈版：精准定位到 .board-shell 容器交叉点的棋子本体闪烁
- */
+  // 1. 确保全局多端同步状态机中包含闪烁控制器
+  window.state = window.state || {};
+  window.state.blinkingMove = null; // 存储当前正在闪烁的棋子：{row, col, color, visible}
+  window.state.blinkTimer = null;    // 全局唯一的闪烁渲染定时器
+
+  /**
+   * 🚀 终极修复：持续闪烁机制（直到下一手棋落下才停止）
+   */
   function startBlink(row, col, color) {
-    console.log(`[Blink] 开始触发棋子本体闪烁: [${row}, ${col}], 颜色: ${color}`);
-
-    // 1. 精准锁定 Canvas 和它的包裹壳
-    const canvas = document.getElementById('goBoard');
-    if (!canvas) return;
+    console.log(`[Blink] 开始持续闪烁最新落子: [${row}, ${col}], 颜色: ${color}`);
     
-    const boardShell = canvas.parentElement; // 获取 .board-shell
-    if (!boardShell) return;
-
-    // 2. 获取当前棋盘在网页上实际展现的物理像素尺寸
-    const offsetWidth = canvas.offsetWidth;
-    const offsetHeight = canvas.offsetHeight;
-    
-    // 3. 围棋路数与实际交叉点线数对齐
-    const size = (window.game && window.game.size) || 19; 
-    
-    // 围棋标准自适应比例：将棋盘等分为 size 份，两边各留半个格子作为安全边距
-    const cellWidth = offsetWidth / size;
-    const cellHeight = offsetHeight / size;
-
-    // 纯净相对坐标计算，相对于 boardShell 的左上角
-    const x = (col * cellWidth) + (cellWidth / 2);
-    const y = (row * cellHeight) + (cellHeight / 2);
-    const stoneSize = cellWidth * 0.85;
-
-    // 4. 动态注入全局纯本体呼吸闪烁动画
-    if (!document.getElementById('perfect-stone-blink-style')) {
-      const style = document.createElement('style');
-      style.id = 'perfect-stone-blink-style';
-      style.textContent = `
-        @keyframes perfectStonePulse {
-          0% { opacity: 0.2; transform: translate(-50%, -50%) scale(0.7); }
-          50% { opacity: 0.95; transform: translate(-50%, -50%) scale(1.05); }
-          100% { opacity: 0.2; transform: translate(-50%, -50%) scale(0.7); }
-        }
-        .perfect-blink-stone {
-          animation: perfectStonePulse 0.38s ease-in-out 3; /* 快速闪烁 3 次 */
-          pointer-events: none; /* 绝对不拦截底层的任何落子鼠标点击 */
-        }
-      `;
-      document.head.appendChild(style);
+    // A. 关键：首先清除上一次落子建立的定时器，让旧棋子瞬间停止闪烁
+    if (window.state.blinkTimer) {
+      clearInterval(window.state.blinkTimer);
     }
 
-    // 5. 动态在棋盘上建立一个独立的闪烁光斑
-    const blinkDot = document.createElement('div');
-    blinkDot.className = 'perfect-blink-stone';
-    
-    Object.assign(blinkDot.style, {
-      position: 'absolute',
-      left: `${x}px`,
-      top: `${y}px`,
-      width: `${stoneSize}px`,
-      height: `${stoneSize}px`,
-      borderRadius: '50%',
-      zIndex: '9999',
-      // 如果是黑子落下，闪烁白色半透明呼吸圈；如果是白子落下，闪烁黑色半透明圈
-      background: color === 'black' ? 'rgba(255, 255, 255, 0.85)' : 'rgba(15, 23, 32, 0.8)',
-      boxShadow: color === 'black' ? '0 0 10px #ffffff' : '0 0 10px #000000',
-    });
+    // B. 覆盖全局闪烁目标，换成本次新落下的棋子
+    window.state.blinkingMove = {
+      row: parseInt(row),
+      col: parseInt(col),
+      color: color,
+      visible: true // 显隐控制开关
+    };
 
-    // 6. 确保父级容器有定位属性（.board-shell 通常已有，这里做个保险）
-    if (window.getComputedStyle(boardShell).position === 'static') {
-      boardShell.style.position = 'relative';
-    }
+    // C. 启动一个无限循环的定时器（不设置销毁上限），直到下一次调用 startBlink 时被 A 步骤清除
+    window.state.blinkTimer = setInterval(() => {
+      if (!window.state.blinkingMove) {
+        clearInterval(window.state.blinkTimer);
+        return;
+      }
 
-    // 7. 挂载上屏，启动闪烁并在 1.2 秒后自动销毁
-    boardShell.appendChild(blinkDot);
-    setTimeout(() => {
-      blinkDot.remove();
-    }, 1200);
+      // 切换当前最新棋子的可见状态（达成呼吸/闪烁效果）
+      window.state.blinkingMove.visible = !window.state.blinkingMove.visible;
+      
+      // 每次状态改变，直接通知核心 Canvas 重新绘制整盘棋
+      if (typeof drawFullBoard === 'function') {
+        drawFullBoard();
+      }
+    }, 350); // 350ms 的切换频率，作为常驻提示非常柔和舒适，不刺眼
   }
   /*
   function clearBlink() {
@@ -1258,13 +1223,28 @@
       state.roomChannel = ch; // 挂载到全局状态中
 
       // 1. 对手落子同步
-      ch.on('broadcast', { event: 'move' }, ({ payload }) => {
+      /*ch.on('broadcast', { event: 'move' }, ({ payload }) => {
         console.log('[Realtime] 收到对手落子广播:', payload);
         applyRemotePayload(payload);
         if (typeof payload.row === 'number' && typeof payload.col === 'number') {
           startBlink(payload.row, payload.col, payload.color);
         }
         onOpponentMove(payload);
+      });*/
+      // 收到对手落子广播 --2026-05-17 修复：增加颜色兼容解析，强化闪烁逻辑，提供外部回调接口
+      ch.on('broadcast', { event: 'move' }, ({ payload }) => {
+        console.log('[Realtime] 收到对手落子广播:', payload);
+        if (typeof applyRemotePayload === 'function') applyRemotePayload(payload);
+        // 解析行列与颜色
+        const r = typeof payload.row === 'number' ? payload.row : parseInt(payload.r);
+        const c = typeof payload.col === 'number' ? payload.col : parseInt(payload.c);
+        const color = payload.color || payload.playerColor;
+        if (!isNaN(r) && !isNaN(c)) {
+          // ✨ 对手下子了，本地立刻调用 startBlink。
+          // 这会清除你上一手自己留下的闪烁，并开始持续闪烁对手这一手，直到你再次落子！
+          startBlink(r, c, color);
+        }
+        if (typeof onOpponentMove === 'function') onOpponentMove(payload);
       });
 
       // 2. 房间控制消息（如认输、游戏结束）
