@@ -951,6 +951,21 @@
       playSound('invalidMove');
       toast(result.reason || '非法落子');
       return;
+    }else{
+      // 💡 细节对齐：请确保此处的函数名与你本地（例如 broadcastMove）完全一致  2026-05-17
+      // 如果你原本就有 broadcastMove(row, col, color, capturedList) 这样的定义，可以直接这样传：
+      if (typeof broadcastMove === 'function') {
+        // 内部广播时会自动去读取最新的 window.state.koPoint
+        broadcastMove(row, col, color, result.capturedGroup); 
+      } else if (typeof sendBroadcast === 'function') {
+        // 如果你确实封装了 sendBroadcast，那就保持你的原样并附带最新劫位
+        sendBroadcast({
+          row, 
+          col, 
+          color,
+          captured: result.capturedGroup,
+          koPoint: window.state.koPoint // 🚀 传给对手，让对方本地同步禁手
+        });
     }
 
     playSound(result.captured > 0 ? 'capture' : 'placeStone');
@@ -1234,17 +1249,36 @@
       // 收到对手落子广播 --2026-05-17 修复：增加颜色兼容解析，强化闪烁逻辑，提供外部回调接口
       ch.on('broadcast', { event: 'move' }, ({ payload }) => {
         console.log('[Realtime] 收到对手落子广播:', payload);
-        if (typeof applyRemotePayload === 'function') applyRemotePayload(payload);
-        // 解析行列与颜色
+        // 1. 优先让核心数据结构应用对端的落子与提子（完成底层 Canvas 棋盘的物理更新）
+        if (typeof applyRemotePayload === 'function') {
+          applyRemotePayload(payload);
+        }
+        // 2. 🚀【后置核心同步】：在底层数据应用完毕后，再强行锁定/更新本地的劫争状态，防止被内部重置冲掉
+        if (payload && payload.koPoint) {
+          window.state.koPoint = {
+            row: parseInt(payload.koPoint.row),
+            col: parseInt(payload.koPoint.col)
+          };
+          console.log(`[Ko Sync] 对手制造了劫争，本地同步锁死反提点: [${window.state.koPoint.row}, ${window.state.koPoint.col}]`);
+        } else {
+          window.state.koPoint = null; // 自动解禁
+        }
+        // 3. 解析行列与颜色，触发最新棋子的持续闪烁提示
         const r = typeof payload.row === 'number' ? payload.row : parseInt(payload.r);
         const c = typeof payload.col === 'number' ? payload.col : parseInt(payload.c);
         const color = payload.color || payload.playerColor;
+        
         if (!isNaN(r) && !isNaN(c)) {
-          // ✨ 对手下子了，本地立刻调用 startBlink。
-          // 这会清除你上一手自己留下的闪烁，并开始持续闪烁对手这一手，直到你再次落子！
-          startBlink(r, c, color);
+          // 激活 DOM 贴片或状态闪烁（自动移除自己上一手的闪烁，无缝接力）
+          if (typeof startBlink === 'function') {
+            startBlink(r, c, color);
+          }
         }
-        if (typeof onOpponentMove === 'function') onOpponentMove(payload);
+        
+        // 4. 触发后续对局轮次或 UI 状态的更新
+        if (typeof onOpponentMove === 'function') {
+          onOpponentMove(payload);
+        }
       });
 
       // 2. 房间控制消息（如认输、游戏结束）

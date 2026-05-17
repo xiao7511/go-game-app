@@ -197,7 +197,7 @@
    * @param {number} col
    * @returns {{ success: boolean, captured: number, reason?: string }}
    */
-  function placeStone(row, col) {
+  /*function placeStone(row, col) {
     // 检查位置是否为空
     if (board[row][col] !== EMPTY) {
       return { success: false, captured: 0, reason: '该位置已有棋子' };
@@ -236,6 +236,89 @@
       // 同时回滚已提的敌方棋子
       // 注：完整回滚较复杂，此处禁止自杀手
       return { success: false, captured: 0, reason: '禁止自杀（该落子无气）' };
+    }
+    
+    // 4. 更新捕获计数
+    if (color === BLACK) {
+      blackCaptures += totalCaptured;
+    } else {
+      whiteCaptures += totalCaptured;
+    }
+    
+    return { success: true, captured: totalCaptured, capturedGroup: capturedList };
+  }*/
+  // 在全局或初始化处定义劫争状态机
+  window.state = window.state || {};
+  window.state.koPoint = null; // 存储当前被锁死的劫位坐标：{ row, col }
+
+  function placeStone(row, col) {
+    // 🚀 核心修改 A：前置拦截劫争禁手
+    if (window.state.koPoint) {
+      if (window.state.koPoint.row === row && window.state.koPoint.col === col) {
+        return { success: false, captured: 0, reason: '🚫 处于劫争状态，当前不能立刻提回，请先在别处落子（寻劫）' };
+      }
+    }
+
+    // 检查位置是否为空
+    if (board[row][col] !== EMPTY) {
+      return { success: false, captured: 0, reason: '该位置已有棋子' };
+    }
+    
+    const color = currentPlayer;
+    const opponent = color === BLACK ? WHITE : BLACK;
+    
+    // 1. 临时落子
+    board[row][col] = color;
+    
+    // 2. 先检查四周敌方棋子的气，执行提子
+    let totalCaptured = 0;
+    let capturedList = [];  // 记录被提坐标（供 broadcast 使用）
+    for (const [dr, dc] of DIRECTIONS) {
+      const nr = row + dr;
+      const nc = col + dc;
+      if (nr >= 0 && nr < SIZE && nc >= 0 && nc < SIZE && board[nr][nc] === opponent) {
+        const { liberties, group } = bfsCheckLiberties(nr, nc, opponent);
+        if (liberties === 0) {
+          // 气数为 0，移除该棋串
+          for (const [r, c] of group) {
+            // 💡 去重判定，防止多个方向共享同一串棋子时被重复塞入
+            if (!capturedList.some(([exR, exC]) => exR === r && exC === c)) {
+              capturedList.push([r, c]);
+              board[r][c] = EMPTY;
+            }
+          }
+        }
+      }
+    }
+    // 根据去重后的数组计算真实提子数
+    totalCaptured = capturedList.length;
+    
+    // 3. 检查自己的棋串是否有气（防止自杀）
+    const { liberties: selfLiberties } = bfsCheckLiberties(row, col, color);
+    if (selfLiberties === 0) {
+      // 自杀手，回滚落子
+      board[row][col] = EMPTY;
+      
+      // 💡 顺手完美解决你的回滚复杂问题：把刚才误提的敌方棋子原路放回去！
+      for (const [r, c] of capturedList) {
+        board[r][c] = opponent;
+      }
+      
+      return { success: false, captured: 0, reason: '禁止自杀（该落子无气）' };
+    }
+    
+    // 🚀 核心修改 B：更新或解锁打劫状态机
+    // 完美触发打劫物理条件：本次只提了 1 个子，且自己落子后也只有 1 气
+    if (totalCaptured === 1 && selfLiberties === 1) {
+      // 对方被提掉的那颗子的旧坐标，就是下一手对方的“禁入劫位”
+      window.state.koPoint = {
+        row: capturedList[0][0],
+        col: capturedList[0][1]
+      };
+      console.log(`[Ko Rule] 劫争触发，锁死对方下一次的反提坐标: [${window.state.koPoint.row}, ${window.state.koPoint.col}]`);
+    } else {
+      // 如果没有触发打劫（例如是大子被提，或者正常落子），前一手的劫位自动无缝解锁
+      window.state.koPoint = null;
     }
     
     // 4. 更新捕获计数
