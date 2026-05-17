@@ -522,7 +522,7 @@
             // ❌ 当 visible 为 false 时，不画本体，达到完美的本体闪烁/呼吸灯隐藏效果
             // 兼容手机移动端：画一个非常淡的残影，防止大面积闪烁给眼睛带来疲劳感，同时也完美解决部分手机 Canvas 隐藏元素不触发物理刷新的硬件缺陷
             ctx.save();
-            ctx.globalAlpha = 0.00; 
+            ctx.globalAlpha = 0.08; 
             // 🔴 关键欺骗：复写 ctx.fill 方法，让 drawStone 内部的阴影和本体都吃这 0.05 的透明度
             const originalFill = ctx.fill;
             ctx.fill = function() {
@@ -1090,7 +1090,7 @@
             drawFullBoard();
           });
         }
-      }, 450); 
+      }, 240); 
     }
   /*
   function clearBlink() {
