@@ -824,7 +824,7 @@
     });
   }
 
-  function startBlink(row, col) {
+  /*function startBlink(row, col) {
     let visible = true;
     clearBlink(); // 避免重复
     blinkInterval = setInterval(() => {
@@ -832,16 +832,15 @@
       drawFullBoard();
       visible = !visible;
     }, FLASH_INTERVAL);
-  }
+  }*/
 
   // --------------------------
   // 🟢 修改 2026-05-16：最后一步持续闪烁
   // --------------------------
   let blinkInterval = null;
   let blinkingMove = null;
-  /*
-  function startBlink(row, col, color) {
-
+  
+  /*function startBlink(row, col, color) {
     // 新一步替换旧闪烁
     blinkingMove = {
       row,
@@ -849,74 +848,63 @@
       color,
       visible: true
     };
-
     if (blinkInterval) {
       clearInterval(blinkInterval);
     }
-
     blinkInterval = setInterval(() => {
-
       if (!blinkingMove) return;
-
       blinkingMove.visible =
         !blinkingMove.visible;
-
       drawFullBoard();
-
     }, 500);
   }*/
- /**
- * 终极完美版：使用前端绝对定位遮罩实现棋子闪烁（去掉边框，完美本体闪烁）
- */
   /**
  * 修复自愈版：精准对齐 Canvas 容器交叉点的棋子本体闪烁
  */
-  
- /* function startBlink(row, col, color) {
+ /**
+ * 完美自愈版：精准定位到 .board-shell 容器交叉点的棋子本体闪烁
+ */
+  function startBlink(row, col, color) {
     console.log(`[Blink] 开始触发棋子本体闪烁: [${row}, ${col}], 颜色: ${color}`);
 
-    // 1. 精准锁定你的 game.html 里的 canvas 棋盘元素
-    const boardContainer = document.getElementById('board') || document.querySelector('canvas');
+    // 1. 精准锁定 Canvas 和它的包裹壳
+    const canvas = document.getElementById('goBoard');
+    if (!canvas) return;
+    
+    const boardShell = canvas.parentElement; // 获取 .board-shell
+    if (!boardShell) return;
 
-    if (!boardContainer) {
-      console.warn('[startBlink] 未能抓取到 ID 为 board 的 Canvas 元素');
-      return;
-    }
-
-    // 2. 获取当前 Canvas 在网页上实际展现的物理像素尺寸（排除屏幕滚动干扰）
-    const offsetWidth = boardContainer.offsetWidth;
-    const offsetHeight = boardContainer.offsetHeight;
+    // 2. 获取当前棋盘在网页上实际展现的物理像素尺寸
+    const offsetWidth = canvas.offsetWidth;
+    const offsetHeight = canvas.offsetHeight;
     
     // 3. 围棋路数与实际交叉点线数对齐
     const size = (window.game && window.game.size) || 19; 
     
-    // 💡 围棋核心修正：19条线段之间只有 18 个格子，边缘通常还有半个格子宽度的留白
-    // 这里采用标准自适应比例：将棋盘等分为 size 份，两边各留半个格子作为安全边距
+    // 围棋标准自适应比例：将棋盘等分为 size 份，两边各留半个格子作为安全边距
     const cellWidth = offsetWidth / size;
     const cellHeight = offsetHeight / size;
 
-    // 💡 核心修复：纯净相对坐标计算，不再叠加 getBoundingClientRect() 的屏幕偏移
+    // 纯净相对坐标计算，相对于 boardShell 的左上角
     const x = (col * cellWidth) + (cellWidth / 2);
     const y = (row * cellHeight) + (cellHeight / 2);
-    
-    // 棋子直径
     const stoneSize = cellWidth * 0.85;
 
-    // 4. 动态注入全局纯本体呼吸闪烁动画（引入 transform 保障层）
+    // 4. 动态注入全局纯本体呼吸闪烁动画
     if (!document.getElementById('perfect-stone-blink-style')) {
       const style = document.createElement('style');
       style.id = 'perfect-stone-blink-style';
       style.textContent = `
         @keyframes perfectStonePulse {
-          0% { opacity: 0.2; transform: translate(-50%, -50%) scale(0.6); }
-          50% { opacity: 0.9; transform: translate(-50%, -50%) scale(1.05); } 
-          100% { opacity: 0.2; transform: translate(-50%, -50%) scale(0.6); }
+          0% { opacity: 0.2; transform: translate(-50%, -50%) scale(0.7); }
+          50% { opacity: 0.95; transform: translate(-50%, -50%) scale(1.05); }
+          100% { opacity: 0.2; transform: translate(-50%, -50%) scale(0.7); }
         }
         .perfect-blink-stone {
-          animation: perfectStonePulse 0.35s ease-in-out 3; // 快速闪烁 3 次 
-          pointer-events: none; /// 绝对不拦截底层的任何落子鼠标点击 
+          animation: perfectStonePulse 0.38s ease-in-out 3; /* 快速闪烁 3 次 */
+          pointer-events: none; /* 绝对不拦截底层的任何落子鼠标点击 */
         }
-      ;
+      `;
       document.head.appendChild(style);
     }
 
@@ -924,7 +912,6 @@
     const blinkDot = document.createElement('div');
     blinkDot.className = 'perfect-blink-stone';
     
-    // 完美还原围棋子的质感与颜色
     Object.assign(blinkDot.style, {
       position: 'absolute',
       left: `${x}px`,
@@ -933,32 +920,22 @@
       height: `${stoneSize}px`,
       borderRadius: '50%',
       zIndex: '9999',
-      // 💡 视觉反差修正：如果是黑子落下，闪烁白色半透明呼吸圈；如果是白子落下，闪烁黑色半透明圈
-      background: color === 'black' ? 'rgba(255, 255, 255, 0.85)' : 'rgba(15, 23, 32, 0.75)',
+      // 如果是黑子落下，闪烁白色半透明呼吸圈；如果是白子落下，闪烁黑色半透明圈
+      background: color === 'black' ? 'rgba(255, 255, 255, 0.85)' : 'rgba(15, 23, 32, 0.8)',
       boxShadow: color === 'black' ? '0 0 10px #ffffff' : '0 0 10px #000000',
     });
 
-    // 6. 核心包裹层安全保底：Canvas 元素的父级必须具备 relative 定位，否则光斑会飘到外层
-    const parent = boardContainer.parentElement;
-    if (parent) {
-      if (window.getComputedStyle(parent).position === 'static') {
-        parent.style.position = 'relative';
-      }
-      // 将闪烁光斑挂载到 Canvas 的父级容器中，以便完美重叠在 Canvas 的图像上方
-      parent.appendChild(blinkDot);
-    } else {
-      // 备用方案
-      if (window.getComputedStyle(boardContainer).position === 'static') {
-        boardContainer.style.position = 'relative';
-      }
-      boardContainer.appendChild(blinkDot);
+    // 6. 确保父级容器有定位属性（.board-shell 通常已有，这里做个保险）
+    if (window.getComputedStyle(boardShell).position === 'static') {
+      boardShell.style.position = 'relative';
     }
 
-    // 7. 闪烁完毕（约 1.05 秒）后全自动销毁，不留下一丝垃圾代码
+    // 7. 挂载上屏，启动闪烁并在 1.2 秒后自动销毁
+    boardShell.appendChild(blinkDot);
     setTimeout(() => {
       blinkDot.remove();
-    }, 1100);
-  } */
+    }, 1200);
+  }
   /*
   function clearBlink() {
     if (blinkInterval) {
