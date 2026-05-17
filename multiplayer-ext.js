@@ -966,6 +966,7 @@
           captured: result.capturedGroup,
           koPoint: window.state.koPoint // 🚀 传给对手，让对方本地同步禁手
         });
+     }
     }
 
     playSound(result.captured > 0 ? 'capture' : 'placeStone');
