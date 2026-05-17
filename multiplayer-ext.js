@@ -501,7 +501,8 @@
         // -----------------------------------------------------------
         // 🟢 移动端自愈：安全读取全局多端同步闪烁状态机
         // -----------------------------------------------------------
-        const bMove = window.state ? window.state.blinkingMove : null;
+        //const bMove = window.state ? window.state.blinkingMove : null;
+        const bMove = state.blinkingMove || null;
         const isCurrentBlinkMove = (bMove && bMove.row === row && bMove.col === col);
 
         if (isCurrentBlinkMove) {
@@ -1001,8 +1002,8 @@
  */
   // 1. 确保全局多端同步状态机中包含闪烁控制器
   //window.state = window.state || {};
-  window.state.blinkingMove = null; // 存储当前正在闪烁的棋子：{row, col, color, visible}
-  window.state.blinkTimer = null;    // 全局唯一的闪烁渲染定时器
+ // window.state.blinkingMove = null; // 存储当前正在闪烁的棋子：{row, col, color, visible}
+ // window.state.blinkTimer = null;    // 全局唯一的闪烁渲染定时器
 
   /**
    * 🚀 终极修复：持续闪烁机制（直到下一手棋落下才停止）
@@ -1039,6 +1040,9 @@
       }
     }, 350); // 350ms 的切换频率，作为常驻提示非常柔和舒适，不刺眼
   }*/
+  // 确保在文件的局部全局 state 对象中，初始化这两个闪烁控制器
+    state.blinkingMove = null;
+    state.blinkTimer = null;
 /**
    * 启动最新落子棋子本体闪烁（持续进行，直到下一手棋落下被主动清空）
    */
@@ -1046,12 +1050,12 @@
       console.log(`[Blink Engine] 激活本体呼吸闪烁 -> 坐标: [${row}, ${col}], 颜色: ${color}`);
       
       // 1. 强制熔断上一次建立的闪烁，使上一个棋子一瞬间恢复正常静止状态
-      if (window.state.blinkTimer) {
-        clearInterval(window.state.blinkTimer);
+      if (state.blinkTimer) {
+        clearInterval(state.blinkTimer);
       }
 
       // 2. 注入最新落子的核心比对对象（适配字符串和数字形态的 Color）
-      window.state.blinkingMove = {
+      state.blinkingMove = {
         row: parseInt(row),
         col: parseInt(col),
         color: color,
@@ -1059,15 +1063,15 @@
       };
 
       // 3. 手机移动端调优：将高频 200ms 调整为 400ms，适配手机浏览器（降低能耗，防止掉帧看不到）
-      window.state.blinkTimer = setInterval(() => {
-        if (!window.state.blinkingMove) {
-          clearInterval(window.state.blinkTimer);
-          window.state.blinkTimer = null;
+      state.blinkTimer = setInterval(() => {
+        if (!state.blinkingMove) {
+          clearInterval(state.blinkTimer);
+          state.blinkTimer = null;
           return;
         }
         
         // 反转当前棋子的隐显开关
-        window.state.blinkingMove.visible = !window.state.blinkingMove.visible;
+        state.blinkingMove.visible = !state.blinkingMove.visible;
         
         // 4. 关键自愈：跨端环境异步更新，强制拉起画布请求重绘帧
         if (typeof drawFullBoard === 'function') {
@@ -1101,11 +1105,11 @@
    * 停止闪烁并恢复常态
    */
     function clearBlink() {
-      if (window.state.blinkTimer) {
-        clearInterval(window.state.blinkTimer);
-        window.state.blinkTimer = null;
+      if (state.blinkTimer) {
+        clearInterval(state.blinkTimer);
+        state.blinkTimer = null;
       }
-      window.state.blinkingMove = null;
+      state.blinkingMove = null;
       
       // 全局防错，防止旧局部变量捣乱
       if (typeof blinkInterval !== 'undefined') blinkInterval = null;
