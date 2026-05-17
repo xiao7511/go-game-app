@@ -1557,6 +1557,11 @@
       state.myColor = 'black'; 
       state.currentTurn = 'black';
       state.room = data;
+      state.isInRoom = true;
+      state.roomContext.roomId = code;
+      state.roomContext.inviteLink = buildInviteLink(code);
+      state.roomContext.blackName = '黑方玩家';
+      state.roomContext.whiteName = '白方玩家';
 
       await initRoomChannel(code);
 
@@ -1732,7 +1737,7 @@
       // 白方加入数据库成功后
       state.myColor = 'white';
       state.isInRoom = true;
-      
+      state.roomContext.inviteLink = buildInviteLink(code);
       await initRoomChannel(code);
       
       // 🚀【关键修复】：白方加入成功，直接切入战场
