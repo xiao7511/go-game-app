@@ -838,7 +838,7 @@
   // 🟢 修改 2026-05-16：最后一步持续闪烁
   // --------------------------
   let blinkInterval = null;
-  let blinkingMove = window.state.blinkingMove;
+  let blinkingMove = null;
   
   /*function startBlink(row, col, color) {
     // 新一步替换旧闪烁
