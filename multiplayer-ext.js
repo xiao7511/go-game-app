@@ -882,7 +882,6 @@
       console.warn('[startBlink] 未能抓取到棋盘容器，无法渲染闪烁效果');
       return;
     }
-
     // 2. 核心数学计算：动态获取棋盘在屏幕上的精准几何坐标和格子大小
     const rect = boardContainer.getBoundingClientRect();
     
@@ -1581,72 +1580,10 @@
         statusPill.style.background = "rgba(246, 196, 83, 0.15)";
         statusPill.style.color = "#f6c453";
       }
-      // 3. 🚀【核心修复】：为“复制链接”按钮绑定高兼容性点击事件
-      if (copyBtn) {
-        // ==========================================
-        // ✨【终极自愈：全局事件委托绑定复制按钮】
-        // ==========================================
-        // 不管按钮何时加载，直接监听整个文档的点击事件
-        document.onpointerdown = null; // 清理可能的旧干扰
-        
-        document.addEventListener('click', async (e) => {
-          // 精准匹配按钮 ID
-          if (e.target && e.target.id === 'mp-copy-invite-btn') {
-            console.log('[Click] 捕获到复制按钮的点击动作');
-            
-            const inviteInput = document.getElementById('room-invite-link');
-            const copyBtn = e.target;
-
-            if (!inviteInput || !inviteInput.value) {
-              if (typeof toast === 'function') toast('暂无有效的邀请链接可复制');
-              return;
-            }
-
-            try {
-              // 现代浏览器标准 API 复制
-              if (navigator.clipboard && navigator.clipboard.writeText) {
-                await navigator.clipboard.writeText(inviteInput.value);
-              } else {
-                // 老版本浏览器/移动端 WebView 兼容降级方案
-                inviteInput.select();
-                inviteInput.setSelectionRange(0, 99999); // 兼容 iOS
-                document.execCommand('copy');
-              }
-
-              // 动态修改按钮样式和文字
-              const originalText = copyBtn.textContent;
-              copyBtn.textContent = '✓ 已复制';
-              const oldBg = copyBtn.style.background;
-              copyBtn.style.background = '#10b981'; // 变绿
-              
-              const copyHint = document.getElementById('room-copy-hint');
-              if (copyHint) {
-                copyHint.textContent = '链接已成功复制到剪贴板，快去发给好友加入对局吧！';
-                copyHint.style.color = '#10b981';
-              }
-
-              if (typeof toast === 'function') toast('邀请链接已复制，快发给好友吧！');
-
-              // 2秒后还原状态
-              setTimeout(() => {
-                copyBtn.textContent = originalText;
-                copyBtn.style.background = oldBg;
-                if (copyHint) {
-                  copyHint.textContent = '复制房间邀请链接后可发送给好友加入对局。';
-                  copyHint.style.color = 'var(--muted)';
-                }
-              }, 2000);
-
-            } catch (err) {
-              console.error('复制失败:', err);
-              if (typeof toast === 'function') toast('自动复制失败，请手动选择输入框复制');
-            }
-          }
-        });
-      }
 
       // 🚀【关键修复】：黑方建房成功后，直接打破“选择游戏”遮罩，切入战场！
       enterGameBoardUI(); 
+      updateRoomPanel({ code, inviteLink: state.roomContext.inviteLink });
 
       toast('房间创建成功，正在大厅静候白方加入...');
       return data;
@@ -1804,7 +1741,7 @@
       
       // 4. 强制拉取并渲染一次最新的棋盘状态，确保画面同步
       await refreshRoomFromServer(room);
-      
+      updateRoomPanel({ code, inviteLink: state.roomContext.inviteLink });
       //hideRoomOverlay();
       const overlay = $('room-overlay') || $('match-overlay') || $('room-modal') || document.querySelector('.room-overlay');
       if (overlay) overlay.style.display = 'none';
@@ -2190,7 +2127,7 @@ async function refreshRoomFromServer(room) {
     desc.textContent = `${winnerColor === 'black' ? '黑方' : '白方'}获胜${reason === 'resign' ? '（对手认输）' : ''}`;
     overlay.classList.add('is-open');
   }
-
+/*
   async function leaveRoom() {
     clearLatestMoveHighlight();
     if (state.roomChannel) {
@@ -2240,7 +2177,7 @@ async function refreshRoomFromServer(room) {
     });
     await persistRoomState({ status: 'ended' });
     showGameOverOverlay(winner, 'resign');
-  }
+  }*/
  /*
   async function onRoomMessage(payload) {
     if (!payload) return;
