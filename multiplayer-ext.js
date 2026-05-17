@@ -469,7 +469,7 @@
         // --------------------------
         // 🟢 修改 2026-05-16：最后一步闪烁高亮
         // --------------------------
-        if (
+        /*if (
           blinkingMove &&
           blinkingMove.row === row &&
           blinkingMove.col === col &&
@@ -494,6 +494,24 @@
               : 'rgba(255,80,80,0.95)';
 
           ctx.stroke();
+        }*/
+       // -----------------------------------------------------------
+        // 🟢 修改：从统一的 window.state 状态机中读取闪烁目标
+        // -----------------------------------------------------------
+        const bMove = window.state.blinkingMove;
+        if (
+          bMove &&
+          bMove.row === row &&
+          bMove.col === col
+        ) {
+          // 如果当前处于不可见帧，则跳过外圈高亮绘制（或用 alpha 绘棋）
+          if (bMove.visible) {
+            ctx.beginPath();
+            ctx.arc(boardX, boardY, state.cellSize * 0.34, 0, Math.PI * 2);
+            ctx.lineWidth = 3;
+            ctx.strokeStyle = color === BLACK ? 'rgba(255,255,0,0.95)' : 'rgba(255,80,80,0.95)';
+            ctx.stroke();
+          }
         }
       }
     }
@@ -966,14 +984,14 @@
  * 修复自愈版：精准对齐 Canvas 容器交叉点的棋子本体闪烁
  */
   // 1. 确保全局多端同步状态机中包含闪烁控制器
-  window.state = window.state || {};
+  //window.state = window.state || {};
   window.state.blinkingMove = null; // 存储当前正在闪烁的棋子：{row, col, color, visible}
   window.state.blinkTimer = null;    // 全局唯一的闪烁渲染定时器
 
   /**
    * 🚀 终极修复：持续闪烁机制（直到下一手棋落下才停止）
    */
-  function startBlink(row, col, color) {
+ /* function startBlink(row, col, color) {
     console.log(`[Blink] 开始持续闪烁最新落子: [${row}, ${col}], 颜色: ${color}`);
     
     // A. 关键：首先清除上一次落子建立的定时器，让旧棋子瞬间停止闪烁
@@ -1004,7 +1022,41 @@
         drawFullBoard();
       }
     }, 350); // 350ms 的切换频率，作为常驻提示非常柔和舒适，不刺眼
-  }
+  }*/
+    /**
+     * 启动最新落子的常驻闪烁机制（直到下一次被 clearBlink 或新一轮 startBlink 覆灭）
+     */
+    function startBlink(row, col, color) {
+      console.log(`[Blink] 触发新落子闪烁: [${row}, ${col}], 颜色: ${color}`);
+      
+      // 1. 强制清除旧的定时器，使上一手棋子立即停止闪烁
+      if (window.state.blinkTimer) {
+        clearInterval(window.state.blinkTimer);
+      }
+
+      // 2. 绑定最新的闪烁数据
+      window.state.blinkingMove = {
+        row: parseInt(row),
+        col: parseInt(col),
+        color: color,
+        visible: true
+      };
+
+      // 3. 建立常驻常开的异步呼吸灯效果
+      window.state.blinkTimer = setInterval(() => {
+        if (!window.state.blinkingMove) {
+          clearInterval(window.state.blinkTimer);
+          window.state.blinkTimer = null;
+          return;
+        }
+        // 切换可见状态
+        window.state.blinkingMove.visible = !window.state.blinkingMove.visible;
+        // 重绘棋盘
+        if (typeof drawFullBoard === 'function') {
+          drawFullBoard();
+        }
+      }, 350); // 350ms 闪烁频率
+    }
   /*
   function clearBlink() {
     if (blinkInterval) {
@@ -1016,13 +1068,26 @@
   // --------------------------
   // 🟢 修改 2026-05-16：清除闪烁
   // --------------------------
-  function clearBlink() {
+  /*function clearBlink() {
     if (blinkInterval) {
       clearInterval(blinkInterval);
       blinkInterval = null;
     }
     blinkingMove = null;
     drawFullBoard();
+  }*/
+  /**
+   * 清除当前棋盘上的所有闪烁状态，并恢复棋子可见性
+   */
+  function clearBlink() {
+    if (window.state.blinkTimer) {
+      clearInterval(window.state.blinkTimer);
+      window.state.blinkTimer = null;
+    }
+    window.state.blinkingMove = null;
+    if (typeof drawFullBoard === 'function') {
+      drawFullBoard();
+    }
   }
 
   /// --------------------------
@@ -1115,7 +1180,8 @@
       updateProfilePanels();
       return;
     }
-
+  // 🟢 核心自愈：收到对方落子，先清空上一步我方的闪烁定时器
+    clearBlink();
     // 写入棋子
     state.board[row][col] = color;
 
