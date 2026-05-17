@@ -824,7 +824,7 @@
     });
   }
 
- /* function startBlink(row, col) {
+  function startBlink(row, col) {
     let visible = true;
     clearBlink(); // 避免重复
     blinkInterval = setInterval(() => {
@@ -832,7 +832,7 @@
       drawFullBoard();
       visible = !visible;
     }, FLASH_INTERVAL);
-  }*/
+  }
 
   // --------------------------
   // 🟢 修改 2026-05-16：最后一步持续闪烁
@@ -871,7 +871,8 @@
   /**
  * 修复自愈版：精准对齐 Canvas 容器交叉点的棋子本体闪烁
  */
-  function startBlink(row, col, color) {
+  
+ /* function startBlink(row, col, color) {
     console.log(`[Blink] 开始触发棋子本体闪烁: [${row}, ${col}], 颜色: ${color}`);
 
     // 1. 精准锁定你的 game.html 里的 canvas 棋盘元素
@@ -908,14 +909,14 @@
       style.textContent = `
         @keyframes perfectStonePulse {
           0% { opacity: 0.2; transform: translate(-50%, -50%) scale(0.6); }
-          50% { opacity: 0.9; transform: translate(-50%, -50%) scale(1.05); } /* 光斑呼吸扩散 */
+          50% { opacity: 0.9; transform: translate(-50%, -50%) scale(1.05); } 
           100% { opacity: 0.2; transform: translate(-50%, -50%) scale(0.6); }
         }
         .perfect-blink-stone {
-          animation: perfectStonePulse 0.35s ease-in-out 3; /* 快速闪烁 3 次 */
-          pointer-events: none; /* 绝对不拦截底层的任何落子鼠标点击 */
+          animation: perfectStonePulse 0.35s ease-in-out 3; // 快速闪烁 3 次 
+          pointer-events: none; /// 绝对不拦截底层的任何落子鼠标点击 
         }
-      `;
+      ;
       document.head.appendChild(style);
     }
 
@@ -957,7 +958,7 @@
     setTimeout(() => {
       blinkDot.remove();
     }, 1100);
-  }
+  } */
   /*
   function clearBlink() {
     if (blinkInterval) {
