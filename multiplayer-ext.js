@@ -956,13 +956,13 @@
       // 如果你原本就有 broadcastMove(row, col, color, capturedList) 这样的定义，可以直接这样传：
       if (typeof broadcastMove === 'function') {
         // 内部广播时会自动去读取最新的 window.state.koPoint
-        broadcastMove(row, col, color, result.capturedGroup); 
+        broadcastMove(row, col, colorNum, result.capturedGroup); 
       } else if (typeof sendBroadcast === 'function') {
         // 如果你确实封装了 sendBroadcast，那就保持你的原样并附带最新劫位
         sendBroadcast({
           row, 
           col, 
-          color,
+          colorNum,
           captured: result.capturedGroup,
           koPoint: window.state.koPoint // 🚀 传给对手，让对方本地同步禁手
         });
