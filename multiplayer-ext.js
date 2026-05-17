@@ -1970,12 +1970,12 @@ async function refreshRoomFromServer(room) {
     // 释放锁
     state.isSyncing = false;
   }
-} */
+} 
 
   function buildInviteLink(code) {
     return `${window.location.origin}${window.location.pathname}?room=${code}`;
   }
-/*
+
   async function createRoom() {
     const userId = await getUserId();
     if (!userId) {
