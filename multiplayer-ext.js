@@ -889,6 +889,7 @@
     }
   }
 
+  /*
   async function broadcastMove(row, col, color, capturedList) {
     if (!state.roomChannel) return;
     await state.roomChannel.send({
@@ -905,7 +906,27 @@
         next_turn: state.currentTurn,
       },
     });
-  }
+  }*/
+  //2026-05-17 打劫修复
+  async function broadcastMove(row, col, color, capturedList) {
+      if (!state.roomChannel) return;
+      await state.roomChannel.send({
+        type: 'broadcast',
+        event: 'move',
+        payload: {
+          row,
+          col,
+          color,
+          captured: capturedList,
+          board_state: getBoardSnapshot(),
+          black_captures: state.blackCaptures,
+          white_captures: state.whiteCaptures,
+          next_turn: state.currentTurn,
+          // 🚀【打劫修复】：打包当前的劫争禁手坐标传递给对手
+          koPoint: window.state.koPoint 
+        },
+      });
+    }
 
   /*function startBlink(row, col) {
     let visible = true;
@@ -1039,7 +1060,8 @@
       // 如果你原本就有 broadcastMove(row, col, color, capturedList) 这样的定义，可以直接这样传：
       if (typeof broadcastMove === 'function') {
         // 内部广播时会自动去读取最新的 window.state.koPoint
-        broadcastMove(row, col, colorNum, result.capturedGroup); 
+        //broadcastMove(row, col, colorNum, result.capturedGroup); 
+        await broadcastMove(row, col, colorNum, result.capturedGroup);
       } else if (typeof sendBroadcast === 'function') {
         // 如果你确实封装了 sendBroadcast，那就保持你的原样并附带最新劫位
         sendBroadcast({
@@ -1338,7 +1360,11 @@
           applyRemotePayload(payload);
         }
         // 2. 🚀【后置核心同步】：在底层数据应用完毕后，再强行锁定/更新本地的劫争状态，防止被内部重置冲掉
-        if (payload && payload.koPoint) {
+        // 2. 🚀【多端劫争后置闭环】：全兼容解析，防止被内部重置冲掉
+        // 提取下划线或驼峰命名的劫位状态
+        const rawKo = payload && (payload.koPoint || payload.ko_point);
+        //if (payload && payload.koPoint) {
+        if (rawKo && typeof rawKo.row === 'number' && typeof rawKo.col === 'number') {
           window.state.koPoint = {
             row: parseInt(payload.koPoint.row),
             col: parseInt(payload.koPoint.col)
