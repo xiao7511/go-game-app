@@ -523,6 +523,12 @@
             // 兼容手机移动端：画一个非常淡的残影，防止大面积闪烁给眼睛带来疲劳感，同时也完美解决部分手机 Canvas 隐藏元素不触发物理刷新的硬件缺陷
             ctx.save();
             ctx.globalAlpha = 0.08; 
+            // 🔴 关键欺骗：复写 ctx.fill 方法，让 drawStone 内部的阴影和本体都吃这 0.05 的透明度
+            const originalFill = ctx.fill;
+            ctx.fill = function() {
+              // 暂时允许在这个微型作用域里生效
+              originalFill.call(ctx);
+            };
             drawStone(row, col, color);
             ctx.restore();
           }
@@ -754,7 +760,7 @@
     const alpha = isLatestMove ? (state.latestMoveVisible ? 1 : 0.14) : 1;
 
     state.ctx.save();
-    state.ctx.globalAlpha = 1;
+    //state.ctx.globalAlpha = 1;
     state.ctx.beginPath();
     state.ctx.arc(cx + 1.2, cy + 1.4, radius, 0, Math.PI * 2);
     state.ctx.fillStyle = 'rgba(0,0,0,0.25)';
@@ -762,7 +768,11 @@
     state.ctx.restore();
 
     state.ctx.save();
-    state.ctx.globalAlpha = alpha;
+    //state.ctx.globalAlpha = alpha;
+    // 如果不是闪烁的目标，则使用默认计算出的 alpha 权重
+    if (!state.blinkingMove || state.blinkingMove.row !== row || state.blinkingMove.col !== col) {
+      state.ctx.globalAlpha = alpha;
+    }
     state.ctx.beginPath();
     state.ctx.arc(cx, cy, radius, 0, Math.PI * 2);
     const g = state.ctx.createRadialGradient(cx - radius * 0.32, cy - radius * 0.32, radius * 0.1, cx, cy, radius);
