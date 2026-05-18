@@ -453,7 +453,7 @@
     // --------------------------
 // 🟢 修改 2026-05-16：修复闪烁作用域异常
     // --------------------------
-    for (let row = 0; row < state.boardSize; row++) {
+   /* for (let row = 0; row < state.boardSize; row++) {
       for (let col = 0; col < state.boardSize; col++) {
         const color = state.board[row][col];
         if (color === EMPTY) continue;
@@ -466,41 +466,6 @@
           row * state.cellSize;
         // 正常绘制棋子
         drawStone(row, col, color);
-        // --------------------------
-        // 🟢 修改 2026-05-16：最后一步闪烁高亮
-        // --------------------------
-        /*if (
-          blinkingMove &&
-          blinkingMove.row === row &&
-          blinkingMove.col === col &&
-          blinkingMove.visible
-        ) {
-
-          ctx.beginPath();
-
-          ctx.arc(
-            boardX,
-            boardY,
-            state.cellSize * 0.34,
-            0,
-            Math.PI * 2
-          );
-
-          ctx.lineWidth = 3;
-
-          ctx.strokeStyle =
-            color === BLACK
-              ? 'rgba(255,255,0,0.95)'
-              : 'rgba(255,80,80,0.95)';
-
-          ctx.stroke();
-        }*/
-       // -----------------------------------------------------------
-        // 🟢 修改：从统一的 window.state 状态机中读取闪烁目标
-        // -----------------------------------------------------------
-        // -----------------------------------------------------------
-        // 🟢 移动端自愈：安全读取全局多端同步闪烁状态机
-        // -----------------------------------------------------------
         //const bMove = window.state ? window.state.blinkingMove : null;
         const bMove = state.blinkingMove || null;
         const isCurrentBlinkMove = (bMove && bMove.row === row && bMove.col === col);
@@ -534,6 +499,43 @@
           }
         } else {
           // 普通棋子正常绘制本体，保持不变
+          drawStone(row, col, color);
+        }
+      }
+    }*/
+   // -----------------------------------------------------------
+    // 🟢 终极调优：通过改变可见性频率，实现【整个棋子本体】高频闪烁
+    // -----------------------------------------------------------
+    for (let row = 0; row < state.boardSize; row++) {
+      for (let col = 0; col < state.boardSize; col++) {
+        const color = state.board[row][col];
+        if (color === EMPTY) continue;
+
+        // 计算当前棋子的 Canvas 物理坐标
+        const boardX = state.padding + col * state.cellSize;
+        const boardY = state.padding + row * state.cellSize;
+
+        // 安全读取当前激活的最新闪烁状态机
+        const bMove = state.blinkingMove || null;
+        const isCurrentBlinkMove = (bMove && bMove.row === row && bMove.col === col);
+
+        if (isCurrentBlinkMove) {
+          // 🚀 严格移入分支：由 bMove.visible 的频率切换来决定【整颗棋子】画不画
+          if (bMove.visible) {
+            // 显示状态（亮起帧）：正常绘制高清实体棋子（完全无边框线）
+            drawStone(row, col, color);
+          } else {
+            // 隐藏状态（熄灭帧）：彻底不调用 drawStone，棋子连同阴影在这一帧完全消失
+            
+            // 📱 移动端/高清屏硬件自愈：部分手机浏览器 Canvas 机制如果检测到完全没画东西，
+            // 可能会拒绝刷新这一帧的物理像素。这里用 3% 极淡、肉眼完全不可见的透明度强制触发 GPU 重绘。
+            ctx.save();
+            ctx.globalAlpha = 0.03; 
+            drawStone(row, col, color);
+            ctx.restore(); // 🔴 必须释放，确保后续普通历史棋子保持完全实体不透明
+          }
+        } else {
+          // 普通历史老棋子：不受闪烁影响，一律正常绘制实体
           drawStone(row, col, color);
         }
       }
@@ -1054,9 +1056,9 @@
     state.blinkingMove = null;
     state.blinkTimer = null;
 /**
-   * 启动最新落子棋子本体闪烁（持续进行，直到下一手棋落下被主动清空）
+   * 启动最新落子棋子本体闪烁（持续进行，直到下一手棋落下被主动清空） --2026-05-17
    */
-    function startBlink(row, col, color) {
+   /* function startBlink(row, col, color) {
       console.log(`[Blink Engine] 激活本体呼吸闪烁 -> 坐标: [${row}, ${col}], 颜色: ${color}`);
       
       // 1. 强制熔断上一次建立的闪烁，使上一个棋子一瞬间恢复正常静止状态
@@ -1091,7 +1093,45 @@
           });
         }
       }, 240); 
+    }*/
+   /**
+   * 启动最新落子本体的频率闪烁
+   */
+  function startBlink(row, col, color) {
+    console.log(`[Blink Engine] 激活本体隐显频率闪烁 -> 坐标: [${row}, ${col}], 颜色: ${color}`);
+    
+    // 1. 熔断上一步棋建立的闪烁定时器
+    if (state.blinkTimer) {
+      clearInterval(state.blinkTimer);
     }
+
+    // 2. 初始化闪烁棋子的数据状态（默认第一帧为显示 visible = true）
+    state.blinkingMove = {
+      row: parseInt(row),
+      col: parseInt(col),
+      color: color,
+      visible: true
+    };
+
+    // 3. 调优核心频率：将翻转时间调整为 250ms，提供极高辨识度的全子隐显
+    state.blinkTimer = setInterval(() => {
+      if (!state.blinkingMove) {
+        clearInterval(state.blinkTimer);
+        state.blinkTimer = null;
+        return;
+      }
+      
+      // 🌟 核心频率翻转：true 变 false，false 变 true
+      state.blinkingMove.visible = !state.blinkingMove.visible;
+      
+      // 4. 利用异步重绘请求，通知核心 Canvas 重新渲染整个棋盘
+      if (typeof drawFullBoard === 'function') {
+        requestAnimationFrame(() => {
+          drawFullBoard();
+        });
+      }
+    }, 250); // 👈 频率设为 250 毫秒最为明显
+  }
   /*
   function clearBlink() {
     if (blinkInterval) {
