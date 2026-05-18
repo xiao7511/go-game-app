@@ -894,7 +894,14 @@
     handleMultiplayerMove(pos.row, pos.col);
   }*/
  function canvasCaptureHandler(e) {
-    if (!state.isInRoom) return;
+    //if (!state.isInRoom) return;
+    // 🟢 【新增修改 1】：豁免单机模式下的联机状态检验，放行落子动作 2026-05-17
+    if (state.gameMode === 'SINGLE_PLAYER') {
+      // 在单机 AI 模式下，直接放行，不检查 isInRoom
+    } else {
+      // 蓝色分支：原有多人在线联机状态检验
+      if (!state.isInRoom) return;
+    }
     if (!state.myColor || state.currentTurn !== state.myColor) {
       e.preventDefault();
       playSound('invalidMove');
