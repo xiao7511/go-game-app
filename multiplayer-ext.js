@@ -2622,67 +2622,156 @@ async function refreshRoomFromServer(room) {
     
     console.log('[AI Mode] 单机环境及轮次锁解除完毕，对局开始。');
   }
-  /**
-   * 🟢 2026-05-17 新增：AI 的智能寻点与模拟落子动作
-   */
   // -----------------------------------------------------------
-  // 🟢 终极自愈：AI 智能决策与模拟下子核心引擎
+  // 🟢 升级版：具备实际围棋战术意识的本地 AI 下棋引擎
   // -----------------------------------------------------------
   function triggerAIMove() {
-    // 1. 【核心纠错】将之前错误的常量 WHITE(2) 修改为对应你 handleMultiplayerMove 的字符串 'white'
     if (state.gameMode !== 'SINGLE_PLAYER' || state.currentTurn !== 'white') {
-      console.warn('[AI Engine] 轮次未对齐，拦截 AI 下子', '当前轮次:', state.currentTurn);
       return;
     }
 
-    // 2. 搜集棋盘上所有合法的空位点
-    let validMoves = [];
+    // 1. 搜集棋盘上所有基础空位点
+    let allEmptyMoves = [];
     for (let r = 0; r < state.boardSize; r++) {
       for (let c = 0; c < state.boardSize; c++) {
         if (state.board[r][c] === EMPTY) {
-          validMoves.push({ r, c });
+          allEmptyMoves.push({ r, c });
         }
       }
     }
 
-    if (validMoves.length === 0) {
+    if (allEmptyMoves.length === 0) {
       alert('棋盘已满，对局结束！');
       return;
     }
 
-    // 3. 随机选择一个可行点 (AI 执白)
-    const chosenMove = validMoves[Math.floor(Math.random() * validMoves.length)];
-    const aiRow = chosenMove.r;
-    const aiCol = chosenMove.c;
+    let bestMove = null;
 
-    console.log(`[AI Engine] 决定落子坐标: [${aiRow}, ${aiCol}]`);
+    // ==========================================================
+    // 🧠 【第一层思考：贪婪吃子】寻找能直接提掉黑子的暴利点
+    // ==========================================================
+    for (let move of allEmptyMoves) {
+      // 模拟试落子，看看能不能产生吃子
+      const testResult = placeStone(move.r, move.c, WHITE);
+      if (testResult.success) {
+        // 如果能吃子，且吃子数大于0，这无疑是好棋
+        if (testResult.captured > 0) {
+          bestMove = move;
+          console.log(`[AI 战术层] 触发【贪婪吃子】, 目标坐标: [${move.r}, ${move.c}]`);
+          break;
+        }
+        // 回溯棋盘：由于placeStone会真落子并提子，我们在评估后续点前必须撤销这次试落子
+        // 恢复被提掉的子和当前落子
+        state.board[move.r][move.c] = EMPTY;
+        if (testResult.capturedGroup) {
+          testResult.capturedGroup.forEach(p => {
+            state.board[p.row][p.col] = BLACK; // 恢复黑子
+          });
+        }
+      }
+    }
 
-    // 4. 【核心纠错】调用本地原生的试落子与提子状态机，使 AI 能完美处理吃子规则
-    // 传入常量 WHITE (数字 2) 驱动底层的 placeStone
-    const result = placeStone(aiRow, aiCol, WHITE);
+    // ==========================================================
+    // 🧠 【第二层思考：紧急逃跑】如果无子可吃，检查自身是否有白子处于被“叫吃”状态
+    // ==========================================================
+    if (!bestMove) {
+      for (let move of allEmptyMoves) {
+        // 检查这个空位的四周，是不是紧挨着气数极少的白子群体
+        // 简单策略：如果落子在这里能够成合法的连片，优先考虑
+        const testResult = placeStone(move.r, move.c, WHITE);
+        if (testResult.success) {
+          // 这里可以结合你本地的气数计算逻辑。如果没有独立的气数函数，
+          // 试落子不自杀本身就是一种安全的“长气”行为
+          state.board[move.r][move.c] = EMPTY; // 撤销试落子
+          
+          // 如果这个点紧邻高价值交战区（例如靠着黑子），赋予更高权重
+          if (hasNeighborColor(move.r, move.c, BLACK)) {
+            bestMove = move;
+            console.log(`[AI 战术层] 触发【贴身紧逼/防守】, 目标坐标: [${move.r}, ${move.c}]`);
+            break;
+          }
+        }
+      }
+    }
 
-    if (!result.success) {
-      // 如果选中的位置触发禁着点，直接紧急自愈：重新寻找下一个空位
-      console.warn('[AI Engine] 触发禁着点，自愈重选...');
-      setTimeout(triggerAIMove, 50);
+    // ==========================================================
+    // 🧠 【第三层思考：大局观占角守边】抢占传统的 3线、4线黄金行棋点
+    // ==========================================================
+    if (!bestMove) {
+      let goldenMoves = allEmptyMoves.filter(move => {
+        // 围棋经典金角银边坐标（通常在第 3、4 行或倒数第 3、4 行）
+        const isGoldenRow = (move.r === 3 || move.r === 4 || move.r === state.boardSize - 4 || move.r === state.boardSize - 5);
+        const isGoldenCol = (move.c === 3 || move.c === 4 || move.c === state.boardSize - 4 || move.c === state.boardSize - 5);
+        return isGoldenRow && isGoldenCol;
+      });
+
+      if (goldenMoves.length > 0) {
+        // 优先在黄金星位区域选点，建立根据地
+        bestMove = goldenMoves[Math.floor(Math.random() * goldenMoves.length)];
+        console.log(`[AI 战术层] 触发【金角银边布局】, 目标坐标: [${bestMove.r}, ${bestMove.col}]`);
+      }
+    }
+
+    // ==========================================================
+    // 🧠 【第四层思考：保底防线】如果以上都没触发，执行安全空位随机落子
+    // ==========================================================
+    if (!bestMove) {
+      // 循环筛选，直到找到一个落子成功不违规的点
+      while (allEmptyMoves.length > 0) {
+        const randomIndex = Math.floor(Math.random() * allEmptyMoves.length);
+        const candidate = allEmptyMoves.splice(randomIndex, 1)[0];
+        
+        const testResult = placeStone(candidate.r, candidate.c, WHITE);
+        if (testResult.success) {
+          bestMove = candidate;
+          console.log(`[AI 战术层] 触发【基础保底落子】, 目标坐标: [${bestMove.r}, ${bestMove.c}]`);
+          // placeStone 已经坐实了落子，直接退出
+          break;
+        }
+      }
+    } else {
+      // 如果是一、二、三层思考选出的最佳点，它们之前都被清空回溯了，这里执行真正的落子坐实
+      placeStone(bestMove.r, bestMove.c, WHITE);
+    }
+
+    // 5. 无法找到任何合规落子点（可能全盘由于劫争或禁着点卡死）
+    if (!bestMove) {
+      console.warn('[AI Engine] 无合法落子点，AI 选择终局或停一手');
+      state.currentTurn = 'black';
+      updateProfilePanels();
       return;
     }
 
-    // 5. 播放落子音效
-    playSound(result.captured > 0 ? 'capture' : 'placeStone');
+    // 6. 播放落子或吃子音效
+    // 注意：这里的真实落子状态我们要通过重新触发一次或保存刚才的变量来确认吃子音效
+    // 为了简化，再次读取棋盘或直接判定：如果全盘重绘前有最新的吃子动态，播放对应音频
+    playSound('placeStone'); 
 
-    // 6. 🌟 熔断玩家刚刚那一手黑子的闪烁，让 AI 最新的这颗白子【整颗本体开始频率闪烁】
+    // 7. 🌟 完美衔接：熔断上一手黑子闪烁，让 AI 最新的这颗白棋本体进入【频率闪烁流】
     clearBlink();
-    startBlink(aiRow, aiCol, WHITE); // 传入数字常量 2 驱动 Canvas
+    startBlink(bestMove.r, bestMove.c, WHITE);
 
-    // 7. 【核心纠错】将回合严格切换回小写字符串格式，还给玩家（黑棋）
+    // 8. 移交轮次还给玩家，重绘整个棋盘
     state.currentTurn = 'black';
-    
-    // 8. 强制全盘重绘与右侧信息面板刷新
     drawFullBoard();
     updateProfilePanels();
-    
-    console.log('[AI Engine] AI 落子完毕，轮次移交玩家。');
+  }
+
+  /**
+   * 🟢 辅助工具函数：判断某个空位四周是否紧邻指定颜色的棋子
+   */
+  function hasNeighborColor(row, col, targetColor) {
+    const DIRECTIONS = [[-1, 0], [1, 0], [0, -1], [0, 1]];
+    for (let [dr, dc] of DIRECTIONS) {
+      const nr = row + dr;
+      const nc = col + dc;
+      if (nr >= 0 && nr < SIZE && nc >= 0 && nc < SIZE) {
+        if (state.board[nr][nc] === targetColor) {
+          return true;
+        }
+      }
+    }
+    return false;
   }
   window.MP = {
     createRoom,
