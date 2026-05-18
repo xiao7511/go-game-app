@@ -41,6 +41,8 @@
     supabase: null,
     roomChannel: null,
     roomCode: null,
+    // 🟢 【此处为新增定义】：用于隔离单机版 AI 与 多人在线联机模式 2026-05-17
+    gameMode: 'MULTIPLAYER', // 默认为 MULTIPLAYER（多人在线），可选值为 'SINGLE_PLAYER'
     myColor: null,
     currentTurn: 'black',
     boardSize: 19,         // 棋盘格数
