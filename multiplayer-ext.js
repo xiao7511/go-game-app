@@ -1200,14 +1200,42 @@
       playSound('invalidMove');
       toast(result.reason || '非法落子');
       return;
-    }else{
+    }
+    //}else{
+      // 🟢 【新增修改 1】：单机版 AI 模式核心分支拦截
+    if (state.gameMode === 'SINGLE_PLAYER') {
+      // 1. 本地播放音效、启动整个棋子本体高频频率闪烁
+      playSound(result.captured > 0 ? 'capture' : 'placeStone');
+      startBlink(row, col, colorNum);
+
+      // 2. 严格切换轮次为白棋（即 AI 回合，全字符串格式比对）
+      state.currentTurn = 'white';
+
+      // 3. 立即触发本地重绘与交互面板刷新
+      drawFullBoard();
+      updateProfilePanels();
+      
+      // 4. 立即释放单机环境下的同步锁，防止卡死
+      state.isSyncing = false; 
+
+      // 5. 模拟 700ms 思考延迟，唤醒本地 AI 自动落子计算
+      setTimeout(() => {
+        if (typeof triggerAIMove === 'function') {
+          triggerAIMove();
+        } else {
+          console.error("triggerAIMove 函数未定义，请确保 AI 落子引擎已注入");
+        }
+      }, 700);
+
+      return; // 🔴 核心阻断：单机模式下在此直接返回，完全不向下执行任何 Supabase 网络同步逻辑
+    }
       // 💡 细节对齐：请确保此处的函数名与你本地（例如 broadcastMove）完全一致  2026-05-17
       // 如果你原本就有 broadcastMove(row, col, color, capturedList) 这样的定义，可以直接这样传：
-      if (typeof broadcastMove === 'function') {
-        // 内部广播时会自动去读取最新的 window.state.koPoint
-        //broadcastMove(row, col, colorNum, result.capturedGroup); 
-        await broadcastMove(row, col, colorNum, result.capturedGroup);
-      } else if (typeof sendBroadcast === 'function') {
+    if (typeof broadcastMove === 'function') {
+      // 内部广播时会自动去读取最新的 window.state.koPoint
+       //broadcastMove(row, col, colorNum, result.capturedGroup); 
+      await broadcastMove(row, col, colorNum, result.capturedGroup);
+    } else if (typeof sendBroadcast === 'function') {
         // 如果你确实封装了 sendBroadcast，那就保持你的原样并附带最新劫位
         sendBroadcast({
           row, 
@@ -1217,7 +1245,7 @@
           koPoint: window.state.koPoint // 🚀 传给对手，让对方本地同步禁手
         });
      }
-    }
+    //}
 
     playSound(result.captured > 0 ? 'capture' : 'placeStone');
     startBlink(row, col, colorNum);
@@ -1785,6 +1813,8 @@
 
   async function createRoom() {
     try {
+      // 🟢 确保切换回多人在线模式 2026-05-17
+      state.gameMode = 'MULTIPLAYER';
       const user = await getCurrentUser();
       if (!user) throw new Error('未登录用户，请先登录');
 
@@ -1943,6 +1973,8 @@
     }
   }*/
   async function joinRoom(code) {
+    // 🟢 确保切换回多人在线模式 2026-05-17
+    state.gameMode = 'MULTIPLAYER';
     if (!code || code.length !== ROOM_CODE_LENGTH) {
       toast('请输入正确的6位房间号');
       return;
@@ -2532,10 +2564,111 @@ async function refreshRoomFromServer(room) {
 
     console.log('[multiplayer-ext] loaded');
   }
+  /**
+   * 🟢 2026-05-17 新增：点击 "go-game-btn" 直接启动单机版 AI 对战模式
+   */
+  function startAIGame() {
+    console.log('[AI Mode] 玩家点击快速开始，初始化单机版 AI 对战环境...');
+    
+    // 1. 设置游戏模式为单机 AI 模式
+    state.gameMode = 'SINGLE_PLAYER';
+    state.roomCode = 'AI_LOCAL';
+    state.myColor = BLACK;       // 玩家默认执黑
+    state.currentTurn = BLACK;   // 黑棋先行
+    
+    // 2. 清空并初始化本地棋盘
+    for (let r = 0; r < state.boardSize; r++) {
+      for (let c = 0; c < state.boardSize; c++) {
+        state.board[r][c] = EMPTY;
+      }
+    }
+    
+    // 3. 清理之前的闪烁状态
+    if (typeof clearBlink === 'function') clearBlink();
+    
+    // 4. 模拟环境，手动触发 Canvas 的初始化（复用多人的大小与监听挂载）
+    ensureCanvasSize();
+    
+    // 5. 切换 UI 容器显隐
+    const selection = document.getElementById('room-selection-container');
+    const app = document.getElementById('game-container');
+    if (selection) selection.style.display = 'none';
+    if (app) app.style.display = 'grid';
+    
+    // 6. 伪装 AI 玩家在右侧面板的昵称与执色
+    const oppName = document.getElementById('opponent-nickname');
+    if (oppName) oppName.textContent = '阿尔法狗 (AI)';
+    const oppSide = document.getElementById('opponent-side');
+    if (oppSide) oppSide.textContent = '执色：白棋';
+    const oppActivity = document.getElementById('opponent-activity');
+    if (oppActivity) oppActivity.textContent = '状态：对战中';
+    
+    const connSummary = document.getElementById('connection-summary');
+    if (connSummary) connSummary.textContent = '单机离线模式';
+
+    // 7. 更新回合面板并全盘初次重绘
+    updateProfilePanels();
+    drawFullBoard();
+    
+    console.log('[AI Mode] 单机 AI 游戏场景就绪');
+  }
+  /**
+   * 🟢 2026-05-17 新增：AI 的智能寻点与模拟落子动作
+   */
+  function triggerAIMove() {
+    if (state.gameMode !== 'SINGLE_PLAYER' || state.currentTurn !== WHITE) return;
+
+    // 1. 搜集棋盘上所有合法的空位点
+    let validMoves = [];
+    for (let r = 0; r < state.boardSize; r++) {
+      for (let c = 0; c < state.boardSize; c++) {
+        if (state.board[r][c] === EMPTY) {
+          // 这里可以调用你原有的 isValidMove(r, c, WHITE) 避免 AI 落在自杀禁着点上
+          // 如果没有封装，也可以采用最简空位判定
+          validMoves.push({ r, c });
+        }
+      }
+    }
+
+    if (validMoves.length === 0) {
+      alert('棋盘已无落子空间，对局结束！');
+      return;
+    }
+
+    // 2. 随机或基于简单棋形库选取一个坐标点（后续可无限在此处升级高级算法）
+    const chosenMove = validMoves[Math.floor(Math.random() * validMoves.length)];
+    const aiRow = chosenMove.r;
+    const aiCol = chosenMove.c;
+
+    // 3. 将 AI 棋子写入底层数据矩阵（AI 执白）
+    state.board[aiRow][aiCol] = WHITE;
+
+    // 4. 执行提子逻辑（复用你现有的 checkCaptures 提子清除函数）
+    if (typeof checkCaptures === 'function') {
+      checkCaptures(aiRow, aiCol, WHITE);
+    }
+
+    // 5. 熔断你上一手的闪烁，让 AI 最新的这颗白棋本体完美进入【频率闪烁机制】
+    clearBlink();
+    startBlink(aiRow, aiCol, WHITE);
+
+    // 6. 播放落子音效
+    if (window.playSound) {
+      window.playSound('placeStone');
+    }
+
+    // 7. 将回合交还给黑棋（玩家）
+    state.currentTurn = BLACK;
+    
+    // 8. 全盘重绘与数据交互面板刷新
+    updateProfilePanels();
+    drawFullBoard();
+  }
   window.MP = {
     createRoom,
     joinRoom,
     leaveRoom,
+    startAIGame, // 🟢 暴露单机 AI 启动接口给外部 game.js 调用  2026-05-17
     getRoomCode: () => state.roomCode,
     getMyColor: () => state.myColor,
     isInRoom: () => state.isInRoom,

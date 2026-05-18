@@ -1023,6 +1023,7 @@ function judgeWinner(board, blackTerritory, whiteTerritory) {
     }
   }
 
+  /*
   function initEventListeners() {
     bindTopBarActions();
     // 将逻辑合并为一个监听器，确保流程线性执行
@@ -1058,7 +1059,49 @@ function judgeWinner(board, blackTerritory, whiteTerritory) {
             console.error("启动游戏失败:", error);
         }
     });
+  }*/
+ //增加单机 AI 模式的直接启动逻辑  2026-05-17
+ function initEventListeners() {
+    bindTopBarActions();
+    
+    // 🟢 改造后的监听器：点击快速开始直接进入单机 AI 模式
+    document.getElementById('go-game-btn')?.addEventListener('click', async () => {
+        try {
+            // 1. 优先加载音频资源，防止后续 playSound 报错
+            await initAudio(); 
+            playSound('click'); 
 
+            // 2. 统一切换 UI 状态
+            // 💡 适配你实际的 DOM 结构：如果你的 HTML 中登录卡片是 'game-selection' 或者是 'room-selection-container'
+            const selection = document.getElementById('game-selection') || document.getElementById('room-selection-container');
+            const app = document.querySelector('.app') || document.getElementById('game-container');
+            
+            if (selection) selection.style.display = 'none';
+            if (app) {
+                app.style.display = 'grid'; // 确保容器先显示，Canvas 才能正确获取宽高
+            }
+
+            // 3. 更新沉浸式状态与文本
+            applyImmersiveState(true);
+            updateUI();
+
+            // 4. 核心模式桥接：如果多人模块扩展包可用，直接接管并启动单机 AI 模式
+            if (window.MP && typeof window.MP.startAIGame === 'function') {
+                window.MP.startAIGame();
+            } else {
+                // 回退保障逻辑：如果联机脚本未载入，则执行原有普通初始化
+                requestAnimationFrame(() => {
+                    if (typeof initGame === 'function') {
+                        initGame();
+                    } else {
+                        console.error("initGame 函数未定义，请检查逻辑脚本");
+                    }
+                });
+            }
+        } catch (error) {
+            console.error("启动游戏失败:", error);
+        }
+    });
   }
   // 初始化执行
   window.addEventListener('DOMContentLoaded', () => {
