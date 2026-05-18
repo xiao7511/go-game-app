@@ -2569,50 +2569,51 @@ async function refreshRoomFromServer(room) {
   /**
    * 🟢 2026-05-17 新增：点击 "go-game-btn" 直接启动单机版 AI 对战模式
    */
+  /**
+   * 🟢 终极自愈：启动单机版 AI 对战模式
+   * 彻底解决由于轮次颜色校验不一致导致的“无法落子”以及面板状态卡死问题
+   */
   function startAIGame() {
-    console.log('[AI Mode] 玩家点击快速开始，初始化单机版 AI 对战环境...');
+    console.log('[AI Mode] 玩家激活单机 AI 状态机...');
     
-    // 1. 设置游戏模式为单机 AI 模式
-    state.gameMode = 'SINGLE_PLAYER';
+    // 1. 【核心修复】必须与 handleMultiplayerMove 的全字符串格式完全对齐
+    state.gameMode = 'SINGLE_PLAYER'; 
     state.roomCode = 'AI_LOCAL';
-    state.myColor = BLACK;       // 玩家默认执黑
-    state.currentTurn = BLACK;   // 黑棋先行
-    
-    // 2. 清空并初始化本地棋盘
-    for (let r = 0; r < state.boardSize; r++) {
-      for (let c = 0; c < state.boardSize; c++) {
+    state.myColor = 'black';     // 🌟 必须写全小写字符串 'black'，解除轮次锁
+    state.currentTurn = 'black'; // 🌟 必须写全小写字符串 'black'，保证黑棋（玩家）先行
+
+    // 2. 清空并重置本地棋盘矩阵数据
+    for (let r = 0; r < SIZE; r++) {
+      for (let c = 0; c < SIZE; c++) {
         state.board[r][c] = EMPTY;
       }
     }
     
-    // 3. 清理之前的闪烁状态
+    // 3. 熔断可能残存的历史闪烁时钟
     if (typeof clearBlink === 'function') clearBlink();
     
-    // 4. 模拟环境，手动触发 Canvas 的初始化（复用多人的大小与监听挂载）
-    ensureCanvasSize();
-    
-    // 5. 切换 UI 容器显隐
-    const selection = document.getElementById('room-selection-container');
-    const app = document.getElementById('game-container');
-    if (selection) selection.style.display = 'none';
-    if (app) app.style.display = 'grid';
-    
-    // 6. 伪装 AI 玩家在右侧面板的昵称与执色
+    // 4. 【核心修复】强制将右侧侧边栏面板文本改写为单机对战状态（消除“等待加入”或“离线”提示）
     const oppName = document.getElementById('opponent-nickname');
     if (oppName) oppName.textContent = '阿尔法狗 (AI)';
+    
     const oppSide = document.getElementById('opponent-side');
     if (oppSide) oppSide.textContent = '执色：白棋';
+    
     const oppActivity = document.getElementById('opponent-activity');
-    if (oppActivity) oppActivity.textContent = '状态：对战中';
+    if (oppActivity) oppActivity.textContent = '状态：对战中'; // 🌟 纠正这里的离线显示
     
     const connSummary = document.getElementById('connection-summary');
     if (connSummary) connSummary.textContent = '单机离线模式';
 
-    // 7. 更新回合面板并全盘初次重绘
+    const turnSummary = document.getElementById('turn-summary');
+    if (turnSummary) turnSummary.textContent = '黑棋先行 (你的回合)';
+
+    // 5. 解除可能残存的同步锁，强制拉动画画布刷新
+    state.isSyncing = false;
     updateProfilePanels();
     drawFullBoard();
     
-    console.log('[AI Mode] 单机 AI 游戏场景就绪');
+    console.log('[AI Mode] 单机环境及轮次锁解除完毕，对局开始。');
   }
   /**
    * 🟢 2026-05-17 新增：AI 的智能寻点与模拟落子动作
