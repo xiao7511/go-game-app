@@ -102,23 +102,7 @@
       .replace(/\/rest\/v1\/?$/i, '')
       .replace(/\/$/, '');
   }
-/*
-  function initSupabaseClient() {
-    const cfg = window.APP_CONFIG || window.CONFIG || {};
-    const url = normalizeSupabaseUrl(cfg.SUPABASE_URL || cfg.supabaseUrl || cfg.url);
-    const key = cfg.SUPABASE_ANON_KEY || cfg.supabaseAnonKey || cfg.key;
 
-    if (!url || !key || !window.supabase?.createClient) {
-      console.warn('[multiplayer-ext] Supabase 未配置或 CDN 未加载，多人模式将保持离线。');
-      return null;
-    }
-
-    state.supabase = window.supabase.createClient(url, key, {
-      db: { schema: 'game' },
-      realtime: { params: { eventsPerSecond: 10 } },
-    });
-    return state.supabase;
-  }*/
  // 修改后的初始化函数，支持异步等待配置
   async function initSupabaseClient() {
       // 1. 如果已经初始化过，直接返回实例
@@ -198,28 +182,6 @@
       return user;
     }
 
-
-  /*
- async function getPlayerProfile(playerId) {
-    try {
-      // 关键修复：确保参数名 p_id 与数据库函数定义一致
-      const { data, error } = await state.supabase.rpc('get_player_profile', { 
-        p_id: playerId 
-      });
-
-      if (error) {
-        // 如果是 400 错误，说明可能是参数名不对或函数不存在
-        console.warn('[MP] RPC 调用失败，尝试返回保底数据:', error.message);
-        return { nickname: '棋手_' + playerId.substring(0, 4), avatar_url: null };
-      }
-
-      return data;
-    } catch (err) {
-      // 捕获 LockGrantedCallback 等浏览器底层的异步异常
-      console.error('[MP] getPlayerProfile 发生异常:', err);
-      return { nickname: '棋手', avatar_url: null };
-    }
-  }*/
   async function getPlayerProfile(playerId) { //调用玩家信息  by 0510
     try {
       const { data, error } = await state.supabase.rpc(
@@ -451,60 +413,6 @@
       ctx.fill();
     });
     ctx.restore();
-
-    // --------------------------
-// 🟢 修改 2026-05-16：修复闪烁作用域异常
-    // --------------------------
-   /* for (let row = 0; row < state.boardSize; row++) {
-      for (let col = 0; col < state.boardSize; col++) {
-        const color = state.board[row][col];
-        if (color === EMPTY) continue;
-        // 棋盘坐标
-        const boardX =
-          state.padding +
-          col * state.cellSize;
-        const boardY =
-          state.padding +
-          row * state.cellSize;
-        // 正常绘制棋子
-        drawStone(row, col, color);
-        //const bMove = window.state ? window.state.blinkingMove : null;
-        const bMove = state.blinkingMove || null;
-        const isCurrentBlinkMove = (bMove && bMove.row === row && bMove.col === col);
-
-        if (isCurrentBlinkMove) {
-          // 如果是最新一手闪烁棋子，根据呼吸开关 visible 来决定画不画本体（达成本体闪烁效果）
-          if (bMove.visible) {
-            drawStone(row, col, color);
-            
-            // 可选：如果你在本体闪烁的同时还想保留一层淡淡的呼吸光圈点缀，可以保留下面这段；不需要直接删掉 ctx 块即可
-            //ctx.save();
-            //ctx.beginPath();
-            //ctx.arc(boardX, boardY, state.cellSize * 0.40, 0, Math.PI * 2);
-            //ctx.lineWidth = 2.5;
-            //ctx.strokeStyle = color === BLACK ? 'rgba(255, 235, 59, 0.8)' : 'rgba(244, 67, 54, 0.8)';
-            //ctx.stroke();
-            //ctx.restore();
-          } else {
-            // ❌ 当 visible 为 false 时，不画本体，达到完美的本体闪烁/呼吸灯隐藏效果
-            // 兼容手机移动端：画一个非常淡的残影，防止大面积闪烁给眼睛带来疲劳感，同时也完美解决部分手机 Canvas 隐藏元素不触发物理刷新的硬件缺陷
-            ctx.save();
-            ctx.globalAlpha = 0.08; 
-            // 🔴 关键欺骗：复写 ctx.fill 方法，让 drawStone 内部的阴影和本体都吃这 0.05 的透明度
-            const originalFill = ctx.fill;
-            ctx.fill = function() {
-              // 暂时允许在这个微型作用域里生效
-              originalFill.call(ctx);
-            };
-            drawStone(row, col, color);
-            ctx.restore();
-          }
-        } else {
-          // 普通棋子正常绘制本体，保持不变
-          drawStone(row, col, color);
-        }
-      }
-    }*/
    // -----------------------------------------------------------
     // 🟢 终极调优：通过改变可见性频率，实现【整个棋子本体】高频闪烁
     // -----------------------------------------------------------
@@ -543,26 +451,6 @@
       }
     }
   }
-  /*function resizeCanvas() {
-    // 获取屏幕最小边作为棋盘尺寸
-    const size = Math.min(window.innerWidth, window.innerHeight) - 20;
-
-    // 设置 canvas 显示大小
-    state.canvas.style.width = size + 'px';
-    state.canvas.style.height = size + 'px';
-
-    // 设置 canvas 渲染像素和显示像素一致（不放大）
-    state.canvas.width = size;
-    state.canvas.height = size;
-
-    state.ctx = state.canvas.getContext('2d');
-
-    // 计算每个格子的像素大小
-    state.cellSize = size / (state.boardSize - 1);
-
-    // 棋盘边距
-    state.padding = 0;
-  }*/
 
   function ensureCanvasSize() {
     if (!state.canvas || !state.ctx) return;
@@ -700,50 +588,6 @@
     return { success: true, captured: totalCaptured, capturedGroup: capturedList };
   }
 
-  /*function placeStone(row, col, color) {
-    if (state.board[row][col] !== EMPTY) {
-      return { success: false, reason: '该位置已有棋子' };
-    }
-
-    const opponent = color === BLACK ? WHITE : BLACK;
-    state.board[row][col] = color;
-
-    const capturedList = [];
-    let totalCaptured = 0;
-
-    for (const [dr, dc] of DIRECTIONS) {
-      const nr = row + dr;
-      const nc = col + dc;
-      if (nr < 0 || nr >= SIZE || nc < 0 || nc >= SIZE) continue;
-      if (state.board[nr][nc] !== opponent) continue;
-
-      const { liberties, group } = bfsLiberties(nr, nc, opponent, state.board);
-      if (liberties === 0) {
-        for (const [gr, gc] of group) {
-          state.board[gr][gc] = EMPTY;
-          capturedList.push([gr, gc]);
-        }
-        totalCaptured += group.length;
-      }
-    }
-
-    const { liberties: selfLiberties } = bfsLiberties(row, col, color, state.board);
-    if (selfLiberties === 0) {
-      state.board[row][col] = EMPTY;
-      for (const [r, c] of capturedList) state.board[r][c] = opponent;
-      return { success: false, reason: '禁止自杀（无气）' };
-    }
-
-    if (color === BLACK) state.blackCaptures += totalCaptured;
-    else state.whiteCaptures += totalCaptured;
-
-    return { success: true, captured: totalCaptured, capturedGroup: capturedList };
-  }*/
-
- // function switchTurn() {
- //   state.currentTurn = state.currentTurn === 'black' ? 'white' : 'black';
-  //  updateProfilePanels();
- // }
   // 🟢 修改 2026-05-13：统一轮次切换
   function switchTurn() {
     state.currentTurn =
@@ -756,99 +600,46 @@
     );
   }
 
-  function drawStone(row, col, color, isLatestMove = false) {
-    if (!state.ctx) return;
-    const cx = state.padding + col * state.cellSize;
-    const cy = state.padding + row * state.cellSize;
-    const radius = state.cellSize * 0.44;
-    const alpha = isLatestMove ? (state.latestMoveVisible ? 1 : 0.14) : 1;
+    function drawStone(row, col, color, isLatestMove = false) {
+      if (!state.ctx) return;
+      const cx = state.padding + col * state.cellSize;
+      const cy = state.padding + row * state.cellSize;
+      const radius = state.cellSize * 0.44;
+      const alpha = isLatestMove ? (state.latestMoveVisible ? 1 : 0.14) : 1;
 
-    state.ctx.save();
-    //state.ctx.globalAlpha = 1;
-    state.ctx.beginPath();
-    state.ctx.arc(cx + 1.2, cy + 1.4, radius, 0, Math.PI * 2);
-    state.ctx.fillStyle = 'rgba(0,0,0,0.25)';
-    state.ctx.fill();
-    state.ctx.restore();
+      state.ctx.save();
+      //state.ctx.globalAlpha = 1;
+      state.ctx.beginPath();
+      state.ctx.arc(cx + 1.2, cy + 1.4, radius, 0, Math.PI * 2);
+      state.ctx.fillStyle = 'rgba(0,0,0,0.25)';
+      state.ctx.fill();
+      state.ctx.restore();
 
-    state.ctx.save();
-    //state.ctx.globalAlpha = alpha;
-    // 如果不是闪烁的目标，则使用默认计算出的 alpha 权重
-    if (!state.blinkingMove || state.blinkingMove.row !== row || state.blinkingMove.col !== col) {
-      state.ctx.globalAlpha = alpha;
-    }
-    state.ctx.beginPath();
-    state.ctx.arc(cx, cy, radius, 0, Math.PI * 2);
-    const g = state.ctx.createRadialGradient(cx - radius * 0.32, cy - radius * 0.32, radius * 0.1, cx, cy, radius);
-    if (color === BLACK) {
-      g.addColorStop(0, '#575757');
-      g.addColorStop(1, '#101010');
-    } else {
-      g.addColorStop(0, '#ffffff');
-      g.addColorStop(1, '#bebebe');
-    }
-    state.ctx.fillStyle = g;
-    state.ctx.fill();
-    state.ctx.beginPath();
-    state.ctx.arc(cx - radius * 0.24, cy - radius * 0.24, radius * 0.26, 0, Math.PI * 2);
-    state.ctx.fillStyle = 'rgba(255,255,255,0.16)';
-    state.ctx.fill();
-    state.ctx.restore();
-  }
-
-  
-  /*
-  function captureToBoardCoords(e) {
-    const rect = state.canvas.getBoundingClientRect();
-    const scaleX = state.canvas.width / rect.width;
-    const scaleY = state.canvas.height / rect.height;
-    const mouseX = (e.clientX - rect.left) * scaleX;
-    const mouseY = (e.clientY - rect.top) * scaleY;
-    const col = Math.round((mouseX - state.padding) / state.cellSize);
-    const row = Math.round((mouseY - state.padding) / state.cellSize);
-    if (row < 0 || row >= SIZE || col < 0 || col >= SIZE) return null;
-    return { row, col };
-  }*/
- /*function captureToBoardCoords(e) {
-    const rect = state.canvas.getBoundingClientRect();
-    let clientX;
-    let clientY;
-    // 触摸事件
-    if (e.touches && e.touches.length > 0) {
-      clientX = e.touches[0].clientX;
-      clientY = e.touches[0].clientY;
-    }
-    // touchend
-    else if (e.changedTouches && e.changedTouches.length > 0) {
-      clientX = e.changedTouches[0].clientX;
-      clientY = e.changedTouches[0].clientY;
-    }
-    // 鼠标 / pointer
-    else {
-      clientX = e.clientX;
-      clientY = e.clientY;
-    }
-    // 修复移动端缩放坐标
-    const scaleX = state.canvas.width / rect.width;
-    const scaleY = state.canvas.height / rect.height;
-
-    const x = (clientX - rect.left) * scaleX;
-    const y = (clientY - rect.top) * scaleY;
-
-    const col = Math.round((x - state.padding) / state.cellSize);
-    const row = Math.round((y - state.padding) / state.cellSize);
-
-    const boardSize = state.boardSize || 19;
-    
-    if (
-      row < 0 || row >= boardSize ||
-      col < 0 || col >= boardSize
-    ) {
-      return null;
+      state.ctx.save();
+      //state.ctx.globalAlpha = alpha;
+      // 如果不是闪烁的目标，则使用默认计算出的 alpha 权重
+      if (!state.blinkingMove || state.blinkingMove.row !== row || state.blinkingMove.col !== col) {
+        state.ctx.globalAlpha = alpha;
+      }
+      state.ctx.beginPath();
+      state.ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+      const g = state.ctx.createRadialGradient(cx - radius * 0.32, cy - radius * 0.32, radius * 0.1, cx, cy, radius);
+      if (color === BLACK) {
+        g.addColorStop(0, '#575757');
+        g.addColorStop(1, '#101010');
+      } else {
+        g.addColorStop(0, '#ffffff');
+        g.addColorStop(1, '#bebebe');
+      }
+      state.ctx.fillStyle = g;
+      state.ctx.fill();
+      state.ctx.beginPath();
+      state.ctx.arc(cx - radius * 0.24, cy - radius * 0.24, radius * 0.26, 0, Math.PI * 2);
+      state.ctx.fillStyle = 'rgba(255,255,255,0.16)';
+      state.ctx.fill();
+      state.ctx.restore();
     }
 
-    return { row, col };
-  }*/
     function captureToBoardCoords(e) {
       const rect = state.canvas.getBoundingClientRect();
 
@@ -878,21 +669,7 @@
 
       return { row, col };
     }
-  /*
-  function canvasCaptureHandler(e) {
-    if (!state.isInRoom) return;
-    if (!state.myColor || state.currentTurn !== state.myColor) {
-      e.preventDefault();
-      e.stopPropagation();
-      playSound('invalidMove');
-      return;
-    }
-    e.preventDefault();
-    e.stopPropagation();
-    const pos = captureToBoardCoords(e);
-    if (!pos) return;
-    handleMultiplayerMove(pos.row, pos.col);
-  }*/
+
  function canvasCaptureHandler(e) {
     //if (!state.isInRoom) return;
     // 🟢 【新增修改 1】：豁免单机模式下的联机状态检验，放行落子动作 2026-05-17
@@ -945,24 +722,6 @@
     }
   }
 
-  /*
-  async function broadcastMove(row, col, color, capturedList) {
-    if (!state.roomChannel) return;
-    await state.roomChannel.send({
-      type: 'broadcast',
-      event: 'move',
-      payload: {
-        row,
-        col,
-        color,
-        captured: capturedList,
-        board_state: getBoardSnapshot(),
-        black_captures: state.blackCaptures,
-        white_captures: state.whiteCaptures,
-        next_turn: state.currentTurn,
-      },
-    });
-  }*/
   //2026-05-17 打劫修复
   async function broadcastMove(row, col, color, capturedList) {
       if (!state.roomChannel) return;
@@ -984,125 +743,15 @@
       });
     }
 
-  /*function startBlink(row, col) {
-    let visible = true;
-    clearBlink(); // 避免重复
-    blinkInterval = setInterval(() => {
-      state.latestMoveVisible = visible;
-      drawFullBoard();
-      visible = !visible;
-    }, FLASH_INTERVAL);
-  }*/
-
   // --------------------------
   // 🟢 修改 2026-05-16：最后一步持续闪烁
   // --------------------------
   let blinkInterval = null;
   let blinkingMove = null;
   
-  /*function startBlink(row, col, color) {
-    // 新一步替换旧闪烁
-    blinkingMove = {
-      row,
-      col,
-      color,
-      visible: true
-    };
-    if (blinkInterval) {
-      clearInterval(blinkInterval);
-    }
-    blinkInterval = setInterval(() => {
-      if (!blinkingMove) return;
-      blinkingMove.visible =
-        !blinkingMove.visible;
-      drawFullBoard();
-    }, 500);
-  }*/
-  /**
- * 修复自愈版：精准对齐 Canvas 容器交叉点的棋子本体闪烁
- */
-  // 1. 确保全局多端同步状态机中包含闪烁控制器
-  //window.state = window.state || {};
- // window.state.blinkingMove = null; // 存储当前正在闪烁的棋子：{row, col, color, visible}
- // window.state.blinkTimer = null;    // 全局唯一的闪烁渲染定时器
+  state.blinkingMove = null;
+  state.blinkTimer = null;
 
-  /**
-   * 🚀 终极修复：持续闪烁机制（直到下一手棋落下才停止）
-   */
- /* function startBlink(row, col, color) {
-    console.log(`[Blink] 开始持续闪烁最新落子: [${row}, ${col}], 颜色: ${color}`);
-    
-    // A. 关键：首先清除上一次落子建立的定时器，让旧棋子瞬间停止闪烁
-    if (window.state.blinkTimer) {
-      clearInterval(window.state.blinkTimer);
-    }
-
-    // B. 覆盖全局闪烁目标，换成本次新落下的棋子
-    window.state.blinkingMove = {
-      row: parseInt(row),
-      col: parseInt(col),
-      color: color,
-      visible: true // 显隐控制开关
-    };
-
-    // C. 启动一个无限循环的定时器（不设置销毁上限），直到下一次调用 startBlink 时被 A 步骤清除
-    window.state.blinkTimer = setInterval(() => {
-      if (!window.state.blinkingMove) {
-        clearInterval(window.state.blinkTimer);
-        return;
-      }
-
-      // 切换当前最新棋子的可见状态（达成呼吸/闪烁效果）
-      window.state.blinkingMove.visible = !window.state.blinkingMove.visible;
-      
-      // 每次状态改变，直接通知核心 Canvas 重新绘制整盘棋
-      if (typeof drawFullBoard === 'function') {
-        drawFullBoard();
-      }
-    }, 350); // 350ms 的切换频率，作为常驻提示非常柔和舒适，不刺眼
-  }*/
-  // 确保在文件的局部全局 state 对象中，初始化这两个闪烁控制器
-    state.blinkingMove = null;
-    state.blinkTimer = null;
-/**
-   * 启动最新落子棋子本体闪烁（持续进行，直到下一手棋落下被主动清空） --2026-05-17
-   */
-   /* function startBlink(row, col, color) {
-      console.log(`[Blink Engine] 激活本体呼吸闪烁 -> 坐标: [${row}, ${col}], 颜色: ${color}`);
-      
-      // 1. 强制熔断上一次建立的闪烁，使上一个棋子一瞬间恢复正常静止状态
-      if (state.blinkTimer) {
-        clearInterval(state.blinkTimer);
-      }
-
-      // 2. 注入最新落子的核心比对对象（适配字符串和数字形态的 Color）
-      state.blinkingMove = {
-        row: parseInt(row),
-        col: parseInt(col),
-        color: color,
-        visible: true
-      };
-
-      // 3. 手机移动端调优：将高频 200ms 调整为 400ms，适配手机浏览器（降低能耗，防止掉帧看不到）
-      state.blinkTimer = setInterval(() => {
-        if (!state.blinkingMove) {
-          clearInterval(state.blinkTimer);
-          state.blinkTimer = null;
-          return;
-        }
-        
-        // 反转当前棋子的隐显开关
-        state.blinkingMove.visible = !state.blinkingMove.visible;
-        
-        // 4. 关键自愈：跨端环境异步更新，强制拉起画布请求重绘帧
-        if (typeof drawFullBoard === 'function') {
-          // 使用标准的 requestAnimationFrame 辅助重绘，完美解决 Safari/微信等移动浏览器内核 setInterval 重绘延迟、看不见闪烁的通病
-          requestAnimationFrame(() => {
-            drawFullBoard();
-          });
-        }
-      }, 240); 
-    }*/
    /**
    * 启动最新落子本体的频率闪烁
    */
@@ -1141,25 +790,7 @@
       }
     }, 250); // 👈 频率设为 250 毫秒最为明显
   }
-  /*
-  function clearBlink() {
-    if (blinkInterval) {
-      clearInterval(blinkInterval);
-      blinkInterval = null;
-      state.latestMoveVisible = true;
-    }
-  }*/
-  // --------------------------
-  // 🟢 修改 2026-05-16：清除闪烁
-  // --------------------------
-  /*function clearBlink() {
-    if (blinkInterval) {
-      clearInterval(blinkInterval);
-      blinkInterval = null;
-    }
-    blinkingMove = null;
-    drawFullBoard();
-  }*/
+  
   /**
    * 停止闪烁并恢复常态
    */
@@ -1330,33 +961,7 @@
 
     console.log('[远程落子同步成功] 位置:', row, col, '下一步轮到:', state.currentTurn);
   }
-  /*
-  async function handleMultiplayerMove(row, col) {
-    const color = state.myColor === 'black' ? BLACK : WHITE;
-    const result = placeStone(row, col, color);
-    if (!result.success) {
-      playSound('invalidMove');
-      toast(result.reason || '非法落子');
-      return;
-    }
-
-    playSound(result.captured > 0 ? 'capture' : 'placeStone');
-
-    setLatestMoveHighlight(row, col, FLASH_DURATION);
-    switchTurn();
-    drawFullBoard();
-
-    await broadcastMove(row, col, color, result.capturedGroup || []);
-    await persistRoomState();
-  }
-  */
-  //function applyRemotePayload(payload) {
-   // if (!payload) return;
-   // if (payload.board_state) setBoardSnapshot(payload.board_state);
-   // if (typeof payload.black_captures === 'number') state.blackCaptures = payload.black_captures;
-   // if (typeof payload.white_captures === 'number') state.whiteCaptures = payload.white_captures;
-   // if (typeof payload.next_turn === 'string') state.currentTurn = payload.next_turn;
-  //}
+  
   // 🟢 修改 2026-05-16：禁止远程覆盖整个棋盘
   function applyRemotePayload(payload) {
 
@@ -1377,26 +982,6 @@
         payload.next_turn;
     }
   }
-  /*
-  async function onOpponentMove(payload) {
-    const { row, col, color, captured } = payload || {};
-    if (typeof row !== 'number' || typeof col !== 'number' || !color) return;
-
-    state.board[row][col] = color;
-    if (Array.isArray(captured)) {
-      for (const [r, c] of captured) state.board[r][c] = EMPTY;
-    }
-
-    if (color === BLACK) state.blackCaptures += Array.isArray(captured) ? captured.length : 0;
-    else state.whiteCaptures += Array.isArray(captured) ? captured.length : 0;
-
-    //state.currentTurn = state.myColor || (color === BLACK ? 'white' : 'black');
-    state.currentTurn = color === BLACK ? 'white' : 'black';
-    setLatestMoveHighlight(row, col);
-    playSound('yourTurn');
-    drawFullBoard();
-    updateProfilePanels();
-  }*/
 
   function showGameOverOverlay(winnerColor, reason = 'game_over') {
     const overlay = $('result-overlay');
@@ -1429,14 +1014,7 @@
     await persistRoomState({ status: 'ended' });
     showGameOverOverlay(winnerColor, reason);
   }
-  /*
-  async function handleResignRequest(fromColor) {
-    if (!state.isInRoom) return;
-    const winner = fromColor === 'black' ? 'white' : 'black';
-    const accepted = window.confirm(`对手请求认输。是否接受？\n\n接受后将判定 ${winner === 'black' ? '黑方' : '白方'} 获胜。`);
-    if (!accepted) return;
-    await announceGameOver(state.myColor || winner, 'resign');
-  }*/
+ 
   // --------------------------
   // 🟢 修改 2026-05-10：认输逻辑
   // --------------------------
@@ -1467,51 +1045,6 @@
     }
   }
 
-  /*async function initRoomChannel(code) {
-    if (!state.supabase) return null;
-    const ch = state.supabase.channel(`room:${code}`, { config: { broadcast: { self: false } } });
-
-    ch.on('broadcast', { event: 'move' }, ({ payload }) => {
-      applyRemotePayload(payload);
-      onOpponentMove(payload);
-    });
-
-    ch.on('broadcast', { event: 'message' }, ({ payload }) => {
-      onRoomMessage(payload);
-    });
-
-    ch.on('presence', { event: 'sync' }, async () => {
-      try {
-        const { data: latestRoom } = await state.supabase
-          .schema('game')
-          .from('game_rooms')
-          .select('*')
-          .eq('code', code)
-          .single();
-        if (latestRoom) refreshRoomFromServer(latestRoom);
-      } catch (err) {
-        console.warn('[multiplayer-ext] 刷新房间失败:', err);
-      }
-    });
-
-    ch.on('postgres_changes', {
-      event: 'UPDATE',
-      schema: 'game',
-      table: 'game_rooms',
-      filter: `code=eq.${code}`,
-    }, async ({ new: room }) => {
-      if (room) refreshRoomFromServer(room);
-    });
-
-    await ch.subscribe(async (status) => {
-      if (status === 'SUBSCRIBED') {
-        await ch.track({ online: true });
-        setConnectionStatus('已连接');
-      }
-    });
-
-    return ch;
-  }*/
   /**
    * 修复版：订阅实时通道，打通进房通道
    */
@@ -1526,15 +1059,6 @@
       const ch = state.supabase.channel(`room:${code}`, { config: { broadcast: { self: false } } });
       state.roomChannel = ch; // 挂载到全局状态中
 
-      // 1. 对手落子同步
-      /*ch.on('broadcast', { event: 'move' }, ({ payload }) => {
-        console.log('[Realtime] 收到对手落子广播:', payload);
-        applyRemotePayload(payload);
-        if (typeof payload.row === 'number' && typeof payload.col === 'number') {
-          startBlink(payload.row, payload.col, payload.color);
-        }
-        onOpponentMove(payload);
-      });*/
       // 收到对手落子广播 --2026-05-17 修复：增加颜色兼容解析，强化闪烁逻辑，提供外部回调接口
       ch.on('broadcast', { event: 'move' }, ({ payload }) => {
         console.log('[Realtime] 收到对手落子广播:', payload);
@@ -1597,41 +1121,6 @@
       });
 
       // 4. ✨【核心修复点】：去掉不稳定的单条 filter，改为接收全量更新后在前端过滤
-     /* ch.on(
-        'postgres_changes',
-        { event: 'UPDATE', schema: 'game', table: 'game_rooms' }, // 👈 去掉无法订阅的 filter
-        async (payload) => {
-          const room = payload.new;
-          if (!room || room.code !== code) return; // 👈 在前端精确匹配当前房间号，100% 安全稳定
-
-          console.log('[Realtime] 捕捉到当前房间状态更新:', room);
-          
-          state.room = room;
-          // 兼容处理字段：同时支持 next_turn 和 current_turn
-          state.currentTurn = room.next_turn || room.current_turn || 'black'; 
-          
-          // 只要白方进入了（white_id 存在），或者状态变为 playing/waiting，即激活房间激活状态
-          if (room.white_id || room.status === 'playing') {
-            state.isInRoom = true;
-          }
-
-          // 加载玩家 profile
-          state.blackProfile = await getPlayerProfile(room.black_id);
-          state.whiteProfile = await getPlayerProfile(room.white_id);
-
-          // 刷新页面渲染
-          await refreshRoomFromServer(room);
-          drawFullBoard();
-          updateProfilePanels();
-          
-          // 顺手把遮罩层关闭，让对局大厅呈现出来
-          const overlay = $('room-overlay') || $('match-overlay') || $('room-modal') || document.querySelector('.room-overlay');
-          if (overlay && room.white_id) {
-            overlay.style.display = 'none'; // 白方来了，自动关闭弹窗进入棋盘
-            toast('白方已加入，对局正式开始！');
-          }
-        }
-      );*/
       ch.on(
         'postgres_changes',
         { event: 'UPDATE', schema: 'game', table: 'game_rooms' }, // 👈 去掉不稳定的单条 filter
@@ -1914,73 +1403,7 @@
       }
     }
   }
-  /*async function joinRoom(code) {
-    const userId = await getUserId();
-    if (!userId) {
-      alert('请先登录后再加入房间');
-      window.location.href = 'login.html';
-      return;
-    }
-    if (!state.supabase) {
-      alert('Supabase 未配置，无法加入房间');
-      return;
-    }
-
-    try {
-      const { data: room, error } = await state.supabase
-        .schema('game')
-        .from('game_rooms')
-        .select('*')
-        .eq('code', code)
-        .single();
-      if (error || !room) {
-        alert('房间不存在或已过期');
-        return;
-      }
-
-      if (room.black_id === userId) {
-        state.myColor = 'black';
-      } else if (!room.white_id) {
-        const { error: updateErr } = await state.supabase
-          .schema('game')
-          .from('game_rooms')
-          .update({ white_id: userId, status: 'playing' })
-          .eq('code', code);
-        if (updateErr) throw updateErr;
-        state.myColor = 'white';
-      } else if (room.white_id === userId) {
-        state.myColor = 'white';
-      } else {
-        alert('该房间已满');
-        return;
-      }
-
-      state.roomCode = code;
-      state.currentTurn = 'black';
-      state.isInRoom = true;
-      state.roomContext.roomId = code;
-      state.roomContext.inviteLink = buildInviteLink(code);
-      state.roomChannel = await initRoomChannel(code);
-      //await refreshRoomFromServer(room);
-      const { data: latestRoom } = await state.supabase
-        .schema('game')
-        .from('game_rooms')
-        .select('*')
-        .eq('code', code)
-        .single();
-
-      await refreshRoomFromServer(latestRoom);  //修复new
-
-      updateRoomPanel({ code, inviteLink: state.roomContext.inviteLink });
-      drawFullBoard();
-      updateProfilePanels();
-      showGameArea();
-      toast(`已加入房间：${code}`);
-    } catch (err) {
-      console.error('[multiplayer-ext] 加入房间失败:', err);
-      alert(`加入房间失败: ${err.message}`);
-    }
-  }*/
+  
   async function joinRoom(code) {
     // 🟢 确保切换回多人在线模式 2026-05-17
     state.gameMode = 'MULTIPLAYER';
@@ -2164,228 +1587,6 @@
     await persistRoomState({ status: 'ended' });
     showGameOverOverlay(winner, 'resign');
   }
-/*
-  async function onRoomMessage(payload) {
-    if (!payload) return;
-    if (payload.type === 'RESIGN_REQUEST') {
-      await handleSurrenderMessage(payload);
-    } else if (payload.type === 'GAME_OVER') {
-      await persistRoomState({ status: 'ended' });
-      showGameOverOverlay(payload.winner, payload.reason || 'game_over');
-    }
-  }*/
-
-  /**
- * 修复版：refreshRoomFromServer
- * 解决 400 报错、LockGrantedCallback 异常及 UI 同步卡顿
- */
-/*
-async function refreshRoomFromServer(room) {
-  if (!room) return;
-
-  // 1. 防止并发同步导致 Lock 异常 (加锁)
-  if (state.isSyncing) return;
-  state.isSyncing = true;
-
-  try {
-    // 2. 更新棋盘状态 (优先执行，确保落子可见)
-    if (room.board_state) {
-      try {
-        const snapshot = typeof room.board_state === 'string' 
-          ? JSON.parse(room.board_state) 
-          : room.board_state;
-        setBoardSnapshot(snapshot);
-      } catch (err) {
-        console.warn('[multiplayer-ext] board_state 解析失败:', err);
-      }
-    }
-
-    // 更新提子数
-    if (typeof room.black_captures === 'number') state.blackCaptures = room.black_captures;
-    if (typeof room.white_captures === 'number') state.whiteCaptures = room.white_captures;
-
-    // 更新连接显示状态
-    if (room.status === 'ended') setConnectionStatus('已结束');
-    else if (room.status === 'playing') setConnectionStatus('实时同步中');
-    else setConnectionStatus('等待对手');
-
-    // 3. 异步获取玩家资料 (带异常保护，防止 400 错误中断全局)
-    const otherId = state.myColor === 'black' ? room.white_id : room.black_id;
-    const myId = state.myColor === 'black' ? room.black_id : room.white_id;
-
-    // 获取黑白双方资料 (Parallel 执行，提高效率)
-    const [blackProfile, whiteProfile, myProfile] = await Promise.allSettled([
-      room.black_id ? getPlayerProfile(room.black_id) : Promise.resolve(null),
-      room.white_id ? getPlayerProfile(room.white_id) : Promise.resolve(null),
-      myId ? getPlayerProfile(myId) : Promise.resolve(null)
-    ]);
-
-    // 处理黑方名字
-    state.roomContext.blackName = (blackProfile.status === 'fulfilled' && blackProfile.value?.nickname) 
-      ? blackProfile.value.nickname 
-      : (room.black_id ? '黑方玩家' : '黑方');
-
-    // 处理白方名字
-    state.roomContext.whiteName = (whiteProfile.status === 'fulfilled' && whiteProfile.value?.nickname) 
-      ? whiteProfile.value.nickname 
-      : (room.white_id ? '白方玩家' : '白方');
-
-    // 4. 更新 UI 文本 (DOM 操作)
-    const blackNameEl = $('black-player-name');
-    const whiteNameEl = $('white-player-name');
-    if (blackNameEl) blackNameEl.textContent = state.roomContext.blackName;
-    if (whiteNameEl) whiteNameEl.textContent = state.roomContext.whiteName;
-
-    // 更新对手面板
-    const oppStatus = $('opponent-status');
-    const oppName = $('opponent-nickname');
-    const oppSide = $('opponent-side');
-    if (oppStatus) {
-      oppStatus.textContent = otherId ? '在线' : '离线';
-      oppStatus.classList.toggle('offline', !otherId);
-    }
-    if (oppName) {
-      oppName.textContent = otherId 
-        ? (state.myColor === 'black' ? state.roomContext.whiteName : state.roomContext.blackName) 
-        : '等待对手';
-    }
-    if (oppSide) {
-      oppSide.textContent = `执色：${otherId ? (state.myColor === 'black' ? '白棋' : '黑棋') : '—'}`;
-    }
-
-    // 更新本地玩家面板
-    if (myProfile.status === 'fulfilled' && myProfile.value) {
-      const localName = $('user-nickname');
-      const rankEl = $('user-rank');
-      if (localName) localName.textContent = myProfile.value.nickname || '棋手';
-      if (rankEl) rankEl.textContent = myProfile.value.rank || '业余1段';
-    }
-
-    // 5. 触发重绘
-    updateProfilePanels();
-    drawFullBoard();
-
-  } catch (e) {
-    console.warn('[MP] 同步房间数据时发生非致命异常:', e.message);
-  } finally {
-    // 释放锁
-    state.isSyncing = false;
-  }
-} 
-
-  function buildInviteLink(code) {
-    return `${window.location.origin}${window.location.pathname}?room=${code}`;
-  }
-
-  async function createRoom() {
-    const userId = await getUserId();
-    if (!userId) {
-      alert('请先登录后再创建房间');
-      window.location.href = 'login.html';
-      return;
-    }
-    if (!state.supabase) {
-      alert('Supabase 未配置，无法创建房间');
-      return;
-    }
-
-    const code = generateRoomCode();
-    try {
-      const { error } = await state.supabase
-        .schema('game')
-        .from('game_rooms')
-        .insert({
-          code,
-          black_id: userId,
-          white_id: null,
-          status: 'waiting',
-          board_state: JSON.stringify(getBoardSnapshot()),
-          next_turn: 'black',
-          black_captures: 0,
-          white_captures: 0,
-        });
-      if (error) throw error;
-
-      state.roomCode = code;
-      state.myColor = 'black';
-      state.currentTurn = 'black';
-      state.isInRoom = true;
-      state.roomContext.roomId = code;
-      state.roomContext.inviteLink = buildInviteLink(code);
-      state.roomContext.blackName = '黑方玩家';
-      state.roomContext.whiteName = '白方玩家';
-
-      state.roomChannel = await initRoomChannel(code);
-      updateRoomPanel({ code, inviteLink: state.roomContext.inviteLink });
-      await refreshRoomFromServer({ black_id: userId, white_id: null, status: 'waiting' });
-      drawFullBoard();
-      updateProfilePanels();
-      showGameArea();
-      toast(`房间已创建：${code}`);
-    } catch (err) {
-      console.error('[multiplayer-ext] 创建房间失败:', err);
-      alert(`创建房间失败: ${err.message}`);
-    }
-  } */
- /*
-  async function joinRoom(code) {
-    const userId = await getUserId();
-    if (!userId) {
-      alert('请先登录后再加入房间');
-      window.location.href = 'login.html';
-      return;
-    }
-    if (!state.supabase) {
-      alert('Supabase 未配置，无法加入房间');
-      return;
-    }
-
-    try {
-      const { data: room, error } = await state.supabase
-        .schema('game')
-        .from('game_rooms')
-        .select('*')
-        .eq('code', code)
-        .single();
-      if (error || !room) {
-        alert('房间不存在或已过期');
-        return;
-      }
-
-      if (room.black_id === userId) {
-        state.myColor = 'black';
-      } else if (!room.white_id) {
-        const { error: updateErr } = await state.supabase
-          .schema('game')
-          .from('game_rooms')
-          .update({ white_id: userId, status: 'playing' })
-          .eq('code', code);
-        if (updateErr) throw updateErr;
-        state.myColor = 'white';
-      } else if (room.white_id === userId) {
-        state.myColor = 'white';
-      } else {
-        alert('该房间已满');
-        return;
-      }
-
-      state.roomCode = code;
-      state.currentTurn = 'black';
-      state.isInRoom = true;
-      state.roomContext.roomId = code;
-      state.roomContext.inviteLink = buildInviteLink(code);
-      state.roomChannel = await initRoomChannel(code);
-      await refreshRoomFromServer(room);
-      updateRoomPanel({ code, inviteLink: state.roomContext.inviteLink });
-      drawFullBoard();
-      updateProfilePanels();
-      showGameArea();
-      toast(`已加入房间：${code}`);
-    } catch (err) {
-      console.error('[multiplayer-ext] 加入房间失败:', err);
-      alert(`加入房间失败: ${err.message}`);
-    }
-  }*/
 
   function bindResignButtons() {
     const bindOne = (el) => {
@@ -2428,100 +1629,6 @@ async function refreshRoomFromServer(room) {
     desc.textContent = `${winnerColor === 'black' ? '黑方' : '白方'}获胜${reason === 'resign' ? '（对手认输）' : ''}`;
     overlay.classList.add('is-open');
   }
-/*
-  async function leaveRoom() {
-    clearLatestMoveHighlight();
-    if (state.roomChannel) {
-      try { await state.roomChannel.untrack(); } catch (_) {}
-      try { await state.supabase?.removeChannel(state.roomChannel); } catch (_) {}
-      state.roomChannel = null;
-    }
-    state.isInRoom = false;
-    state.roomCode = null;
-    state.myColor = null;
-    state.roomContext.roomId = null;
-    state.roomContext.inviteLink = '';
-    state.blackCaptures = 0;
-    state.whiteCaptures = 0;
-    setConnectionStatus('未建立');
-    updateProfilePanels();
-    updateRoomPanel({ code: '—', inviteLink: '' });
-    drawFullBoard();
-  }
-
-  function checkRoomParam() {
-    const params = new URLSearchParams(window.location.search);
-    const code = params.get('room');
-    if (code && code.length === ROOM_CODE_LENGTH) {
-      setTimeout(() => joinRoom(code.toUpperCase()), 350);
-      return true;
-    }
-    return false;
-  }
-
-  async function handleSurrenderMessage(payload) {
-    if (!payload || payload.type !== 'RESIGN_REQUEST') return;
-    if (!state.myColor || payload.from === state.myColor) return;
-
-    const agree = window.confirm('对手请求认输，是否同意？');
-    if (!agree) return;
-
-    const winner = state.myColor;
-    await state.roomChannel?.send({
-      type: 'broadcast',
-      event: 'message',
-      payload: {
-        type: 'GAME_OVER',
-        winner,
-        reason: 'resign',
-      },
-    });
-    await persistRoomState({ status: 'ended' });
-    showGameOverOverlay(winner, 'resign');
-  }*/
- /*
-  async function onRoomMessage(payload) {
-    if (!payload) return;
-    if (payload.type === 'RESIGN_REQUEST') {
-      await handleSurrenderMessage(payload);
-    } else if (payload.type === 'GAME_OVER') {
-      await persistRoomState({ status: 'ended' });
-      showGameOverOverlay(payload.winner, payload.reason || 'game_over');
-    }
-  }*/
-
-    /*function showGameArea() {
-    const selection = $('game-selection');
-    const app = document.querySelector('.app');
-    if (selection) selection.style.display = 'none';
-    if (app) app.style.display = 'grid';
-  }
-
-  function injectUIButtons() {
-    const card = document.querySelector('#game-selection .selection-card');
-    if (!card || $('mp-create-room-btn')) return;
-
-    const divider = document.createElement('div');
-    divider.style.cssText = 'margin:14px 0;border-top:1px solid rgba(255,255,255,0.1);';
-
-    const wrapper = document.createElement('div');
-    wrapper.style.cssText = 'display:flex;flex-direction:column;gap:10px;margin-top:12px;';
-
-    const createBtn = document.createElement('button');
-    createBtn.id = 'mp-create-room-btn';
-    createBtn.className = 'mode-btn primary';
-    createBtn.innerHTML = '<span>🆚 创建对战房间</span><span class="badge">多人</span>';
-    createBtn.addEventListener('click', createRoom);
-
-    const joinHint = document.createElement('p');
-    joinHint.style.cssText = 'margin:0;color:rgba(238,244,251,0.68);font-size:13px;line-height:1.6;';
-    joinHint.textContent = '收到邀请链接后，打开即可自动加入房间。';
-
-    wrapper.appendChild(createBtn);
-    wrapper.appendChild(joinHint);
-    card.appendChild(divider);
-    card.appendChild(wrapper);
-  }*/
 
   async function init() {
     if (state.boundOnce) return;
@@ -2541,12 +1648,6 @@ async function refreshRoomFromServer(room) {
     drawFullBoard();
     updateProfilePanels();
 
-   // state.canvas.addEventListener('click', canvasCaptureHandler, { capture: true });
-    /**添加监听 */
-    //state.canvas.addEventListener('touchstart', canvasCaptureHandler, {
-    //  passive: false,
-     // capture: true
-   // });
     /*统一监听 */
     state.canvas.addEventListener('pointerdown', canvasCaptureHandler, {
       passive: false,

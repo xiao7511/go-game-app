@@ -62,50 +62,6 @@
     }
     return null;
   }
-
-  //function getSupabaseClient() {
-      // 如果已经有实例，直接返回，不再重新创建或执行逻辑
-      if (supabaseInstance) return supabaseInstance; 
-
-      //const { createClient } = window.supabase; 
-      //if (window.CONFIG.SUPABASE_URL && window.CONFIG.SUPABASE_ANON_KEY) {
-          // 创建唯一实例[cite: 2]
-         // supabaseInstance = createClient(window.CONFIG.SUPABASE_URL, window.CONFIG.SUPABASE_ANON_KEY); 
-    //  }
-
-   // const response = await fetch('/get-config');
-   // const config = await response.json();
-    //const config = window.APP_CONFIG
-   // if (config.SUPABASE_ANON_KEY) {
-        // 2. 拿到 Key 后再初始化 Supabase
-    //    supabaseInstance = supabase.createClient(config.SUPABASE_URL, config.SUPABASE_ANON_KEY);
-        // 3. 执行后续登录或游戏逻辑
-     //   console.log("Supabase 已就绪");
-   // } else {
-   //     alert("配置加载失败，请检查网络");
-   // }
-
-   //   return supabaseInstance;
-//     if (supabaseInstance) return supabaseInstance;
-
-    // 如果配置还没加载完，则等待最多 3 秒
-  //  let retry = 0;
-  //  while (!window.APP_CONFIG?.SUPABASE_URL && retry < 30) {
- //       await new Promise(r => setTimeout(r, 100));
-    //    retry++;
-  //  }
-
- //   const config = window.APP_CONFIG;
- //   if (config && config.SUPABASE_URL && config.SUPABASE_ANON_KEY) {
- //       const { createClient } = window.supabase;
- //       supabaseInstance = createClient(config.SUPABASE_URL, config.SUPABASE_ANON_KEY);
-  //      console.log("Supabase 初始化成功");
-  //      return supabaseInstance;
-  //  } else {
-  //      alert("配置加载失败，请刷新页面或检查网络");
-  //      return null;
-  //  }
-  //}
   
 
   // 向后兼容的别名
@@ -197,56 +153,6 @@
    * @param {number} col
    * @returns {{ success: boolean, captured: number, reason?: string }}
    */
-  /*function placeStone(row, col) {
-    // 检查位置是否为空
-    if (board[row][col] !== EMPTY) {
-      return { success: false, captured: 0, reason: '该位置已有棋子' };
-    }
-    
-    const color = currentPlayer;
-    const opponent = color === BLACK ? WHITE : BLACK;
-    
-    // 1. 临时落子
-    board[row][col] = color;
-    
-    // 2. 先检查四周敌方棋子的气，执行提子
-    let totalCaptured = 0;
-    let capturedList = [];  // 记录被提坐标（供 broadcast 使用）
-    for (const [dr, dc] of DIRECTIONS) {
-      const nr = row + dr;
-      const nc = col + dc;
-      if (nr >= 0 && nr < SIZE && nc >= 0 && nc < SIZE && board[nr][nc] === opponent) {
-        const { liberties, group } = bfsCheckLiberties(nr, nc, opponent);
-        if (liberties === 0) {
-          // 气数为 0，移除该棋串
-          for (const [r, c] of group) {
-            capturedList.push([r, c]);
-            board[r][c] = EMPTY;
-          }
-          totalCaptured += group.length;
-        }
-      }
-    }
-    
-    // 3. 检查自己的棋串是否有气（防止自杀）
-    const { liberties: selfLiberties } = bfsCheckLiberties(row, col, color);
-    if (selfLiberties === 0) {
-      // 自杀手，回滚落子
-      board[row][col] = EMPTY;
-      // 同时回滚已提的敌方棋子
-      // 注：完整回滚较复杂，此处禁止自杀手
-      return { success: false, captured: 0, reason: '禁止自杀（该落子无气）' };
-    }
-    
-    // 4. 更新捕获计数
-    if (color === BLACK) {
-      blackCaptures += totalCaptured;
-    } else {
-      whiteCaptures += totalCaptured;
-    }
-    
-    return { success: true, captured: totalCaptured, capturedGroup: capturedList };
-  }*/
   // 在全局或初始化处定义劫争状态机
   window.state = window.state || {};
   window.state.koPoint = null; // 存储当前被锁死的劫位坐标：{ row, col }
@@ -1023,43 +929,6 @@ function judgeWinner(board, blackTerritory, whiteTerritory) {
     }
   }
 
-  /*
-  function initEventListeners() {
-    bindTopBarActions();
-    // 将逻辑合并为一个监听器，确保流程线性执行
-    document.getElementById('go-game-btn')?.addEventListener('click', async () => {
-        try {
-            // 1. 优先加载音频资源，防止后续 playSound 报错
-            await initAudio(); 
-            playSound('click'); 
-
-            // 2. 统一切换 UI 状态[cite: 1, 2]
-            const selection = document.getElementById('game-selection');
-            const app = document.querySelector('.app');
-            
-            if (selection) selection.style.display = 'none';
-            if (app) {
-                app.style.display = 'grid'; // 确保容器先显示，Canvas 才能正确获取宽高
-            }
-
-            // 3. 更新沉浸式状态与文本[cite: 1, 2]
-            applyImmersiveState(true);
-            updateUI();
-
-            // 4. 初始化棋盘逻辑
-            // 使用 requestAnimationFrame 确保 DOM 挂载完成后再绘制
-            requestAnimationFrame(() => {
-                if (typeof initGame === 'function') {
-                    initGame();
-                } else {
-                    console.error("initGame 函数未定义，请检查逻辑脚本");
-                }
-            });
-        } catch (error) {
-            console.error("启动游戏失败:", error);
-        }
-    });
-  }*/
  //增加单机 AI 模式的直接启动逻辑  2026-05-17
  function initEventListeners() {
     bindTopBarActions();
