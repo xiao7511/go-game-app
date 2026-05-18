@@ -2625,54 +2625,64 @@ async function refreshRoomFromServer(room) {
   /**
    * 🟢 2026-05-17 新增：AI 的智能寻点与模拟落子动作
    */
+  // -----------------------------------------------------------
+  // 🟢 终极自愈：AI 智能决策与模拟下子核心引擎
+  // -----------------------------------------------------------
   function triggerAIMove() {
-    if (state.gameMode !== 'SINGLE_PLAYER' || state.currentTurn !== WHITE) return;
+    // 1. 【核心纠错】将之前错误的常量 WHITE(2) 修改为对应你 handleMultiplayerMove 的字符串 'white'
+    if (state.gameMode !== 'SINGLE_PLAYER' || state.currentTurn !== 'white') {
+      console.warn('[AI Engine] 轮次未对齐，拦截 AI 下子', '当前轮次:', state.currentTurn);
+      return;
+    }
 
-    // 1. 搜集棋盘上所有合法的空位点
+    // 2. 搜集棋盘上所有合法的空位点
     let validMoves = [];
     for (let r = 0; r < state.boardSize; r++) {
       for (let c = 0; c < state.boardSize; c++) {
         if (state.board[r][c] === EMPTY) {
-          // 这里可以调用你原有的 isValidMove(r, c, WHITE) 避免 AI 落在自杀禁着点上
-          // 如果没有封装，也可以采用最简空位判定
           validMoves.push({ r, c });
         }
       }
     }
 
     if (validMoves.length === 0) {
-      alert('棋盘已无落子空间，对局结束！');
+      alert('棋盘已满，对局结束！');
       return;
     }
 
-    // 2. 随机或基于简单棋形库选取一个坐标点（后续可无限在此处升级高级算法）
+    // 3. 随机选择一个可行点 (AI 执白)
     const chosenMove = validMoves[Math.floor(Math.random() * validMoves.length)];
     const aiRow = chosenMove.r;
     const aiCol = chosenMove.c;
 
-    // 3. 将 AI 棋子写入底层数据矩阵（AI 执白）
-    state.board[aiRow][aiCol] = WHITE;
+    console.log(`[AI Engine] 决定落子坐标: [${aiRow}, ${aiCol}]`);
 
-    // 4. 执行提子逻辑（复用你现有的 checkCaptures 提子清除函数）
-    if (typeof checkCaptures === 'function') {
-      checkCaptures(aiRow, aiCol, WHITE);
+    // 4. 【核心纠错】调用本地原生的试落子与提子状态机，使 AI 能完美处理吃子规则
+    // 传入常量 WHITE (数字 2) 驱动底层的 placeStone
+    const result = placeStone(aiRow, aiCol, WHITE);
+
+    if (!result.success) {
+      // 如果选中的位置触发禁着点，直接紧急自愈：重新寻找下一个空位
+      console.warn('[AI Engine] 触发禁着点，自愈重选...');
+      setTimeout(triggerAIMove, 50);
+      return;
     }
 
-    // 5. 熔断你上一手的闪烁，让 AI 最新的这颗白棋本体完美进入【频率闪烁机制】
+    // 5. 播放落子音效
+    playSound(result.captured > 0 ? 'capture' : 'placeStone');
+
+    // 6. 🌟 熔断玩家刚刚那一手黑子的闪烁，让 AI 最新的这颗白子【整颗本体开始频率闪烁】
     clearBlink();
-    startBlink(aiRow, aiCol, WHITE);
+    startBlink(aiRow, aiCol, WHITE); // 传入数字常量 2 驱动 Canvas
 
-    // 6. 播放落子音效
-    if (window.playSound) {
-      window.playSound('placeStone');
-    }
-
-    // 7. 将回合交还给黑棋（玩家）
-    state.currentTurn = BLACK;
+    // 7. 【核心纠错】将回合严格切换回小写字符串格式，还给玩家（黑棋）
+    state.currentTurn = 'black';
     
-    // 8. 全盘重绘与数据交互面板刷新
-    updateProfilePanels();
+    // 8. 强制全盘重绘与右侧信息面板刷新
     drawFullBoard();
+    updateProfilePanels();
+    
+    console.log('[AI Engine] AI 落子完毕，轮次移交玩家。');
   }
   window.MP = {
     createRoom,
