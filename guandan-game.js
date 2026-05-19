@@ -1,252 +1,595 @@
 (() => {
   'use strict';
 
+  const GD = (window.GD = window.GD || {});
+  if (GD.__loaded) return;
+  GD.__loaded = true;
+
   const ROOT_ID = 'guandan-game-container';
   const STYLE_ID = 'gd-style';
-  const SUITS = { S: '♠', H: '♥', C: '♣', D: '♦' };
-  const RANKS = ['3','4','5','6','7','8','9','10','J','Q','K','A','2'];
-  const W = Object.fromEntries(RANKS.map((v, i) => [v, i + 3]));
-  const JOKER = { '小王': 16, '大王': 17 };
-  const SEATS = ['South', 'East', 'North', 'West'];
-  const TEAM = [0, 1, 0, 1]; // 0: South/North, 1: East/West
+  const CARD_W = 75;
+  const SUITS = [
+    { key: 'S', symbol: '♠', color: 'black' },
+    { key: 'H', symbol: '♥', color: 'red' },
+    { key: 'C', symbol: '♣', color: 'black' },
+    { key: 'D', symbol: '♦', color: 'red' },
+  ];
+  const RANKS = ['3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A', '2'];
+  const RANK_VALUE = Object.fromEntries(RANKS.map((r, i) => [r, i + 3]));
+  const SEATS = [
+    { id: 0, name: '南家', short: 'South', team: 0 },
+    { id: 1, name: '东家', short: 'East', team: 1 },
+    { id: 2, name: '北家', short: 'North', team: 0 },
+    { id: 3, name: '西家', short: 'West', team: 1 },
+  ];
 
   const state = {
     gameMode: 'SINGLE_PLAYER',
     currentRank: 2,
-    players: [],
     currentTurn: 0,
-    lastMove: null,
     selected: new Set(),
-    root: null,
+    players: [],
+    trick: null,
     timer: null,
-    ctx: null,
+    root: null,
+    styleNode: null,
     active: false,
     busy: false,
     logs: [],
     cardsById: new Map(),
-    styleNode: null,
     listeners: [],
     aiDelay: 0,
-    loopTick: 0,
+    deckSeed: 0,
   };
 
-  const GD = (window.GD = window.GD || {});
-  if (GD.__loaded) return;
-  GD.__loaded = true;
   GD.state = state;
 
+  const AudioCtor = window.AudioContext || window.webkitAudioContext;
+  const ctx = AudioCtor ? new AudioCtor() : null;
+
   const uid = () => `${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
-  const clamp = (n, a, b) => Math.max(a, Math.min(b, n));
-  const isJoker = (c) => c.v === '小王' || c.v === '大王';
-  const isRed = (c) => c.s === SUITS.H || isJoker(c);
-  const sortCards = (arr) => arr.slice().sort((a, b) => a.w - b.w || a.s.localeCompare(b.s));
-  const seatName = (i) => ['南', '东', '北', '西'][i];
-  const teamName = (i) => (TEAM[i] === 0 ? 'A组' : 'B组');
-  const sameTeam = (a, b) => TEAM[a] === TEAM[b];
+  const sameTeam = (a, b) => state.players[a]?.team === state.players[b]?.team;
+  const isJoker = (c) => c.kind === 'joker';
+  const isRed = (c) => c.suit === 'H' || isJoker(c);
+  const sortCards = (cards) => cards.slice().sort((a, b) => a.value - b.value || a.suit.localeCompare(b.suit));
+  const rankLabel = (c) => c.kind === 'joker' ? c.label : c.rank;
+  const teamLabel = (team) => (team === 0 ? 'A组' : 'B组');
 
-  function getCtx() {
-    if (!state.ctx) {
-      const AC = window.AudioContext || window.webkitAudioContext;
-      if (!AC) return null;
-      state.ctx = new AC();
-    }
-    if (state.ctx.state === 'suspended') state.ctx.resume().catch(() => {});
-    return state.ctx;
+  function on(target, type, handler, options) {
+    target.addEventListener(type, handler, options);
+    state.listeners.push([target, type, handler, options]);
   }
 
-  function beep(type) {
-    const ctx = getCtx();
-    if (!ctx) return;
-    const o = ctx.createOscillator();
-    const g = ctx.createGain();
-    o.connect(g); g.connect(ctx.destination);
-    const t = ctx.currentTime;
+  function offAll() {
+    while (state.listeners.length) {
+      const [target, type, handler, options] = state.listeners.pop();
+      try { target.removeEventListener(type, handler, options); } catch (_) {}
+    }
+  }
+
+  function getAudio() {
+    if (!ctx) return null;
+    if (ctx.state === 'suspended') ctx.resume().catch(() => {});
+    return ctx;
+  }
+
+  function playGDSound(type) {
+    const ac = getAudio();
+    if (!ac) return;
+    const o = ac.createOscillator();
+    const g = ac.createGain();
+    o.connect(g);
+    g.connect(ac.destination);
+    const t = ac.currentTime;
+
     if (type === 'click') {
-      o.type = 'sine'; o.frequency.setValueAtTime(920, t); o.frequency.exponentialRampToValueAtTime(1200, t + 0.05);
-      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.08, t + 0.005); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.06);
-      o.start(t); o.stop(t + 0.07);
-    } else if (type === 'play') {
-      o.type = 'triangle'; o.frequency.setValueAtTime(440, t); o.frequency.exponentialRampToValueAtTime(880, t + 0.075);
-      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.1, t + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.16);
-      o.start(t); o.stop(t + 0.18);
-    } else if (type === 'bomb') {
-      o.type = 'sawtooth'; o.frequency.setValueAtTime(160, t); o.frequency.exponentialRampToValueAtTime(30, t + 0.35);
-      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.18, t + 0.04); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.42);
-      o.start(t); o.stop(t + 0.45);
-    } else {
-      o.type = 'sine'; o.frequency.setValueAtTime(180, t); o.frequency.exponentialRampToValueAtTime(95, t + 0.08);
-      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.03, t + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.11);
-      o.start(t); o.stop(t + 0.13);
+      o.type = 'sine';
+      o.frequency.setValueAtTime(800, t);
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(0.07, t + 0.005);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.05);
+      o.start(t);
+      o.stop(t + 0.055);
+      return;
     }
+
+    if (type === 'play') {
+      o.type = 'triangle';
+      o.frequency.setValueAtTime(440, t);
+      o.frequency.exponentialRampToValueAtTime(660, t + 0.12);
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(0.09, t + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.12);
+      o.start(t);
+      o.stop(t + 0.13);
+      return;
+    }
+
+    if (type === 'bomb') {
+      o.type = 'sawtooth';
+      o.frequency.setValueAtTime(180, t);
+      o.frequency.exponentialRampToValueAtTime(40, t + 0.45);
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(0.16, t + 0.03);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.45);
+      o.start(t);
+      o.stop(t + 0.46);
+      return;
+    }
+
+    o.type = 'sine';
+    o.frequency.setValueAtTime(120, t);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.05, t + 0.015);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.1);
+    o.start(t);
+    o.stop(t + 0.11);
   }
 
-  function injectStyles() {
+  function injectResponsiveStyles() {
     if (document.getElementById(STYLE_ID)) return;
     const s = document.createElement('style');
     s.id = STYLE_ID;
     s.textContent = `
-      #${ROOT_ID}{position:fixed;inset:0;z-index:9999;display:flex;flex-direction:column;background:#08130b;color:#fff;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;}
+      #${ROOT_ID}{position:fixed;inset:0;z-index:9999;background:#07160f;color:#f5f7f4;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;display:flex;flex-direction:column;overflow:hidden}
       #${ROOT_ID} *{box-sizing:border-box}
       #${ROOT_ID} .gd-shell{height:100%;display:grid;grid-template-rows:auto 1fr auto}
-      #${ROOT_ID} .gd-top{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:12px 14px;background:rgba(0,0,0,.28);backdrop-filter:blur(8px);border-bottom:1px solid rgba(255,215,0,.18)}
-      #${ROOT_ID} .gd-badges{display:flex;gap:8px;flex-wrap:wrap}
-      #${ROOT_ID} .gd-pill{padding:6px 10px;border:1px solid rgba(255,215,0,.22);border-radius:999px;background:rgba(255,255,255,.06);font-size:12px}
-      #${ROOT_ID} .gd-main{display:grid;grid-template-columns:minmax(190px, 250px) minmax(0,1fr) minmax(190px, 260px);gap:12px;padding:12px;min-height:0}
-      #${ROOT_ID} .gd-panel{min-height:0;background:rgba(255,255,255,.04);border:1px solid rgba(255,215,0,.16);border-radius:18px;box-shadow:0 16px 34px rgba(0,0,0,.22);overflow:hidden}
-      #${ROOT_ID} .gd-panel-h{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border-bottom:1px solid rgba(255,215,0,.12)}
+      #${ROOT_ID} .gd-top{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 14px;background:rgba(0,0,0,.28);border-bottom:1px solid rgba(212,175,55,.18);backdrop-filter:blur(10px)}
+      #${ROOT_ID} .gd-top strong{display:block;font-size:16px;letter-spacing:.08em}
+      #${ROOT_ID} .gd-top small{display:block;font-size:12px;opacity:.72;margin-top:3px}
+      #${ROOT_ID} .gd-badges{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+      #${ROOT_ID} .gd-pill{padding:6px 10px;border-radius:999px;background:rgba(255,255,255,.08);border:1px solid rgba(212,175,55,.18);font-size:12px}
+      #${ROOT_ID} .gd-main{min-height:0;display:grid;grid-template-columns:minmax(180px,240px) minmax(0,1fr) minmax(180px,240px);gap:12px;padding:12px}
+      #${ROOT_ID} .gd-panel{min-height:0;overflow:hidden;background:rgba(255,255,255,.04);border:1px solid rgba(212,175,55,.12);border-radius:18px;box-shadow:0 18px 38px rgba(0,0,0,.25)}
+      #${ROOT_ID} .gd-panel-h{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-bottom:1px solid rgba(212,175,55,.12)}
       #${ROOT_ID} .gd-panel-b{padding:10px 12px}
-      #${ROOT_ID} .gd-table{min-height:calc(100vh - 190px);display:grid;grid-template-rows:auto 1fr auto;gap:12px;padding:16px;background:radial-gradient(circle, #195a32 0%, #0d321b 100%);border-radius:22px;border:2px solid rgba(255,215,0,.65);box-shadow:inset 0 0 60px rgba(0,0,0,.22)}
+      #${ROOT_ID} .gd-table{min-height:0;display:grid;grid-template-rows:auto 1fr auto;gap:12px;padding:14px;background:radial-gradient(circle, #1b5e36 0%, #0c2b19 100%);border-radius:22px;border:2px solid #d4af37;box-shadow:inset 0 0 0 2px rgba(212,175,55,.28), inset 0 0 72px rgba(0,0,0,.18)}
       #${ROOT_ID} .gd-seats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
       #${ROOT_ID} .gd-seat{padding:10px;border-radius:16px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08)}
-      #${ROOT_ID} .gd-seat.active{outline:2px solid rgba(255,215,0,.85)}
-      #${ROOT_ID} .gd-seat .meta{font-size:12px;opacity:.8;line-height:1.5}
-      #${ROOT_ID} .gd-trick{min-height:110px;display:flex;gap:8px;justify-content:center;align-items:center;flex-wrap:wrap;padding:10px;border-radius:18px;background:rgba(0,0,0,.15);border:1px dashed rgba(255,255,255,.16)}
-      #${ROOT_ID} .gd-card,#${ROOT_ID} .gd-mini{background:#fff;color:#111;border-radius:14px;box-shadow:0 6px 12px rgba(0,0,0,.4);border:2px solid transparent;font-weight:800}
-      #${ROOT_ID} .gd-card{width:75px;height:106px;display:flex;align-items:center;justify-content:center;cursor:pointer;user-select:none;margin-left:-40px;transition:transform .15s ease,border-color .15s ease,box-shadow .15s ease}
+      #${ROOT_ID} .gd-seat.active{outline:2px solid rgba(212,175,55,.95);outline-offset:0}
+      #${ROOT_ID} .gd-seat .meta{font-size:12px;opacity:.84;line-height:1.5}
+      #${ROOT_ID} .gd-board{display:grid;grid-template-rows:auto 1fr auto;gap:12px;min-height:0}
+      #${ROOT_ID} .gd-trick{min-height:118px;display:flex;gap:8px;justify-content:center;align-items:center;flex-wrap:wrap;padding:12px;border-radius:18px;background:rgba(0,0,0,.16);border:1px dashed rgba(255,255,255,.18)}
+      #${ROOT_ID} .gd-trick-empty{opacity:.72}
+      #${ROOT_ID} .gd-card,#${ROOT_ID} .gd-mini{background:#fff;color:#111;border-radius:6px;box-shadow:0 4px 12px rgba(0,0,0,.4);border:1px solid rgba(0,0,0,.12);font-family:"Georgia",serif}
+      #${ROOT_ID} .gd-card{width:${CARD_W}px;aspect-ratio:1 / 1.4;position:relative;display:flex;align-items:center;justify-content:center;cursor:pointer;user-select:none;transition:transform .1s ease-out, box-shadow .1s ease-out, border-color .1s ease-out;background:linear-gradient(180deg,#fff,#f7f7f7);margin-left:-5vw;overflow:hidden}
       #${ROOT_ID} .gd-card:first-child{margin-left:0}
-      #${ROOT_ID} .gd-card:hover,#${ROOT_ID} .gd-card.sel{transform:translateY(-20px);border-color:#d4af37;box-shadow:0 10px 20px rgba(0,0,0,.45)}
-      #${ROOT_ID} .gd-card.red{color:#b11226}
-      #${ROOT_ID} .gd-hand{display:flex;align-items:flex-end;justify-content:center;flex-wrap:nowrap;overflow:auto;padding:4px 4px 0;min-height:132px}
-      #${ROOT_ID} .gd-controls{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;padding:10px}
-      #${ROOT_ID} button{border:0;border-radius:12px;padding:10px 14px;font-weight:800;cursor:pointer}
-      #${ROOT_ID} .primary{background:linear-gradient(135deg,#f6d365,#fda085)}
-      #${ROOT_ID} .ghost{background:rgba(255,255,255,.12);color:#fff;border:1px solid rgba(255,255,255,.12)}
+      #${ROOT_ID} .gd-card:hover,#${ROOT_ID} .gd-card.sel{transform:translateY(-24px);border-color:#d4af37;box-shadow:0 8px 16px rgba(0,0,0,.42)}
+      #${ROOT_ID} .gd-card.red{color:#d63031}
+      #${ROOT_ID} .gd-card.black{color:#2d3436}
+      #${ROOT_ID} .gd-card .corner{position:absolute;display:flex;flex-direction:column;align-items:flex-start;line-height:1}
+      #${ROOT_ID} .gd-card .corner span{display:block}
+      #${ROOT_ID} .gd-card .corner .r{font-size:15px;font-weight:700}
+      #${ROOT_ID} .gd-card .corner .s{font-size:10px;margin-top:2px}
+      #${ROOT_ID} .gd-card .tl{top:6px;left:6px}
+      #${ROOT_ID} .gd-card .br{right:6px;bottom:6px;transform:rotate(180deg)}
+      #${ROOT_ID} .gd-card .center{font-size:18px;font-weight:700;transform:translateY(-1px)}
+      #${ROOT_ID} .gd-hand{display:flex;align-items:flex-end;justify-content:center;flex-wrap:nowrap;overflow:auto;padding:8px 6px 0;min-height:140px;max-height:20vh}
+      #${ROOT_ID} .gd-controls{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;padding:10px 12px 12px}
+      #${ROOT_ID} button{border:0;border-radius:12px;padding:10px 14px;font-weight:800;cursor:pointer;transition:transform .12s ease,opacity .12s ease,box-shadow .12s ease}
+      #${ROOT_ID} button:active{transform:translateY(1px)}
+      #${ROOT_ID} .primary{background:linear-gradient(135deg,#f6d365,#fda085);color:#1a1a1a;box-shadow:0 10px 22px rgba(246,211,101,.18)}
+      #${ROOT_ID} .ghost{background:rgba(255,255,255,.12);color:#fff;border:1px solid rgba(255,255,255,.14)}
       #${ROOT_ID} .danger{background:#ef4444;color:#fff}
       #${ROOT_ID} .gd-log{display:flex;flex-direction:column;gap:8px;max-height:100%;overflow:auto}
       #${ROOT_ID} .gd-log p{margin:0;padding:8px 10px;background:rgba(255,255,255,.05);border-radius:12px;font-size:13px;line-height:1.45}
-      #${ROOT_ID} .gd-foot{display:flex;justify-content:space-between;gap:10px;align-items:center;padding:10px 14px;background:rgba(0,0,0,.25);border-top:1px solid rgba(255,215,0,.15)}
-      @media (max-width: 980px){#${ROOT_ID} .gd-main{grid-template-columns:1fr}#${ROOT_ID} .gd-table{min-height:calc(100vh - 250px)}}
-      @media (max-width: 640px){#${ROOT_ID} .gd-card{width:56px;height:82px;margin-left:-24px;font-size:12px}#${ROOT_ID} .gd-table{padding:10px}#${ROOT_ID} .gd-seats{grid-template-columns:1fr}}
+      #${ROOT_ID} .gd-foot{display:flex;justify-content:space-between;gap:10px;align-items:center;padding:10px 14px;background:rgba(0,0,0,.22);border-top:1px solid rgba(212,175,55,.15)}
+      #${ROOT_ID} .gd-toast{opacity:0;transition:opacity .15s ease;color:#f4d38f}
+      #${ROOT_ID} .gd-mini{padding:4px 6px;font-size:11px;display:inline-flex;align-items:center;justify-content:center}
+      @media (max-width: 980px){
+        #${ROOT_ID} .gd-main{grid-template-columns:1fr;grid-template-rows:auto auto auto;overflow:auto}
+        #${ROOT_ID} .gd-table{min-height:auto}
+        #${ROOT_ID} .gd-hand{max-height:18vh}
+      }
+      @media (max-width: 768px){
+        #${ROOT_ID} .gd-card{width:11vw;min-width:54px;max-width:64px}
+        #${ROOT_ID} .gd-top{flex-direction:column;align-items:flex-start}
+        #${ROOT_ID} .gd-badges{justify-content:flex-start}
+        #${ROOT_ID} .gd-seats{grid-template-columns:1fr}
+        #${ROOT_ID} .gd-hand{max-height:18vh;padding-top:6px}
+      }
+      @media (max-width: 480px){
+        #${ROOT_ID} .gd-card{min-width:48px}
+        #${ROOT_ID} .gd-card .center{font-size:16px}
+        #${ROOT_ID} .gd-foot{flex-direction:column;align-items:flex-start}
+      }
     `;
     document.head.appendChild(s);
     state.styleNode = s;
   }
 
-  function initDeck() {
+  function makeDeck() {
     const deck = [];
-    const suits = Object.values(SUITS);
-    for (let k = 0; k < 2; k++) {
-      for (const s of suits) for (const v of RANKS) deck.push({ id: uid(), v, s, isRed: s === SUITS.H, w: W[v] });
-      deck.push({ id: uid(), v: '小王', s: '🃏', isRed: true, w: JOKER['小王'] });
-      deck.push({ id: uid(), v: '大王', s: '🃏', isRed: false, w: JOKER['大王'] });
-    }
-    for (let i = deck.length - 1; i > 0; i--) { const j = (Math.random() * (i + 1)) | 0; [deck[i], deck[j]] = [deck[j], deck[i]]; }
-    state.cardsById = new Map(deck.map((c) => [c.id, c]));
-    state.players = [0, 1, 2, 3].map((seat) => ({ seat, name: seatName(seat), team: TEAM[seat], hand: [] }));
-    deck.forEach((c, i) => state.players[i % 4].hand.push(c));
-    state.players.forEach((p) => p.hand.sort((a, b) => a.w - b.w));
-    state.currentTurn = 0;
-    state.lastMove = null;
-    state.selected = new Set();
-    state.logs = ['掼蛋已启动'];
-    state.aiDelay = 0;
-    state.active = true;
-  }
-
-  function moveType(cards) {
-    const n = cards.length;
-    const ws = cards.map((c) => c.w).sort((a, b) => a - b);
-    const counts = cards.reduce((m, c) => (m[c.w] = (m[c.w] || 0) + 1, m), {});
-    const uniq = Object.keys(counts).length;
-    if (n === 1) return { t: 'single', w: ws[0], n };
-    if (n === 2 && uniq === 1) return { t: 'pair', w: ws[0], n };
-    if (n === 3 && uniq === 1) return { t: 'triple', w: ws[0], n };
-    if (n >= 4 && uniq === 1) return { t: 'bomb', w: ws[0], n };
-    return null;
-  }
-
-  function beats(a, b) {
-    if (!b) return true;
-    if (a.t === 'bomb' && b.t !== 'bomb') return true;
-    if (a.t !== b.t) return false;
-    if (a.n !== b.n) return false;
-    return a.w > b.w;
-  }
-
-  function pickLowest(hand, n = 1) { return sortCards(hand).slice(0, n); }
-
-  function findSmallestBigger(hand, last) {
-    const g = hand.reduce((m, c) => ((m[c.w] ||= []).push(c), m), {});
-    if (!last) return pickLowest(hand, 1);
-    if (last.t === 'single' || last.t === 'pair' || last.t === 'triple') {
-      for (const w of Object.keys(g).map(Number).sort((a, b) => a - b)) {
-        if (w > last.w && g[w].length >= last.n) return g[w].slice(0, last.n);
+    for (let d = 0; d < 2; d++) {
+      for (const suit of SUITS) {
+        for (const rank of RANKS) {
+          deck.push({
+            id: uid(),
+            kind: 'normal',
+            rank,
+            suit: suit.key,
+            suitSymbol: suit.symbol,
+            color: suit.color,
+            value: RANK_VALUE[rank],
+          });
+        }
       }
+      deck.push({ id: uid(), kind: 'joker', label: '小王', rank: '小王', suit: 'J', suitSymbol: '🃏', color: 'red', value: 16 });
+      deck.push({ id: uid(), kind: 'joker', label: '大王', rank: '大王', suit: 'J', suitSymbol: '🃏', color: 'black', value: 17 });
     }
-    for (const w of Object.keys(g).map(Number).sort((a, b) => a - b)) if (g[w].length >= 4 && (last.t !== 'bomb' || w > last.w)) return g[w].slice(0, 4);
+    for (let i = deck.length - 1; i > 0; i--) {
+      const j = (Math.random() * (i + 1)) | 0;
+      [deck[i], deck[j]] = [deck[j], deck[i]];
+    }
+    state.cardsById = new Map(deck.map((c) => [c.id, c]));
+    return deck;
+  }
+
+  function initPlayers(deck) {
+    state.players = SEATS.map((seat) => ({
+      seat: seat.id,
+      name: seat.name,
+      short: seat.short,
+      team: seat.team,
+      hand: [],
+      finished: false,
+    }));
+    deck.forEach((card, idx) => {
+      state.players[idx % 4].hand.push(card);
+    });
+    state.players.forEach((p) => p.hand.sort((a, b) => a.value - b.value || a.suit.localeCompare(b.suit)));
+  }
+
+  function groupsByValue(cards) {
+    const map = new Map();
+    for (const c of cards) {
+      if (!map.has(c.value)) map.set(c.value, []);
+      map.get(c.value).push(c);
+    }
+    return map;
+  }
+
+  function rankSeq(values) {
+    const arr = [...new Set(values)].sort((a, b) => a - b);
+    for (let i = 1; i < arr.length; i++) if (arr[i] !== arr[i - 1] + 1) return false;
+    return true;
+  }
+
+  function sameSuit(cards) {
+    const s = cards[0]?.suit;
+    return cards.every((c) => c.suit === s && c.kind !== 'joker');
+  }
+
+  function typeOf(cards) {
+    const n = cards.length;
+    if (!n) return null;
+    const values = cards.map((c) => c.value);
+    const grouped = groupsByValue(cards);
+    const counts = [...grouped.values()].map((x) => x.length).sort((a, b) => a - b);
+    const allSame = counts.length === 1;
+
+    if (n === 1) return { type: 'single', weight: values[0], size: 1, rank: values[0] };
+    if (n === 2 && allSame) return { type: 'pair', weight: values[0], size: 2, rank: values[0] };
+    if (n === 3 && allSame) return { type: 'triple', weight: values[0], size: 3, rank: values[0] };
+    if (n >= 4 && allSame) return { type: 'bomb', weight: values[0] * 100 + n, size: n, rank: values[0] };
+
+    if (n === 5 && rankSeq(values) && sameSuit(cards)) return { type: 'straight_flush', weight: values[0], size: 5, rank: values[0] };
+    if (n === 4 && cards.every((c) => c.kind === 'joker')) return { type: 'rocket', weight: 9999, size: 4, rank: 9999 };
+
+    if (n >= 5 && rankSeq(values) && values.every((v) => v < 16)) return { type: 'straight', weight: values[0], size: n, rank: values[0] };
+    if (n >= 6 && n % 2 === 0 && [...grouped.values()].every((x) => x.length === 2)) {
+      const pairVals = [...grouped.keys()].sort((a, b) => a - b);
+      if (rankSeq(pairVals) && pairVals.every((v) => v < 16)) return { type: 'pair_seq', weight: pairVals[0], size: n, rank: pairVals[0] };
+    }
+    if (n >= 6 && n % 3 === 0 && [...grouped.values()].every((x) => x.length === 3)) {
+      const tripleVals = [...grouped.keys()].sort((a, b) => a - b);
+      if (rankSeq(tripleVals) && tripleVals.every((v) => v < 16)) return { type: 'triple_seq', weight: tripleVals[0], size: n, rank: tripleVals[0] };
+    }
+    if (n === 5) {
+      const triple = [...grouped.entries()].find(([, x]) => x.length === 3);
+      const pair = [...grouped.entries()].find(([, x]) => x.length === 2);
+      if (triple && pair) return { type: 'full_house', weight: Number(triple[0]), size: 5, rank: Number(triple[0]) };
+    }
     return null;
   }
 
-  function playGDSound(type) { beep(type); }
+  function moveStrength(move) {
+    if (!move) return -1;
+    const hierarchy = {
+      single: 1,
+      pair: 2,
+      triple: 3,
+      full_house: 4,
+      straight: 5,
+      pair_seq: 6,
+      triple_seq: 7,
+      bomb: 8,
+      straight_flush: 9,
+      rocket: 10,
+    };
+    return (hierarchy[move.type] || 0) * 100000 + (move.rank || 0) * 100 + (move.size || 0);
+  }
 
-  function log(msg) { state.logs.unshift(msg); state.logs = state.logs.slice(0, 10); }
+  function beats(next, prev) {
+    if (!next) return false;
+    if (!prev) return true;
+    if (next.type === 'rocket') return true;
+    if (prev.type === 'rocket') return false;
+    if (next.type === 'straight_flush' && prev.type !== 'straight_flush' && prev.type !== 'rocket') {
+      if (prev.type === 'bomb') return next.size > 5; // 5张同花顺强于5炸但弱于6炸
+      return true;
+    }
+    if (next.type === 'bomb' && prev.type !== 'bomb' && prev.type !== 'rocket' && prev.type !== 'straight_flush') return true;
+    if (next.type !== prev.type) return false;
+    if (next.size !== prev.size) return false;
+    return next.weight > prev.weight;
+  }
+
+  function formatCard(card) {
+    const cls = card.color === 'red' ? 'red' : 'black';
+    return `
+      <button class="gd-card ${cls}" type="button" data-card-id="${card.id}" aria-label="${rankLabel(card)}${card.suitSymbol}">
+        <span class="corner tl"><span class="r">${rankLabel(card)}</span><span class="s">${card.suitSymbol}</span></span>
+        <span class="center">${rankLabel(card)}</span>
+        <span class="corner br"><span class="r">${rankLabel(card)}</span><span class="s">${card.suitSymbol}</span></span>
+      </button>`;
+  }
+
+  function createShell() {
+    const root = document.createElement('div');
+    root.id = ROOT_ID;
+    root.innerHTML = `
+      <div class="gd-shell">
+        <div class="gd-top">
+          <div>
+            <strong>掼蛋娱乐模式</strong>
+            <small>window.GD 独立沙箱 · 1 对 3 本地 AI</small>
+          </div>
+          <div class="gd-badges">
+            <span class="gd-pill">主级：<b data-gd-rank>${state.currentRank}</b></span>
+            <span class="gd-pill">当前：<b data-gd-turn>南家</b></span>
+            <span class="gd-pill">牌型：<b data-gd-move>—</b></span>
+          </div>
+        </div>
+
+        <div class="gd-main">
+          <section class="gd-panel">
+            <div class="gd-panel-h"><b>四方座位</b><span class="gd-pill">A组 / B组</span></div>
+            <div class="gd-panel-b">
+              <div class="gd-seats" data-gd-seats></div>
+            </div>
+          </section>
+
+          <section class="gd-table">
+            <div class="gd-board">
+              <div class="gd-panel" style="background:rgba(0,0,0,.12)">
+                <div class="gd-panel-h"><b>公共牌桌</b><span class="gd-pill">108 张 / 双副牌</span></div>
+                <div class="gd-panel-b"><div class="gd-trick" data-gd-trick></div></div>
+              </div>
+              <div class="gd-panel">
+                <div class="gd-panel-h"><b>玩家手牌（南家）</b><span class="gd-pill">点击选择</span></div>
+                <div class="gd-panel-b"><div class="gd-hand" data-gd-hand></div></div>
+              </div>
+            </div>
+            <div class="gd-controls">
+              <button class="primary" data-gd-play>出牌</button>
+              <button class="ghost" data-gd-pass>过牌</button>
+              <button class="ghost" data-gd-sort>整理</button>
+              <button class="danger" data-gd-exit>返回主页</button>
+            </div>
+          </section>
+
+          <section class="gd-panel">
+            <div class="gd-panel-h"><b>日志 / 计分</b><span class="gd-pill">闭环对局</span></div>
+            <div class="gd-panel-b">
+              <div class="gd-log" data-gd-log></div>
+              <div class="gd-pill" style="display:block;margin-top:10px;text-align:center">剩余牌：<b data-gd-score></b></div>
+            </div>
+          </section>
+        </div>
+
+        <div class="gd-foot">
+          <span>纯 CSS + Web Audio API · 移动端自适应 · 零污染沙箱</span>
+          <span class="gd-toast" data-gd-toast></span>
+        </div>
+      </div>`;
+    return root;
+  }
+
+  function renderSeats() {
+    const seats = state.root?.querySelector('[data-gd-seats]');
+    if (!seats) return;
+    seats.innerHTML = state.players.map((p) => {
+      const preview = sortCards(p.hand).slice(0, 8).map((c) => `<span class="gd-mini ${c.color}">${rankLabel(c)}${c.suitSymbol}</span>`).join('');
+      return `
+        <div class="gd-seat ${p.seat === state.currentTurn ? 'active' : ''}">
+          <b>${p.name} · ${teamLabel(p.team)}</b>
+          <div class="meta">${p.hand.length} 张${p.hand.length <= 10 ? '｜报子' : ''}${p.hand.length <= 5 ? '｜危险' : ''}</div>
+          <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:8px">${preview}</div>
+        </div>`;
+    }).join('');
+  }
 
   function renderTable() {
-    const r = state.root;
-    if (!r) return;
-    const seats = r.querySelector('[data-gd-seats]');
-    const trick = r.querySelector('[data-gd-trick]');
-    const logEl = r.querySelector('[data-gd-log]');
-    const hand = r.querySelector('[data-gd-hand]');
-    const turn = r.querySelector('[data-gd-turn]');
-    const rank = r.querySelector('[data-gd-rank]');
-    const move = r.querySelector('[data-gd-move]');
-    const score = r.querySelector('[data-gd-score]');
+    const root = state.root;
+    if (!root) return;
 
-    seats.innerHTML = state.players.map((p) => {
-      const preview = sortCards(p.hand).slice(0, 8).map((c) => `<span class="gd-mini ${c.isRed ? 'red' : ''}" style="padding:4px 6px;margin:2px;display:inline-flex">${c.v}${c.s}</span>`).join('');
-      return `<div class="gd-seat ${p.seat === state.currentTurn ? 'active' : ''}"><b>${seatName(p.seat)} · ${teamName(p.seat)}</b><div class="meta">${p.hand.length} 张${p.hand.length <= 10 ? '｜报子' : ''}${p.hand.length <= 5 ? '｜快报子' : ''}</div><div style="display:flex;flex-wrap:wrap">${preview}</div></div>`;
-    }).join('');
+    const trick = root.querySelector('[data-gd-trick]');
+    const hand = root.querySelector('[data-gd-hand]');
+    const log = root.querySelector('[data-gd-log]');
+    const turn = root.querySelector('[data-gd-turn]');
+    const rank = root.querySelector('[data-gd-rank]');
+    const move = root.querySelector('[data-gd-move]');
+    const score = root.querySelector('[data-gd-score]');
+    const playBtn = root.querySelector('[data-gd-play]');
+    const passBtn = root.querySelector('[data-gd-pass]');
+    const toast = root.querySelector('[data-gd-toast]');
 
-    trick.innerHTML = state.lastMove ? state.lastMove.cards.map((c) => `<span class="gd-mini ${c.isRed ? 'red' : ''}" style="padding:10px 12px">${c.v}${c.s}</span>`).join('') : '<span style="opacity:.7">等待出牌</span>';
-    hand.innerHTML = sortCards(state.players[0].hand).map((c) => `<button class="gd-card ${c.isRed ? 'red' : ''} ${state.selected.has(c.id) ? 'sel' : ''}" data-id="${c.id}" type="button">${c.v}<br>${c.s}</button>`).join('');
-    turn.textContent = `${seatName(state.currentTurn)} (${teamName(state.currentTurn)})`;
+    renderSeats();
+
+    if (state.trick) {
+      trick.innerHTML = state.trick.cards.map((c) => `<span class="gd-mini ${c.color}">${rankLabel(c)}${c.suitSymbol}</span>`).join('');
+    } else {
+      trick.innerHTML = `<span class="gd-trick-empty">等待出牌</span>`;
+    }
+
+    const me = state.players[0];
+    hand.innerHTML = sortCards(me.hand).map((c) => formatCard(c)).join('');
+    turn.textContent = state.players[state.currentTurn]?.name || '—';
     rank.textContent = String(state.currentRank);
-    move.textContent = state.lastMove ? `${state.lastMove.t} · ${state.lastMove.cards.length}` : '—';
-    score.textContent = `${state.players[0].hand.length} / ${state.players[1].hand.length} / ${state.players[2].hand.length} / ${state.players[3].hand.length}`;
-    logEl.innerHTML = state.logs.map((x) => `<p>${x}</p>`).join('');
-    r.querySelector('[data-gd-play]').disabled = state.currentTurn !== 0;
-    r.querySelector('[data-gd-pass]').disabled = state.currentTurn !== 0 || !state.lastMove;
+    move.textContent = state.trick ? `${state.trick.type} · ${state.trick.cards.length}` : '—';
+    score.textContent = state.players.map((p) => p.hand.length).join(' / ');
+    log.innerHTML = state.logs.map((m) => `<p>${m}</p>`).join('');
+    playBtn.disabled = state.currentTurn !== 0;
+    passBtn.disabled = state.currentTurn !== 0 || !state.trick;
+    if (toast) toast.textContent = state._toastText || '';
+
+    hand.querySelectorAll('[data-card-id]').forEach((btn) => {
+      const id = btn.getAttribute('data-card-id');
+      if (state.selected.has(id)) btn.classList.add('sel');
+    });
+  }
+
+  function toast(msg) {
+    const node = state.root?.querySelector('[data-gd-toast]');
+    if (!node) return;
+    state._toastText = msg;
+    node.style.opacity = '1';
+    clearTimeout(state._toastTimer);
+    state._toastTimer = setTimeout(() => {
+      node.style.opacity = '0';
+      state._toastText = '';
+    }, 1200);
+  }
+
+  function log(msg) {
+    state.logs.unshift(msg);
+    state.logs = state.logs.slice(0, 10);
+  }
+
+  function initDeckAndPlayers() {
+    const deck = makeDeck();
+    initPlayers(deck);
+    state.selected = new Set();
+    state.currentTurn = 0;
+    state.trick = null;
+    state.logs = ['掼蛋已启动'];
+    state.active = true;
+    state.busy = false;
+    state.aiDelay = 0;
+  }
+
+  function removeSelectedFromHand(hand, ids) {
+    const set = new Set(ids);
+    return hand.filter((c) => !set.has(c.id));
   }
 
   function playCards(seat, cards) {
+    const move = typeOf(cards);
+    if (!move) return false;
+    if (state.trick && !beats(move, state.trick)) return false;
+
     const player = state.players[seat];
-    const mv = moveType(cards);
-    if (!mv) return false;
-    if (!beats(mv, state.lastMove)) return false;
-    const ids = new Set(cards.map((c) => c.id));
-    player.hand = player.hand.filter((c) => !ids.has(c.id));
+    player.hand = removeSelectedFromHand(player.hand, cards.map((c) => c.id));
+    player.finished = player.hand.length === 0;
+    state.trick = { ...move, cards, seat };
     state.selected.clear();
-    state.lastMove = { ...mv, cards, seat };
     state.currentTurn = (seat + 1) % 4;
-    state.aiDelay = performance.now() + 280;
-    playGDSound(mv.t === 'bomb' ? 'bomb' : 'play');
-    log(`${seatName(seat)} 出牌：${mv.t}`);
-    if (!player.hand.length) log(`${seatName(seat)} 已出完牌`);
+    state.aiDelay = performance.now() + 180;
+
+    playGDSound(move.type === 'bomb' || move.type === 'rocket' ? 'bomb' : 'play');
+    log(`${player.name} 出牌：${move.type}`);
+    if (player.finished) log(`${player.name} 已出完牌`);
     renderTable();
     return true;
   }
 
   function passTurn(seat) {
+    if (!state.trick) return false;
+    log(`${state.players[seat].name} 过牌`);
+    if (state.trick && state.trick.seat === seat) state.trick = null;
     state.currentTurn = (seat + 1) % 4;
     playGDSound('pass');
-    log(`${seatName(seat)} 过牌`);
-    if (state.lastMove && state.currentTurn === state.lastMove.seat) state.lastMove = null;
     renderTable();
+    return true;
+  }
+
+  function bestOpening(hand) {
+    const sorted = sortCards(hand);
+    const byValue = groupsByValue(sorted);
+    const pair = [...byValue.values()].find((g) => g.length >= 2);
+    const triple = [...byValue.values()].find((g) => g.length >= 3);
+    const bomb = [...byValue.values()].find((g) => g.length >= 4);
+    if (pair && pair.length === 2) return pair;
+    if (triple && triple.length === 3) return triple;
+    if (bomb && bomb.length >= 4) return bomb.slice(0, 4);
+    return [sorted[0]];
+  }
+
+  function chooseFollowMove(hand, last) {
+    const sorted = sortCards(hand);
+    const byValue = [...groupsByValue(sorted).entries()].sort((a, b) => a[0] - b[0]);
+    const teamWin = state.trick && sameTeam(state.currentTurn, state.trick.seat);
+    const danger = state.players.some((p, i) => i !== state.currentTurn && p.hand.length <= 5);
+
+    if (!last) return bestOpening(sorted);
+    if (teamWin && hand.length > 8) return null; // 同伙领出时优先放行
+
+    if (last.type === 'single' || last.type === 'pair' || last.type === 'triple') {
+      for (const [value, group] of byValue) {
+        if (value > last.weight && group.length >= last.size) return group.slice(0, last.size);
+      }
+    }
+
+    if (last.type !== 'bomb' && last.type !== 'rocket' && (danger || hand.length <= 8)) {
+      const bomb = byValue.find(([, group]) => group.length >= 4);
+      if (bomb) return bomb[1].slice(0, Math.min(bomb[1].length, 8));
+    }
+
+    if (last.type === 'bomb') {
+      for (const [value, group] of byValue) {
+        if (group.length >= last.size && group.length >= 4 && (group.length > last.size || value > last.weight)) {
+          return group.slice(0, last.size);
+        }
+      }
+    }
+
+    return null;
   }
 
   function triggerAIMove() {
-    if (!state.active || state.busy || state.currentTurn === 0 || performance.now() < state.aiDelay) return;
+    if (!state.active || state.busy || state.currentTurn === 0) return;
+    if (performance.now() < state.aiDelay) return;
     state.busy = true;
     try {
       const seat = state.currentTurn;
       const player = state.players[seat];
-      const lead = !state.lastMove;
-      const teammateWinning = state.lastMove && sameTeam(seat, state.lastMove.seat);
+      if (!player || player.finished) {
+        state.currentTurn = (seat + 1) % 4;
+        renderTable();
+        return;
+      }
+
+      const lead = !state.trick;
+      const sameSide = state.trick && sameTeam(seat, state.trick.seat);
+      const danger = state.players.some((p, i) => i !== seat && p.hand.length <= 5);
       let choice = null;
-      if (lead || teammateWinning) choice = pickLowest(player.hand, 1);
-      else choice = findSmallestBigger(player.hand, state.lastMove);
-      if (choice) playCards(seat, choice); else passTurn(seat);
+
+      if (lead) {
+        choice = bestOpening(player.hand);
+      } else if (sameSide && player.hand.length > 6) {
+        choice = null;
+      } else {
+        choice = chooseFollowMove(player.hand, state.trick);
+      }
+
+      if (choice && choice.length) {
+        playCards(seat, choice);
+      } else {
+        passTurn(seat);
+      }
+
+      if (danger && state.currentTurn !== 0) state.aiDelay = performance.now() + 120;
     } finally {
       state.busy = false;
     }
@@ -255,115 +598,100 @@
   function humanPlay() {
     if (state.currentTurn !== 0) return;
     const cards = [...state.selected].map((id) => state.cardsById.get(id)).filter(Boolean);
-    const mv = moveType(cards);
-    if (!mv) return toast('牌型不合法');
-    if (!beats(mv, state.lastMove)) return toast('压不过当前牌');
+    const move = typeOf(cards);
+    if (!move) return toast('牌型不合法');
+    if (state.trick && !beats(move, state.trick)) return toast('压不过当前牌');
+    if (!cards.length) return toast('请先选择牌');
     playCards(0, cards);
   }
 
-  function humanPass() { if (state.currentTurn === 0 && state.lastMove) passTurn(0); }
-  function toast(msg) { const t = state.root.querySelector('[data-gd-toast]'); t.textContent = msg; t.style.opacity = '1'; clearTimeout(state._toast); state._toast = setTimeout(() => (t.style.opacity = '0'), 1200); }
+  function humanPass() {
+    if (state.currentTurn !== 0 || !state.trick) return;
+    passTurn(0);
+  }
 
-  function renderHand() {
-    const hand = state.root.querySelector('[data-gd-hand]');
-    hand.onclick = (e) => {
-      const b = e.target.closest('[data-id]'); if (!b || state.currentTurn !== 0) return;
-      const id = b.getAttribute('data-id');
-      state.selected.has(id) ? state.selected.delete(id) : state.selected.add(id);
+  function bindHandInteraction() {
+    const hand = state.root?.querySelector('[data-gd-hand]');
+    if (!hand) return;
+    on(hand, 'click', (e) => {
+      const btn = e.target.closest('[data-card-id]');
+      if (!btn || state.currentTurn !== 0) return;
+      const id = btn.getAttribute('data-card-id');
+      if (state.selected.has(id)) state.selected.delete(id);
+      else state.selected.add(id);
       playGDSound('click');
       renderTable();
-    };
+    });
+  }
+
+  function applyShellExit() {
+    const selection = document.getElementById('game-selection');
+    if (selection) selection.style.display = 'none';
   }
 
   function destroy() {
     clearInterval(state.timer);
     state.timer = null;
     state.active = false;
+    state.busy = false;
     state.selected.clear();
-    state.logs = [];
+    state.trick = null;
     state.players = [];
-    state.lastMove = null;
-    state.currentTurn = 0;
-    if (state.root && state.root.parentNode) state.root.remove();
-    if (state.styleNode && state.styleNode.parentNode) state.styleNode.remove();
-    const sel = document.getElementById('game-selection'); if (sel) sel.style.display = 'block';
-    const app = document.querySelector('.app'); if (app) app.style.display = '';
-    state.root = null; state.styleNode = null; state.cardsById = new Map();
-    state.ctx?.close?.().catch(() => {});
-    state.ctx = null;
-    window.GD.state = state;
+    state.logs = [];
+    offAll();
+    if (state.root?.parentNode) state.root.remove();
+    if (state.styleNode?.parentNode) state.styleNode.remove();
+    const selection = document.getElementById('game-selection');
+    if (selection) selection.style.display = 'flex';
+    state.root = null;
+    state.styleNode = null;
+    GD.state = state;
   }
 
   function init() {
     if (state.active) return;
-    injectStyles();
-    const sel = document.getElementById('game-selection'); if (sel) sel.style.display = 'none';
-    const root = document.createElement('div');
-    root.id = ROOT_ID;
-    root.innerHTML = `
-      <div class="gd-shell">
-        <div class="gd-top">
-          <div><b>掼蛋娱乐模式</b><div style="opacity:.75;font-size:12px">window.GD 独立沙箱 / 1 对 3 本地 AI</div></div>
-          <div class="gd-badges">
-            <span class="gd-pill">当前轮次：<b data-gd-rank>2</b></span>
-            <span class="gd-pill">当前出牌：<b data-gd-turn>南</b></span>
-            <span class="gd-pill">当前牌型：<b data-gd-move>—</b></span>
-          </div>
-        </div>
-        <div class="gd-main">
-          <section class="gd-panel">
-            <div class="gd-panel-h"><b>四方座位</b><span class="gd-pill">A组 / B组</span></div>
-            <div class="gd-panel-b"><div class="gd-seats" data-gd-seats></div></div>
-          </section>
-          <section class="gd-table">
-            <div class="gd-panel" style="background:rgba(0,0,0,.12)"><div class="gd-panel-h"><b>公共牌桌</b><span class="gd-pill">108 张 / 双副牌</span></div><div class="gd-panel-b"><div class="gd-trick" data-gd-trick></div></div></div>
-            <div class="gd-panel"><div class="gd-panel-h"><b>玩家手牌（South）</b><span class="gd-pill">点击多选</span></div><div class="gd-panel-b"><div class="gd-hand" data-gd-hand></div></div></div>
-            <div class="gd-controls">
-              <button class="primary" data-gd-play>出牌</button>
-              <button class="ghost" data-gd-pass>过牌</button>
-              <button class="ghost" data-gd-sort>整理</button>
-              <button class="danger" data-gd-exit>返回主页</button>
-            </div>
-          </section>
-          <section class="gd-panel">
-            <div class="gd-panel-h"><b>日志 / 计分</b><span class="gd-pill">剩余牌</span></div>
-            <div class="gd-panel-b"><div class="gd-log" data-gd-log></div><div class="gd-pill" style="display:block;margin-top:10px;text-align:center">A / B = <b data-gd-score></b></div></div>
-          </section>
-        </div>
-        <div class="gd-foot"><span>桌面/移动自适应 · 纯 Canvas/AudioContext 无资源依赖</span><span data-gd-toast style="opacity:0;transition:opacity .15s ease"></span></div>
-      </div>`;
-    state.root = root;
-    document.body.appendChild(root);
-    const exit = root.querySelector('[data-gd-exit]');
-    const play = root.querySelector('[data-gd-play]');
-    const pass = root.querySelector('[data-gd-pass]');
-    const sort = root.querySelector('[data-gd-sort]');
-    exit.onclick = () => { playGDSound('click'); destroy(); };
-    play.onclick = () => { playGDSound('click'); humanPlay(); };
-    pass.onclick = () => { playGDSound('click'); humanPass(); };
-    sort.onclick = () => { state.players[0].hand = sortCards(state.players[0].hand); playGDSound('click'); renderTable(); };
-    initDeck();
-    renderHand();
+    injectResponsiveStyles();
+    applyShellExit();
+
+    const existing = document.getElementById(ROOT_ID);
+    if (existing) existing.remove();
+
+    state.root = createShell();
+    document.body.appendChild(state.root);
+
+    bindHandInteraction();
+
+    const playBtn = state.root.querySelector('[data-gd-play]');
+    const passBtn = state.root.querySelector('[data-gd-pass]');
+    const sortBtn = state.root.querySelector('[data-gd-sort]');
+    const exitBtn = state.root.querySelector('[data-gd-exit]');
+
+    on(playBtn, 'click', () => { playGDSound('click'); humanPlay(); });
+    on(passBtn, 'click', () => { playGDSound('click'); humanPass(); });
+    on(sortBtn, 'click', () => { playGDSound('click'); state.players[0].hand = sortCards(state.players[0].hand); renderTable(); });
+    on(exitBtn, 'click', () => { playGDSound('click'); destroy(); });
+
+    initDeckAndPlayers();
     renderTable();
-    state.timer = setInterval(() => { state.loopTick++; triggerAIMove(); }, 260);
+    state.timer = setInterval(triggerAIMove, 260);
     state.active = true;
-    window.GD.destroy = destroy;
-    window.GD.render = renderTable;
-    window.GD.playGDSound = playGDSound;
+    GD.state = state;
   }
 
-  function boot() {
+  function bindLaunchButton() {
     const btn = document.getElementById('go-guandan-btn');
-    if (btn && !btn.dataset.gdBound) {
-      btn.dataset.gdBound = '1';
-      btn.addEventListener('click', init, { passive: true });
-    }
+    if (!btn || btn.dataset.gdBound) return;
+    btn.dataset.gdBound = '1';
+    on(btn, 'click', init, { passive: true });
   }
 
-  window.GD.init = init;
-  window.GD.destroy = destroy;
-  window.GD.playGDSound = playGDSound;
+  GD.init = init;
+  GD.destroy = destroy;
+  GD.playGDSound = playGDSound;
+  GD.injectResponsiveStyles = injectResponsiveStyles;
+  GD.renderLayout = init;
+  GD.triggerAIMove = triggerAIMove;
 
-  document.addEventListener('DOMContentLoaded', boot, { once: true });
-  if (document.readyState !== 'loading') boot();
+  document.addEventListener('DOMContentLoaded', bindLaunchButton, { once: true });
+  if (document.readyState !== 'loading') bindLaunchButton();
 })();
