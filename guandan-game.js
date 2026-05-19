@@ -1,9 +1,20 @@
+/**
+ * guandan-game.js
+ * 掼蛋扑克游戏扩展包 (自愈防重载与命名冲突修复版)
+ */
 (() => {
   'use strict';
-// 1. 常量定义区域
-  const GD_SUITS = { SPADE: '♠', HEART: '♥', CLUB: '♣', DIAMOND: '♦' };
+
+  // 🌟 核心防线：如果全局已经挂载了 GD 实例且已加载，说明脚本被重复加载，直接退出，防止二次执行报错！
+  if (window.GD && window.GD.__loaded) {
+    console.log('[Guandan-AntiLoad] 检测到脚本重复加载，已自动拦截并跳过。');
+    return;
+  }
+
+  // 1. 常量定义区域 - 将花括号版本重命名为 GD_ICON_SUITS，防止与下方的核心对局数组冲突
+  const GD_ICON_SUITS = { SPADE: '♠', HEART: '♥', CLUB: '♣', DIAMOND: '♦' };
   
-  // 2. 🌟 找到或在这里新建样式注入函数 🌟
+  // 2. 样式注入函数
   function injectStyles() {
     // 如果已经存在同名样式表，则不再重复注入
     if (document.getElementById('gd-dynamic-styles')) return;
@@ -11,9 +22,6 @@
     const style = document.createElement('style');
     style.id = 'gd-dynamic-styles'; // 加上 ID 方便辨识
     style.innerHTML = `
-      /* ========================================== */
-      /* 🌟 在这里无脑粘贴我上一轮给你的全部 CSS 优化样式 🌟 */
-      /* ========================================== */
       #guandan-game-container {
         position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
         background: radial-gradient(circle, #195a32 0%, #0d321b 100%);
@@ -60,7 +68,7 @@
     document.head.appendChild(style);
   }
 
-
+  // 初始化或提取全局 GD 对象沙箱
   const GD = (window.GD = window.GD || {});
   if (GD.__loaded) return;
   GD.__loaded = true;
@@ -68,11 +76,13 @@
   const ROOT_ID = 'guandan-game-container';
   const STYLE_ID = 'gd-style';
   const CARD_W = 75;
+  
+  // 这里是游戏对局中发牌核心依赖的 GD_SUITS 数组，名称已安全保留
   const GD_SUITS = [
-    { key: 'S', symbol: '♠', color: 'black' },
-    { key: 'H', symbol: '♥', color: 'red' },
-    { key: 'C', symbol: '♣', color: 'black' },
-    { key: 'D', symbol: '♦', color: 'red' },
+    { key: 'S', symbol: GD_ICON_SUITS.SPADE, color: 'black' },
+    { key: 'H', symbol: GD_ICON_SUITS.HEART, color: 'red' },
+    { key: 'C', symbol: GD_ICON_SUITS.CLUB, color: 'black' },
+    { key: 'D', symbol: GD_ICON_SUITS.DIAMOND, color: 'red' },
   ];
   const RANKS = ['3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A', '2'];
   const RANK_VALUE = Object.fromEntries(RANKS.map((r, i) => [r, i + 3]));
@@ -235,6 +245,7 @@
       #${ROOT_ID} .gd-log p{margin:0;padding:8px 10px;background:rgba(255,255,255,.05);border-radius:12px;font-size:13px;line-height:1.45}
       #${ROOT_ID} .gd-foot{display:flex;justify-content:space-between;gap:10px;align-items:center;padding:10px 14px;background:rgba(0,0,0,.22);border-top:1px solid rgba(212,175,55,.15)}
       #${ROOT_ID} .gd-toast{opacity:0;transition:opacity .15s ease;color:#f4d38f}
+      #${ROOT_ID} .gd-toast{opacity:0;transition:opacity .15s ease;color:#f4d38f}
       #${ROOT_ID} .gd-mini{padding:4px 6px;font-size:11px;display:inline-flex;align-items:center;justify-content:center}
       @media (max-width: 980px){
         #${ROOT_ID} .gd-main{grid-template-columns:1fr;grid-template-rows:auto auto auto;overflow:auto}
@@ -376,7 +387,7 @@
     if (next.type === 'rocket') return true;
     if (prev.type === 'rocket') return false;
     if (next.type === 'straight_flush' && prev.type !== 'straight_flush' && prev.type !== 'rocket') {
-      if (prev.type === 'bomb') return next.size > 5; // 5张同花顺强于5炸但弱于6炸
+      if (prev.type === 'bomb') return next.size > 5;
       return true;
     }
     if (next.type === 'bomb' && prev.type !== 'bomb' && prev.type !== 'rocket' && prev.type !== 'straight_flush') return true;
@@ -593,7 +604,7 @@
     const danger = state.players.some((p, i) => i !== state.currentTurn && p.hand.length <= 5);
 
     if (!last) return bestOpening(sorted);
-    if (teamWin && hand.length > 8) return null; // 同伙领出时优先放行
+    if (teamWin && hand.length > 8) return null;
 
     if (last.type === 'single' || last.type === 'pair' || last.type === 'triple') {
       for (const [value, group] of byValue) {
@@ -710,6 +721,7 @@
 
   function init() {
     if (state.active) return;
+    injectStyles(); // 🟢 唤醒顶部自定义自适应样式
     injectResponsiveStyles();
     applyShellExit();
 
@@ -736,6 +748,7 @@
     state.timer = setInterval(triggerAIMove, 260);
     state.active = true;
     GD.state = state;
+    console.log('[Guandan] 核心沙箱对局系统初始化完毕。');
   }
 
   function bindLaunchButton() {
@@ -745,22 +758,16 @@
     on(btn, 'click', init, { passive: true });
   }
 
-  GD.init = init;
-  GD.destroy = destroy;
-  GD.playGDSound = playGDSound;
-  GD.injectResponsiveStyles = injectResponsiveStyles;
-  GD.renderLayout = init;
-  GD.triggerAIMove = triggerAIMove;
+  // 🌟 将所有内部核心方法和状态安全挂载在全局 window.GD 属性上，不对其进行彻底覆写
+  Object.assign(GD, {
+    init: init,
+    destroy: destroy,
+    playGDSound: playGDSound,
+    injectResponsiveStyles: injectResponsiveStyles,
+    renderLayout: init,
+    triggerAIMove: triggerAIMove
+  });
 
   document.addEventListener('DOMContentLoaded', bindLaunchButton, { once: true });
   if (document.readyState !== 'loading') bindLaunchButton();
-
-  // 3. 在最底部的初始化入口里，确保第一步执行它
-  window.GD = {
-    init: () => {
-      injectStyles(); // 🟢 唤醒样式注入
-      console.log('[Guandan] 动态自适应样式挂载完毕。');
-      // 后续的初始化对局逻辑...
-    }
-  };
 })();
