@@ -312,7 +312,7 @@
       min-height: 0;
       position: relative;
     }
-    .board-shell {
+    /*.board-shell {
       position: relative;
       width: min(100%, min(78vmin, calc(100vh - 120px)));
       aspect-ratio: 1 / 1;
@@ -323,6 +323,27 @@
       display: flex;
       align-items: center;
       justify-content: center;
+    }*/
+    /* 🌟 优化后的围棋棋盘外壳 🌟 */
+    .board-shell {
+      position: relative;
+      /* 1. 核心改变：限制最大宽度为 600px，防止在 PC 宽屏上无限撑大 */
+      /* 2. 同时在笔记本/手机端，它依然能保持 min(100%, 76vmin) 的丝滑自适应 */
+      width: min(100%, min(76vmin, calc(100vh - 150px)));
+      max-width: 620px; 
+      max-height: 620px;
+      
+      aspect-ratio: 1 / 1;
+      border-radius: 24px;
+      background: var(--wood-image);
+      box-shadow: 0 24px 80px rgba(0, 0, 0, 0.42);
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      
+      /* 3. 在大屏幕的 grid 槽位里时刻保持居中 */
+      margin: 0 auto; 
     }
     canvas#goBoard {
       display: block;
@@ -416,6 +437,7 @@
     }
     .toast.is-visible { display: block; }
 
+    /*
     @media (max-width: 1200px) {
       .layout {
         grid-template-columns: minmax(200px, 260px) minmax(0, 1fr);
@@ -428,6 +450,25 @@
       .sidebar-right { grid-area: right; }
       .board-zone { grid-area: board; }
       .board-shell { width: min(100%, min(74vmin, calc(100vh - 140px))); }
+    }*/
+    @media (max-width: 1200px) {
+      .layout {
+        grid-template-columns: minmax(200px, 260px) minmax(0, 1fr);
+        grid-template-areas:
+          "left board"
+          "right board";
+        align-items: start;
+      }
+      .sidebar-left { grid-area: left; }
+      .sidebar-right { grid-area: right; }
+      .board-zone { grid-area: board; }
+      /* 🌟 同步收紧中等屏幕下的最大边界，保持正方形视觉黄金比例 🌟 */
+      .board-shell { 
+        width: min(100%, min(74vmin, calc(100vh - 140px))); 
+        max-width: 560px;
+        max-height: 560px;
+        margin: 0 auto;
+      }
     }
 
     @media (max-width: 860px) {

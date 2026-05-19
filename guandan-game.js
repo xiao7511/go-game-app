@@ -22,48 +22,74 @@
     const style = document.createElement('style');
     style.id = 'gd-dynamic-styles'; // 加上 ID 方便辨识
     style.innerHTML = `
-      #guandan-game-container {
-        position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-        background: radial-gradient(circle, #195a32 0%, #0d321b 100%);
-        box-shadow: inset 0 0 100px rgba(0,0,0,0.6);
-        z-index: 9999; display: flex; flex-direction: column;
+      /* 真实扑克牌质感升级 */
+      #guandan-game-container .gd-card {
+        width: 75px;
+        aspect-ratio: 1 / 1.4;
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        user-select: none;
+        transition: transform 0.15s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.15s ease;
+        
+        /* 真实扑克的象牙白微渐变与四周压边阴影 */
+        background: linear-gradient(135deg, #ffffff 0%, #f6f6f6 50%, #ededed 100%);
+        border-radius: 7px;
+        border: 1px solid #c8c8c8;
+        
+        /* 模拟物理卡牌的复合阴影层（微立体感） */
+        box-shadow: 
+          0 1px 2px rgba(0,0,0,0.1), 
+          0 4px 8px rgba(0,0,0,0.15),
+          inset 0 0 4px rgba(255,255,255,0.8);
+        
+        margin-left: -42px;
         overflow: hidden;
       }
-      #gd-battlefield {
-        flex: 1; position: relative; display: flex; align-items: center; justify-content: center;
-        max-height: calc(100vh - 210px);
-      }
-      .gd-poker {
-        width: 75px; height: 105px; background: #ffffff; border-radius: 6px;
-        box-shadow: 0 4px 10px rgba(0,0,0,0.4); border: 1px solid #dddddd;
-        position: relative; cursor: pointer; user-select: none; transition: transform 0.1s ease-out;
-        margin-left: -40px; display: flex; flex-direction: column; justify-content: space-between; padding: 6px;
-      }
-      .gd-poker .corner-top { display: flex; flex-direction: column; align-items: center; line-height: 1.1; }
-      .gd-poker .corner-bottom { display: flex; flex-direction: column; align-items: center; line-height: 1.1; transform: rotate(180deg); }
-      .gd-poker .card-value { font-size: 19px; font-weight: bold; font-family: "Georgia", serif; }
-      .gd-poker .card-suit { font-size: 14px; }
-      .gd-poker.red { color: #d63031; }
-      .gd-poker.black { color: #2d3436; }
-      .gd-poker.selected { transform: translateY(-24px); border: 2px solid #f1c40f; box-shadow: 0 8px 20px rgba(241,196,15,0.6); }
-      #gd-action-bar {
-        width: 100%; max-width: 400px;
-        margin: 0 auto; display: flex; gap: 16px; justify-content: center; 
-        padding: 10px 0; height: 60px; box-sizing: border-box;
-        position: absolute; bottom: 135px; left: 50%; transform: translateX(-50%); z-index: 10;
-      }
-      .gd-btn {
-        flex: 1; height: 40px; font-size: 15px; font-weight: bold; border-radius: 20px; border: none; cursor: pointer;
-      }
-      .gd-btn-primary { background: linear-gradient(135deg, #2ecc71, #27ae60); color: #fff; }
-      .gd-btn-secondary { background: linear-gradient(135deg, #bdc3c7, #95a5a6); color: #2c3e50; }
 
-      @media (max-width: 768px) {
-        .gd-poker { width: 55px; height: 78px; margin-left: -32px; padding: 4px; }
-        .gd-poker .card-value { font-size: 15px; }
-        .gd-poker .card-suit { font-size: 11px; }
-        #gd-action-bar { bottom: 105px; max-width: 85vw; }
+      /* 鼠标悬停或选中时的真实弹起效果 */
+      #guandan-game-container .gd-card:hover,
+      #guandan-game-container .gd-card.sel {
+        transform: translateY(-26px) rotate(2deg); /* 微微倾斜，更具手牌真实感 */
+        border-color: #d4af37; /* 经典金边提示 */
+        box-shadow: 
+          0 2px 4px rgba(212,175,55,0.2),
+          0 12px 24px rgba(0,0,0,0.35);
       }
+
+      /* 还原扑克左上角与右下角的经典点数花色排版 */
+      #guandan-game-container .gd-card .corner {
+        position: absolute;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        line-height: 0.95;
+      }
+      #guandan-game-container .gd-card .corner .r {
+        font-size: 20px;
+        font-weight: 700;
+        font-family: "Times New Roman", "Georgia", serif; /* 切换为经典的印刷扑克字体 */
+      }
+      #guandan-game-container .gd-card .corner .s {
+        font-size: 13px;
+        margin-top: 1px;
+      }
+      #guandan-game-container .gd-card .tl { top: 6px; left: 6px; }
+      #guandan-game-container .gd-card .br { right: 6px; bottom: 6px; transform: rotate(180deg); }
+
+      /* 真实扑克中心大花色微水印效果 */
+      #guandan-game-container .gd-card .center {
+        font-size: 28px;
+        opacity: 0.85;
+        font-weight: normal;
+        transform: translateY(-2px);
+      }
+
+      /* 经典红黑花色配色 */
+      #guandan-game-container .gd-card.red { color: #cc0000; }  /* 标准扑克暗红，比单纯的red更高级 */
+      #guandan-game-container .gd-card.black { color: #111111; }
     `;
     document.head.appendChild(style);
   }
