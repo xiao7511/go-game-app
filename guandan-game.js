@@ -1,5 +1,65 @@
 (() => {
   'use strict';
+// 1. 常量定义区域
+  const SUITS = { SPADE: '♠', HEART: '♥', CLUB: '♣', DIAMOND: '♦' };
+  
+  // 2. 🌟 找到或在这里新建样式注入函数 🌟
+  function injectStyles() {
+    // 如果已经存在同名样式表，则不再重复注入
+    if (document.getElementById('gd-dynamic-styles')) return;
+
+    const style = document.createElement('style');
+    style.id = 'gd-dynamic-styles'; // 加上 ID 方便辨识
+    style.innerHTML = `
+      /* ========================================== */
+      /* 🌟 在这里无脑粘贴我上一轮给你的全部 CSS 优化样式 🌟 */
+      /* ========================================== */
+      #guandan-game-container {
+        position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+        background: radial-gradient(circle, #195a32 0%, #0d321b 100%);
+        box-shadow: inset 0 0 100px rgba(0,0,0,0.6);
+        z-index: 9999; display: flex; flex-direction: column;
+        overflow: hidden;
+      }
+      #gd-battlefield {
+        flex: 1; position: relative; display: flex; align-items: center; justify-content: center;
+        max-height: calc(100vh - 210px);
+      }
+      .gd-poker {
+        width: 75px; height: 105px; background: #ffffff; border-radius: 6px;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.4); border: 1px solid #dddddd;
+        position: relative; cursor: pointer; user-select: none; transition: transform 0.1s ease-out;
+        margin-left: -40px; display: flex; flex-direction: column; justify-content: space-between; padding: 6px;
+      }
+      .gd-poker .corner-top { display: flex; flex-direction: column; align-items: center; line-height: 1.1; }
+      .gd-poker .corner-bottom { display: flex; flex-direction: column; align-items: center; line-height: 1.1; transform: rotate(180deg); }
+      .gd-poker .card-value { font-size: 19px; font-weight: bold; font-family: "Georgia", serif; }
+      .gd-poker .card-suit { font-size: 14px; }
+      .gd-poker.red { color: #d63031; }
+      .gd-poker.black { color: #2d3436; }
+      .gd-poker.selected { transform: translateY(-24px); border: 2px solid #f1c40f; box-shadow: 0 8px 20px rgba(241,196,15,0.6); }
+      #gd-action-bar {
+        width: 100%; max-width: 400px;
+        margin: 0 auto; display: flex; gap: 16px; justify-content: center; 
+        padding: 10px 0; height: 60px; box-sizing: border-box;
+        position: absolute; bottom: 135px; left: 50%; transform: translateX(-50%); z-index: 10;
+      }
+      .gd-btn {
+        flex: 1; height: 40px; font-size: 15px; font-weight: bold; border-radius: 20px; border: none; cursor: pointer;
+      }
+      .gd-btn-primary { background: linear-gradient(135deg, #2ecc71, #27ae60); color: #fff; }
+      .gd-btn-secondary { background: linear-gradient(135deg, #bdc3c7, #95a5a6); color: #2c3e50; }
+
+      @media (max-width: 768px) {
+        .gd-poker { width: 55px; height: 78px; margin-left: -32px; padding: 4px; }
+        .gd-poker .card-value { font-size: 15px; }
+        .gd-poker .card-suit { font-size: 11px; }
+        #gd-action-bar { bottom: 105px; max-width: 85vw; }
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
 
   const GD = (window.GD = window.GD || {});
   if (GD.__loaded) return;
@@ -694,4 +754,13 @@
 
   document.addEventListener('DOMContentLoaded', bindLaunchButton, { once: true });
   if (document.readyState !== 'loading') bindLaunchButton();
+
+  // 3. 在最底部的初始化入口里，确保第一步执行它
+  window.GD = {
+    init: () => {
+      injectStyles(); // 🟢 唤醒样式注入
+      console.log('[Guandan] 动态自适应样式挂载完毕。');
+      // 后续的初始化对局逻辑...
+    }
+  };
 })();

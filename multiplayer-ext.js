@@ -451,15 +451,53 @@
       }
     }
   }
-
+  /*
   function ensureCanvasSize() {
     if (!state.canvas || !state.ctx) return;
     const rect = state.canvas.getBoundingClientRect();
     const size = Math.max(320, Math.floor(Math.min(rect.width || 0, rect.height || 0) || 760));
     const current = state.canvas.width / Math.max(1, window.devicePixelRatio || 1);
     if (Math.abs(current - size) > 1) resizeCanvas();
-  }
+  }*/
+  function ensureCanvasSize() {
+    const canvas = document.getElementById('go-canvas') || state.canvas;
+    const container = document.getElementById('game-container') || document.querySelector('.app');
+    if (!canvas || !container) return;
 
+    // 1. 获取当前容器能给出的最大可用物理宽高
+    const availableWidth = container.clientWidth;
+    const availableHeight = container.clientHeight || window.innerHeight * 0.65; // 为上下UI留出空间
+
+    // 2. 🌟 终极自愈核心：取宽高的最小值，强行锁死为正方形，杜绝任何裁剪溢出
+    const safeSize = Math.min(availableWidth, availableHeight) - 20; // 留出 20px 安全边距
+
+    // 3. 适配高清屏 Retinal 像素比，防止棋子线条模糊
+    const dpr = window.devicePixelRatio || 1;
+    canvas.style.width = safeSize + 'px';
+    canvas.style.height = safeSize + 'px';
+    
+    canvas.width = safeSize * dpr;
+    canvas.height = safeSize * dpr;
+
+    // 4. 通知绘图上下文进行缩放，这样你原本的绘图代码不需要改动任何坐标
+    const ctx = canvas.getContext('2d');
+    ctx.scale(dpr, dpr);
+
+    // 5. 更新你全局状态机中的格子间距变量，让点击落子判定同步对齐
+    if (state) {
+      state.canvasWidth = safeSize;
+      state.cellSize = safeSize / (state.boardSize + 1); // 适配自适应格子宽度
+      state.padding = state.cellSize;
+    }
+
+    // 6. 重新绘制全盘
+    if (typeof drawFullBoard === 'function') {
+      drawFullBoard();
+    }
+  }
+  // 7. 确保把这个缩放挂载到全局窗口改变事件中
+  window.addEventListener('resize', ensureCanvasSize);
+  /*====================================*/
   function clearLatestMoveTimers() {
     if (state.latestMoveTimer) clearTimeout(state.latestMoveTimer);
     if (state.latestMoveBlinkTimer) clearInterval(state.latestMoveBlinkTimer);
