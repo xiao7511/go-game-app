@@ -1,7 +1,7 @@
 (() => {
   'use strict';
 // 1. 常量定义区域
-  const SUITS = { SPADE: '♠', HEART: '♥', CLUB: '♣', DIAMOND: '♦' };
+  const GD_SUITS = { SPADE: '♠', HEART: '♥', CLUB: '♣', DIAMOND: '♦' };
   
   // 2. 🌟 找到或在这里新建样式注入函数 🌟
   function injectStyles() {
@@ -68,7 +68,7 @@
   const ROOT_ID = 'guandan-game-container';
   const STYLE_ID = 'gd-style';
   const CARD_W = 75;
-  const SUITS = [
+  const GD_SUITS = [
     { key: 'S', symbol: '♠', color: 'black' },
     { key: 'H', symbol: '♥', color: 'red' },
     { key: 'C', symbol: '♣', color: 'black' },
@@ -261,21 +261,21 @@
   function makeDeck() {
     const deck = [];
     for (let d = 0; d < 2; d++) {
-      for (const suit of SUITS) {
+      for (const suit of GD_SUITS) {
         for (const rank of RANKS) {
           deck.push({
             id: uid(),
             kind: 'normal',
             rank,
             suit: suit.key,
-            suitSymbol: suit.symbol,
+            GD_SUITSymbol: suit.symbol,
             color: suit.color,
             value: RANK_VALUE[rank],
           });
         }
       }
-      deck.push({ id: uid(), kind: 'joker', label: '小王', rank: '小王', suit: 'J', suitSymbol: '🃏', color: 'red', value: 16 });
-      deck.push({ id: uid(), kind: 'joker', label: '大王', rank: '大王', suit: 'J', suitSymbol: '🃏', color: 'black', value: 17 });
+      deck.push({ id: uid(), kind: 'joker', label: '小王', rank: '小王', suit: 'J', GD_SUITSymbol: '🃏', color: 'red', value: 16 });
+      deck.push({ id: uid(), kind: 'joker', label: '大王', rank: '大王', suit: 'J', GD_SUITSymbol: '🃏', color: 'black', value: 17 });
     }
     for (let i = deck.length - 1; i > 0; i--) {
       const j = (Math.random() * (i + 1)) | 0;
@@ -388,10 +388,10 @@
   function formatCard(card) {
     const cls = card.color === 'red' ? 'red' : 'black';
     return `
-      <button class="gd-card ${cls}" type="button" data-card-id="${card.id}" aria-label="${rankLabel(card)}${card.suitSymbol}">
-        <span class="corner tl"><span class="r">${rankLabel(card)}</span><span class="s">${card.suitSymbol}</span></span>
+      <button class="gd-card ${cls}" type="button" data-card-id="${card.id}" aria-label="${rankLabel(card)}${card.GD_SUITSymbol}">
+        <span class="corner tl"><span class="r">${rankLabel(card)}</span><span class="s">${card.GD_SUITSymbol}</span></span>
         <span class="center">${rankLabel(card)}</span>
-        <span class="corner br"><span class="r">${rankLabel(card)}</span><span class="s">${card.suitSymbol}</span></span>
+        <span class="corner br"><span class="r">${rankLabel(card)}</span><span class="s">${card.GD_SUITSymbol}</span></span>
       </button>`;
   }
 
@@ -460,7 +460,7 @@
     const seats = state.root?.querySelector('[data-gd-seats]');
     if (!seats) return;
     seats.innerHTML = state.players.map((p) => {
-      const preview = sortCards(p.hand).slice(0, 8).map((c) => `<span class="gd-mini ${c.color}">${rankLabel(c)}${c.suitSymbol}</span>`).join('');
+      const preview = sortCards(p.hand).slice(0, 8).map((c) => `<span class="gd-mini ${c.color}">${rankLabel(c)}${c.GD_SUITSymbol}</span>`).join('');
       return `
         <div class="gd-seat ${p.seat === state.currentTurn ? 'active' : ''}">
           <b>${p.name} · ${teamLabel(p.team)}</b>
@@ -488,7 +488,7 @@
     renderSeats();
 
     if (state.trick) {
-      trick.innerHTML = state.trick.cards.map((c) => `<span class="gd-mini ${c.color}">${rankLabel(c)}${c.suitSymbol}</span>`).join('');
+      trick.innerHTML = state.trick.cards.map((c) => `<span class="gd-mini ${c.color}">${rankLabel(c)}${c.GD_SUITSymbol}</span>`).join('');
     } else {
       trick.innerHTML = `<span class="gd-trick-empty">等待出牌</span>`;
     }
