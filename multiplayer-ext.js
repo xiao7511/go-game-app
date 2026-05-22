@@ -359,13 +359,13 @@
     state.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     state.padding = cssSize / (SIZE + 1);
     state.cellSize = (cssSize - state.padding * 2) / (SIZE - 1);
-    //drawFullBoard();
-    setTimeout(() => {
-    if (typeof drawFullBoard === 'function') {
-            drawFullBoard();
-        } 
-        console.log("棋盘定时器延迟初次绘制完成");
-    }, 100);
+    drawFullBoard();
+   // setTimeout(() => {
+   // if (typeof drawFullBoard === 'function') {
+   //         drawFullBoard();
+   //     } 
+    //    console.log("棋盘定时器延迟初次绘制完成");
+   // }, 100);
   }
   function drawFullBoard() {
     if (!state.canvas || !state.ctx) return;
