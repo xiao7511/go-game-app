@@ -351,6 +351,7 @@
     const parent = state.canvas.parentElement;
     const shell = parent?.closest('.board-shell') || parent;
     const cssSize = Math.max(320, Math.floor(Math.min(shell?.clientWidth || 0, shell?.clientHeight || shell?.clientWidth || 0) || 760));
+    console.log("[Canvas] 调整画布尺寸为:", cssSize);
     const dpr = Math.max(1, Math.floor(window.devicePixelRatio || 1));
     state.canvas.width = cssSize * dpr;
     state.canvas.height = cssSize * dpr;
@@ -360,12 +361,6 @@
     state.padding = cssSize / (SIZE + 1);
     state.cellSize = (cssSize - state.padding * 2) / (SIZE - 1);
     drawFullBoard();
-   // setTimeout(() => {
-   // if (typeof drawFullBoard === 'function') {
-   //         drawFullBoard();
-   //     } 
-    //    console.log("棋盘定时器延迟初次绘制完成");
-   // }, 100);
   }
   function drawFullBoard() {
     if (!state.canvas || !state.ctx) return;
