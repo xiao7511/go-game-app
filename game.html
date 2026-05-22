@@ -7,16 +7,11 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="theme-color" content="#0f1720" />
   <title>围棋 Pro - 在线对战</title>
-  <script>
-    window.CONFIG = {
-      SUPABASE_URL: "https://kogjjfccyncdszuuwlun.supabase.co/rest/v1/",
-      SUPABASE_ANON_KEY: "sb_publishable_sUhEUYYHIr7hQl6A_iE4zQ_F-P3KENr"
-    };
-  </script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="config.js"></script>
   <script src="game.js"></script>
   <script src="multiplayer-ext.js"></script>
+  <script src="guandan-game.js"></script>
   <style>
     :root {
       --bg: #0f1720;
@@ -45,36 +40,31 @@
       overflow: hidden;
     }
 
-    button, input { font: inherit; }
+    button, input {
+      font: inherit;
+    }
 
     button {
-      padding: 12px 24px;
+      border: 0;
       border-radius: 12px;
-      border: none;
-      font-weight: bold;
       cursor: pointer;
-      transition: 0.2s;
-      background: var(--accent);
-      color: #000;
+      transition: transform 0.18s ease, opacity 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
     }
     button:hover { transform: translateY(-1px); }
     button:disabled { cursor: not-allowed; opacity: 0.55; transform: none; }
 
     .hidden { display: none !important; }
 
+    /* Selection view */
     #game-selection {
-      position: fixed; inset: 0; z-index: 500;
-      display: flex; flex-direction: column; align-items: center; justify-content: center;
-      background: radial-gradient(circle at center, #1a2635, #0f1720);
-    }
-    .card {
-      background: var(--panel); border: 1px solid var(--panel-border);
-      padding: 30px; border-radius: var(--radius); text-align: center;
-      backdrop-filter: blur(10px); box-shadow: 0 20px 50px rgba(0,0,0,0.5);
-    }
-    .badge {
-      padding: 6px 14px; background: rgba(255,255,255,0.06);
-      border: 1px solid var(--panel-border); border-radius: 999px; font-size: 0.85rem; margin-left: 8px;
+      position: fixed;
+      inset: 0;
+      z-index: 50;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: radial-gradient(circle at center, #1a2635, #0f1720 78%);
+      padding: 24px;
     }
     .selection-card {
       width: min(560px, 100%);
@@ -114,10 +104,10 @@
       border: 1px solid rgba(255, 255, 255, 0.08);
     }
     .mode-btn.primary {
-      background: #28a745;
-      color: #fff;
+      background: linear-gradient(135deg, #f6c453, #d89d1e);
+      color: #161616;
       font-weight: 700;
-      box-shadow: 0 12px 28px rgba(40, 167, 69, 0.24);
+      box-shadow: 0 12px 28px rgba(246, 196, 83, 0.24);
     }
     .mode-btn .badge {
       flex: 0 0 auto;
@@ -128,15 +118,17 @@
       background: rgba(255, 255, 255, 0.12);
       color: inherit;
     }
-    .mode-btn.primary .badge { background: rgba(0, 0, 0, 0.14); }
+    .mode-btn.primary .badge {
+      background: rgba(0, 0, 0, 0.14);
+    }
 
+    /* Game app */
     .app {
       display: none;
       height: 100vh;
       min-height: 100vh;
       grid-template-rows: auto 1fr;
       overflow: hidden;
-      max-width: 100vw;
     }
 
     .topbar {
@@ -226,7 +218,6 @@
       padding: 16px;
       min-height: 0;
       align-items: stretch;
-      max-width: 100vw;
     }
     .sidebar {
       display: flex;
@@ -256,7 +247,9 @@
       font-size: 15px;
       letter-spacing: 0.06em;
     }
-    .panel-body { padding: 16px; }
+    .panel-body {
+      padding: 16px;
+    }
 
     .player-card {
       display: flex;
@@ -271,7 +264,10 @@
       background: rgba(255,255,255,0.08);
       flex: 0 0 auto;
     }
-    .player-meta { min-width: 0; flex: 1; }
+    .player-meta {
+      min-width: 0;
+      flex: 1;
+    }
     .player-meta .name-row {
       display: flex;
       align-items: center;
@@ -306,7 +302,7 @@
       background: rgba(239, 68, 68, 0.14);
       color: #ffb0b0;
       border-color: rgba(239, 68, 68, 0.16);
-    }
+    } 
 
     .board-zone {
       display: flex;
@@ -318,7 +314,7 @@
       max-width: 100vw;
       padding: 0;
     }
-    .board-shell {
+     .board-shell {
       position: relative;
       width: min(100%, min(78vmin, calc(100vh - 120px)));
       aspect-ratio: 1 / 1;
@@ -360,16 +356,14 @@
       pointer-events: none;
       z-index: 0;
     }
+
+
     canvas#goBoard {
-      position: relative;
-      z-index: 1;
       display: block;
       width: 100%;
       height: 100%;
       cursor: pointer;
-      touch-action: none;
-      max-width: 100vw;
-      filter: drop-shadow(0 8px 16px rgba(0,0,0,0.12));
+      touch-action: manipulation;
     }
 
     .hint-list {
@@ -405,8 +399,11 @@
       background: rgba(255,255,255,0.06);
       color: var(--text);
     }
-    #room-panel .room-link button { flex: 0 0 auto; }
+    #room-panel .room-link button {
+      flex: 0 0 auto;
+    }
 
+    /* Modal + toast */
     .modal-backdrop {
       position: fixed;
       inset: 0;
@@ -490,90 +487,30 @@
       }
     }
 
-    @media (max-width: 600px) {
-      .app {
-        grid-template-rows: auto 1fr;
-      }
-      .layout {
-        grid-template-columns: 1fr;
-        grid-template-areas:
-          "board"
-          "left"
-          "right";
-        gap: 12px;
-        padding: 10px;
-      }
-      .sidebar, .panel, .selection-card, .card {
-        border-radius: 16px;
-      }
-      .board-shell {
-        width: 100%;
-        max-width: 100%;
-        border-radius: 18px;
-      }
-      .topbar {
-        padding: 10px;
-        gap: 10px;
-      }
-      .topbar-brand {
-        width: 100%;
-        justify-content: center;
-        text-align: center;
-      }
-      .topbar-center,
-      .topbar-actions {
-        width: 100%;
-        justify-content: center;
-      }
-      .btn {
-        width: 100%;
-        justify-content: center;
-      }
-      .topbar-actions .btn { flex: 1 1 0; }
-      .room-link {
-        flex-direction: column;
-      }
-      .room-link input,
-      .room-link button,
-      #room-panel .room-link button {
-        width: 100%;
-      }
-      .player-card { align-items: flex-start; }
-      .player-avatar {
-        width: 46px;
-        height: 46px;
-      }
-      .player-meta .sub {
-        font-size: 12px;
-      }
-    }
-
     @media (max-width: 520px) {
       .selection-card { padding: 22px; }
       .selection-card h1 { font-size: 1.6rem; }
       .panel-body, .panel-header { padding-left: 14px; padding-right: 14px; }
       .chip { padding: 8px 10px; font-size: 13px; }
-      .card { padding: 20px; width: 92%; }
-      #game-selection .card button { font-size: 0.95rem; padding: 12px 20px; }
-      .hint-list { font-size: 12px; }
+      .btn { width: 100%; justify-content: center; }
+      .topbar-actions { width: 100%; }
+      .topbar-actions .btn { flex: 1 1 0; }
     }
   </style>
-
 </head>
 <body>
   <div id="game-selection">
-    <div class="card">
     <section class="selection-card">
       <h1>选择游戏</h1>
       <p class="selection-subtitle">当前版本已聚焦围棋对局，并为后续玩法保留扩展位。进入后将自动加载对战 UI。</p>
       <div class="mode-list">
         <button id="go-game-btn" class="mode-btn primary">
-          <span>经典围棋 19×19（点击进入AI单机版）</span>
+          <span>经典围棋 19×19</span>
           <span class="badge">已上线</span>
         </button>
-        <button class="mode-btn" disabled>
-          <span>掼蛋 (Guandan)</span>
-          <span class="badge">开发中</span>
+        <button id="go-guandan-btn" class="mode-btn btn btn--secondary" type="button">
+          <span>掼蛋娱乐模式</span>
+          <span class="badge">独立沙箱</span>
         </button>
         <button class="mode-btn" disabled>
           <span>上海麻将</span>
@@ -581,7 +518,6 @@
         </button>
       </div>
     </section>
-    </div>
   </div>
 
   <div class="app">
@@ -686,19 +622,20 @@
           <div class="panel-body hint-list">
             <div><strong>回合：</strong><span id="turn-summary">黑棋先行</span></div>
             <div><strong>连接：</strong><span id="connection-summary">未建立</span></div>
-            <div><strong>提醒：</strong>认输按钮会触发确认流并同步 GAME_OVER。</div>
+            <div><strong>提醒：</strong>认输按钮会调用 Supabase RPC <code>game.handle_surrender</code>。</div>
           </div>
         </section>
       </aside>
     </main>
   </div>
 
-  <div id="result-overlay" class="modal-backdrop" aria-hidden="true">
-    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="result-title">
-      <h3 id="result-title">对局结束</h3>
-      <p id="result-desc">—</p>
+  <div id="confirm-modal" class="modal-backdrop" aria-hidden="true">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="confirm-modal-title">
+      <h3 id="confirm-modal-title">确认操作</h3>
+      <p id="confirm-modal-message">—</p>
       <div class="modal-actions">
-        <button id="result-close-btn" class="btn btn-accent" type="button">确定</button>
+        <button id="confirm-modal-cancel" class="btn btn-ghost" type="button">取消</button>
+        <button id="confirm-modal-ok" class="btn btn-danger" type="button">确认</button>
       </div>
     </div>
   </div>
