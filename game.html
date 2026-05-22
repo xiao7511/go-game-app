@@ -305,14 +305,14 @@
     }
     .board-zone {
       display: flex;
-      align-items: center;
-      justify-content: center;
+      align-items: center;      /* 垂直居中 */
+      justify-content: center;   /* 🌟 核心：水平绝对居中，彻底解决不对称偏移 */
       min-width: 0;
       min-height: 0;
       position: relative;
-      /* 🌟 新增：防止父级容器在 PC/iPad 上被强行撑高 */
-      height: 100%; 
+      flex: 1;                  /* 允许弹性填充 */
       width: 100%;
+      height: 100%;
     }
     /*
     .board-zone {
@@ -338,24 +338,24 @@
     /* 🌟 优化后的围棋棋盘外壳 🌟 */
     .board-shell {
       position: relative;
-      /* 🌟 核心优化：在 PC 端将最大尺寸严格限制在 460px，给周围留出舒适的呼吸空间 */
-      width: min(100%, min(65vmin, calc(100vh - 180px)));
-      max-width: 460px; 
-      max-height: 460px;
+      /* 限制其在大屏下的最大体量，既不空洞也不压迫 */
+      width: min(100%, min(70vmin, calc(100vh - 160px)));
+      max-width: 480px; 
+      max-height: 480px;
       
       aspect-ratio: 1 / 1;
-      border-radius: 20px;
+      border-radius: 16px; /* 更精致的微圆角 */
       background: var(--wood-image);
-      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4);
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.45);
       overflow: hidden;
       display: flex;
       align-items: center;
       justify-content: center;
       
-      /* 确保在 Grid 轨道中绝对居中，不被拉伸 */
-      margin: auto; 
-      align-self: center;
+      /* 显式声明外边距居中兜底 */
+      margin: 0 auto; 
     }
+
     canvas#goBoard {
       display: block;
       width: 100%;
@@ -477,11 +477,10 @@
       /* 🌟 iPad 端及中等屏幕的终极自适应：将最大尺寸卡在 420px */
       /* 降低 vmin 权重到 58，避免在 iPad 横屏时棋盘挤占侧边栏空间 */
       .board-shell { 
-        width: min(100%, min(58vmin, calc(100vh - 160px))); 
-        max-width: 420px;
-        max-height: 420px;
-        margin: auto;
-        align-self: center;
+        width: min(100%, min(62vmin, calc(100vh - 150px))); 
+        max-width: 440px;
+        max-height: 440px;
+        margin: 0 auto; /* 确保在平板等中等屏幕下也是绝对居中对称的 */
       }
     }
 
