@@ -211,21 +211,23 @@
       font-weight: 800;
     }
 
-    /* 主布局：标准三栏式 */
+    /* 主布局 */
     .layout {
       display: grid;
-      grid-template-columns: minmax(224px, 280px) minmax(0, 1fr) minmax(224px, 320px);
-      gap: 16px;
-      padding: 16px;
+      grid-template-columns: minmax(240px, 300px) minmax(0, 1fr) minmax(240px, 320px);
+      gap: 20px;
+      padding: 20px;
       min-height: 0;
-      align-items: stretch;
+      align-items: center; 
+      height: calc(100vh - 75px); 
     }
     .sidebar {
       display: flex;
       flex-direction: column;
       gap: 16px;
       min-width: 0;
-      min-height: 0;
+      height: 100%;
+      justify-content: center; 
     }
     .panel {
       background: var(--panel);
@@ -305,7 +307,7 @@
       border-color: rgba(239, 68, 68, 0.16);
     } 
 
-    /* 棋盘主控容器：强制居中对齐，消除任何偏移不对称 */
+    /* 棋盘主控区域 */
     .board-zone {
       display: flex;
       align-items: center;
@@ -317,18 +319,19 @@
       height: 100%;
     }
 
-    /* 完美的自适应棋盘外壳：在PC/iPad/手机上均实现黄金比例自适应 */
+    /* 🚀 极致自适应棋盘外壳：在 PC 大屏上自动饱满放大，同时根据视口高度自动兜底防溢出 */
     .board-shell {
       position: relative;
-      width: min(100%, min(74vmin, calc(100vh - 160px)));
-      max-width: 480px; 
-      max-height: 480px;
+      /* 🌟 核心优化：提升最大宽度上限至 660px 饱满尺寸，配合 82vmin 弹性拉伸 */
+      width: min(100%, min(82vmin, calc(100vh - 140px)));
+      max-width: 660px; 
+      max-height: 660px;
       aspect-ratio: 1 / 1;
       border-radius: 18px;
       background: var(--wood-image);
       box-shadow:
-        0 24px 70px rgba(0, 0, 0, 0.45),
-        0 8px 20px rgba(0, 0, 0, 0.20),
+        0 24px 70px rgba(0, 0, 0, 0.5),
+        0 8px 24px rgba(0, 0, 0, 0.25),
         inset 0 1px 0 rgba(255, 255, 255, 0.18),
         inset 0 -14px 28px rgba(0, 0, 0, 0.18);
       overflow: hidden;
@@ -453,7 +456,7 @@
     .toast.is-visible { display: block; }
 
     /* ==========================================================================
-       响应式断点 & 自适应增强 (PC端、iPad端、手机横竖屏全面兼容)
+       响应式自适应断点（PC、iPad、手机横竖屏全面兼容）
        ========================================================================== */
 
     /* 1. iPad端及中等屏幕笔记本 (1200px及以下) */
@@ -463,16 +466,16 @@
         grid-template-areas:
           "left board"
           "right board";
-        align-items: start;
+        align-items: center;
+        gap: 16px;
       }
       .sidebar-left { grid-area: left; }
       .sidebar-right { grid-area: right; }
       .board-zone { grid-area: board; }
       .board-shell { 
-        width: min(100%, min(64vmin, calc(100vh - 160px))); 
-        max-width: 420px;
-        max-height: 420px;
-        margin: 0 auto;
+        width: min(100%, min(76vmin, calc(100vh - 140px))); 
+        max-width: 520px;
+        max-height: 520px;
       }
     }
 
@@ -496,16 +499,17 @@
           "right";
         padding: 12px;
         gap: 12px;
+        height: auto;
       }
       .board-shell {
-        width: min(100%, 90vmin);
-        max-width: 440px;
-        max-height: 440px;
+        width: min(100%, 92vmin);
+        max-width: 460px;
+        max-height: 460px;
         margin: 10px auto;
       }
     }
 
-    /* 3. 手机/平板横屏移动端 (当视口高度较小且为横屏时触发) */
+    /* 3. 手机/平板横屏移动端 */
     @media (max-height: 540px) and (orientation: landscape), (max-width: 932px) and (orientation: landscape) {
       html, body { overflow: hidden; }
       .app { height: 100vh; grid-template-rows: auto 1fr; }
@@ -519,45 +523,25 @@
       .topbar-center .chip { padding: 5px 10px; font-size: 12px; }
       .topbar-actions .btn { padding: 6px 12px; font-size: 13px; }
       
-      /* 横屏下转为左右排列结构，让棋盘占满高度，侧边栏并排排列 */
       .layout {
-        grid-template-columns: minmax(0, 1.1fr) minmax(240px, 340px);
-        grid-template-areas: "board sidebars";
+        display: flex;
+        flex-direction: row;
         padding: 8px;
         gap: 12px;
         height: calc(100vh - 50px);
       }
       .board-zone {
-        grid-area: board;
+        flex: 1;
         height: 100%;
       }
       .board-shell {
-        width: calc(100vh - 74px);
-        height: calc(100vh - 74px);
+        width: calc(100vh - 70px);
+        height: calc(100vh - 70px);
         max-width: 100%;
         max-height: 100%;
         aspect-ratio: 1 / 1;
       }
       
-      /* 侧边栏在横屏下融合成一个滚动流容器，置于右侧 */
-      .sidebar-left, .sidebar-right { display: contents; }
-      .layout::before {
-        content: '';
-        grid-area: sidebars;
-        display: block;
-      }
-      /* 重组面板并入右侧滚动区 */
-      .layout > .sidebar {
-        display: none; /* 屏蔽默认侧边栏节点，通过JS或CSS容器聚合，此处使面板流动 */
-      }
-      /* 精简横屏下的Grid，使全部面板在右侧上下滚动 */
-      .layout {
-        display: flex;
-        flex-direction: row;
-      }
-      .board-zone {
-        flex: 1;
-      }
       .sidebar-left, .sidebar-right {
         display: flex;
         flex-direction: column;
@@ -567,8 +551,9 @@
         overflow-y: auto;
         height: 100%;
         padding-right: 4px;
+        justify-content: flex-start;
       }
-      .sidebar-right { display: none; } /* 横屏下精简非核心信息，或随左侧混合 */
+      .sidebar-right { display: none; }
     }
 
     @media (max-width: 520px) {
@@ -713,34 +698,30 @@
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
   
   <script>
-    // 监听横竖屏切换以及视口改变，动态确保Canvas绘图上下文尺寸与物理像素完美对齐
     function resizeGameBoardCanvas() {
       const canvas = document.getElementById('goBoard');
       if (!canvas) return;
       const rect = canvas.getBoundingClientRect();
-      // 使用设备像素比避免高分屏（Retina）下的锯齿和模糊问题
       const dpr = window.devicePixelRatio || 1;
       if (canvas.width !== Math.floor(rect.width * dpr) || canvas.height !== Math.floor(rect.height * dpr)) {
         canvas.width = Math.floor(rect.width * dpr);
         canvas.height = Math.floor(rect.height * dpr);
-        // 如果game.js里有重新绘制棋盘的方法，可以在此处触发更新，例如：if(window.drawBoard) window.drawBoard();
+        if (window.drawBoard) window.drawBoard(); 
       }
     }
     window.addEventListener('resize', resizeGameBoardCanvas);
     window.addEventListener('orientationchange', () => {
       setTimeout(resizeGameBoardCanvas, 200);
     });
-    // 初始化执行
+    
     document.addEventListener('DOMContentLoaded', () => {
       setTimeout(resizeGameBoardCanvas, 300);
       
-      // 兼容手机横屏下的双侧边栏融合流动
       const mediaQuery = window.matchMedia("(orientation: landscape) and (max-height: 540px)");
       function handleLandscapeChange(e) {
         const rightSidebar = document.querySelector('.sidebar-right');
         const leftSidebar = document.querySelector('.sidebar-left');
         if (e.matches && rightSidebar && leftSidebar) {
-          // 横屏时将右侧面板追加到左侧容器尾部，融合成单一纵向滚动条
           while(rightSidebar.childNodes.length > 0) {
             leftSidebar.appendChild(rightSidebar.childNodes[0]);
           }
