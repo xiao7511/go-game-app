@@ -302,19 +302,8 @@
       background: rgba(239, 68, 68, 0.14);
       color: #ffb0b0;
       border-color: rgba(239, 68, 68, 0.16);
-    }
-    .board-zone {
-      display: flex;
-      align-items: center;      /* 垂直居中 */
-      justify-content: center;   /* 🌟 核心：水平绝对居中，彻底解决不对称偏移 */
-      min-width: 0;
-      min-height: 0;
-      position: relative;
-      flex: 1;                  /* 允许弹性填充 */
-      width: 100%;
-      height: 100%;
-    }
-    /*
+    } 
+       
     .board-zone {
       display: flex;
       align-items: center;
@@ -322,8 +311,8 @@
       min-width: 0;
       min-height: 0;
       position: relative;
-    }*/
-    /*.board-shell {
+    }
+    .board-shell {
       position: relative;
       width: min(100%, min(78vmin, calc(100vh - 120px)));
       aspect-ratio: 1 / 1;
@@ -334,27 +323,8 @@
       display: flex;
       align-items: center;
       justify-content: center;
-    }*/
-    /* 🌟 优化后的围棋棋盘外壳 🌟 */
-    .board-shell {
-      position: relative;
-      /* 限制其在大屏下的最大体量，既不空洞也不压迫 */
-      width: min(100%, min(70vmin, calc(100vh - 160px)));
-      max-width: 480px; 
-      max-height: 480px;
-      
-      aspect-ratio: 1 / 1;
-      border-radius: 16px; /* 更精致的微圆角 */
-      background: var(--wood-image);
-      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.45);
-      overflow: hidden;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      
-      /* 显式声明外边距居中兜底 */
-      margin: 0 auto; 
     }
+
 
     canvas#goBoard {
       display: block;
@@ -448,7 +418,6 @@
     }
     .toast.is-visible { display: block; }
 
-    /*
     @media (max-width: 1200px) {
       .layout {
         grid-template-columns: minmax(200px, 260px) minmax(0, 1fr);
@@ -461,27 +430,6 @@
       .sidebar-right { grid-area: right; }
       .board-zone { grid-area: board; }
       .board-shell { width: min(100%, min(74vmin, calc(100vh - 140px))); }
-    }*/
-    @media (max-width: 1200px) {
-      .layout {
-        grid-template-columns: minmax(200px, 260px) minmax(0, 1fr);
-        grid-template-areas:
-          "left board"
-          "right board";
-        align-items: start;
-      }
-      .sidebar-left { grid-area: left; }
-      .sidebar-right { grid-area: right; }
-      .board-zone { grid-area: board; }
-      
-      /* 🌟 iPad 端及中等屏幕的终极自适应：将最大尺寸卡在 420px */
-      /* 降低 vmin 权重到 58，避免在 iPad 横屏时棋盘挤占侧边栏空间 */
-      .board-shell { 
-        width: min(100%, min(62vmin, calc(100vh - 150px))); 
-        max-width: 440px;
-        max-height: 440px;
-        margin: 0 auto; /* 确保在平板等中等屏幕下也是绝对居中对称的 */
-      }
     }
 
     @media (max-width: 860px) {
