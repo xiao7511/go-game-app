@@ -345,7 +345,7 @@
     resizeCanvas();
     return true;
   }
-  
+  /*
   function resizeCanvas() {
     if (!state.canvas || !state.ctx) return;
     const parent = state.canvas.parentElement;
@@ -360,6 +360,38 @@
     state.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     state.padding = cssSize / (SIZE + 1);
     state.cellSize = (cssSize - state.padding * 2) / (SIZE - 1);
+    drawFullBoard();
+  }*/
+  function resizeCanvas() {
+    if (!state.canvas || !state.ctx) return;
+    const parent = state.canvas.parentElement;
+    const shell = parent?.closest('.board-shell') || parent;
+    
+    // 1. 正常计算 cssSize (输出 760)
+    const cssSize = Math.max(320, Math.floor(Math.min(shell?.clientWidth || 0, shell?.clientHeight || shell?.clientWidth || 0) || 760));
+    console.log("[Canvas] 调整画布尺寸为:", cssSize);
+
+    // 2. 🌟 核心修正：绝对不要用 Math.floor()！保留真实的 1.25 或 1.5 缩放比
+    const dpr = window.devicePixelRatio || 1; 
+    console.log("[Canvas] 当前屏幕真实的 DPR 缩放比为:", dpr);
+
+    // 3. 乘上真实的非整数 DPR，如果是 1.25 倍屏，物理宽高在这里就主动赋值为 950 (或 949)
+    // 这样 JS 的赋值就和浏览器的底层物理缓冲区完美同步，两边再也不会打架！
+    state.canvas.width = Math.round(cssSize * dpr);
+    state.canvas.height = Math.round(cssSize * dpr);
+    
+    // 4. CSS 样式强制锁定 760px，让浏览器负责高清缩小显示
+    state.canvas.style.width = `${cssSize}px`;
+    state.canvas.style.height = `${cssSize}px`;
+    
+    // 5. 🌟 核心修正：使用标准的 resetTransform + scale，比 setTransform 更安全
+    state.ctx.resetTransform(); 
+    state.ctx.scale(dpr, dpr); 
+
+    // 6. 围棋参数依然基于标准的 760 视觉尺寸计算
+    state.padding = cssSize / (SIZE + 1);
+    state.cellSize = (cssSize - state.padding * 2) / (SIZE - 1);
+    
     drawFullBoard();
   }
   function drawFullBoard() {
