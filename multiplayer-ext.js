@@ -366,42 +366,57 @@
   function resizeCanvas() {
     if (!state.canvas || !state.ctx) return;
 
-    // 1. 🌟 治本核心：绝不测量 shell，转而测量最干净的外层棋盘承载区 .board-zone
-    // .board-zone 的大小由顶层 Grid 决定，绝对不会被内部的 Canvas 撑大
     const boardZone = document.querySelector('.board-zone');
     if (!boardZone) return;
 
-    // 2. 获取不受内部组件干扰的纯净可用宽度与高度
-    const zoneWidth = boardZone.clientWidth || 0;
-    const zoneHeight = boardZone.clientHeight || 0;
+    // 1. 🌟 JS 绝对物理拦截：计算出当前浏览器视口理论上纯净的最大剩余可用高度
+    // 浏览器总高度 减去 顶部导航栏(约75px) 再减去 上下内边距与安全空隙(约45px)
+    const maxPureHeight = Math.max(320, window.innerHeight - 120);
 
-    // 3. 严格计算正方形视觉大小（取宽高极小值）
-    let cssSize = Math.floor(Math.min(zoneWidth, zoneHeight));
+    // 2. 读取 DOM 的原始尺寸
+    const zoneWidth = boardZone.clientWidth || 600;
+    const zoneHeight = boardZone.clientHeight || maxPureHeight;
 
-    // 4. 减去外壳 .board-shell 自身可能存在的 padding 内边距（如四周各有18px，共减去36）
-    // 这样能确保 Canvas 缩在木纹边框内部，让边框完美露出来
+    // 3. 混合计算：取 zone 宽度、zone 高度以及视口硬性最大高度三者的【极小值】
+    // 这样即便 zoneHeight 被内部撑大到了 949，也会被 maxPureHeight 无情地强行拉回到 700+
+    let cssSize = Math.floor(Math.min(zoneWidth, Math.min(zoneHeight, maxPureHeight)));
+
+    // 4. 扣除外壳 padding 四周间距（18px * 2）
     cssSize = cssSize - 36;
 
-    // 5. 设定安全的绝对上下限，防止大屏 PC 上突破天际或调试时缩成一团
-    cssSize = Math.max(320, Math.min(cssSize, 760)); // 如果你希望上限就是 760，这里死锁 760
+    // 5. 🌟 最终死锁：无论外界如何膨胀，JS 层面在此强行掐死上限为 760
+    if (cssSize > 760) {
+      cssSize = 760;
+    }
+    if (cssSize < 320) {
+      cssSize = 320;
+    }
 
     const dpr = Math.max(1, Math.floor(window.devicePixelRatio || 1));
 
-    // 6. 🌟 性能与防闪烁优化：只有当尺寸真正改变时才动画布 Buffer
-    if (state.canvas.width !== cssSize * dpr || state.canvas.height !== cssSize * dpr) {
-      state.canvas.width = cssSize * dpr;
-      state.canvas.height = cssSize * dpr;
+    // 6. 只有当实际像素值真的发生变化时才动作，完美防止闭环死循环
+    const targetWidth = cssSize * dpr;
+    const targetHeight = cssSize * dpr;
+
+    if (state.canvas.width !== targetWidth || state.canvas.height !== targetHeight) {
+      
+      state.canvas.width = targetWidth;
+      state.canvas.height = targetHeight;
       state.canvas.style.width = `${cssSize}px`;
       state.canvas.style.height = `${cssSize}px`;
 
+      // 重新应用高分屏矩阵
       state.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
+      // 计算格线间距参数
       state.padding = cssSize / (SIZE + 1);
       state.cellSize = (cssSize - state.padding * 2) / (SIZE - 1);
 
-      // 7. 放入下一帧异步队列，避开浏览器的样式计算锁，确保顺滑
+      // 单帧延迟渲染，避开样式的同步回流锁
       requestAnimationFrame(() => {
-        drawFullBoard();
+        if (typeof drawFullBoard === 'function') {
+          drawFullBoard();
+        }
       });
     }
   }
