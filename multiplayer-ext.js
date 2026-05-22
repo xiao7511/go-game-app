@@ -346,7 +346,6 @@
     return true;
   }
   
-  /*
   function resizeCanvas() {
     if (!state.canvas || !state.ctx) return;
     const parent = state.canvas.parentElement;
@@ -362,63 +361,6 @@
     state.padding = cssSize / (SIZE + 1);
     state.cellSize = (cssSize - state.padding * 2) / (SIZE - 1);
     drawFullBoard();
-  }*/
-  function resizeCanvas() {
-    if (!state.canvas || !state.ctx) return;
-
-    const boardZone = document.querySelector('.board-zone');
-    if (!boardZone) return;
-
-    // 1. 🌟 JS 绝对物理拦截：计算出当前浏览器视口理论上纯净的最大剩余可用高度
-    // 浏览器总高度 减去 顶部导航栏(约75px) 再减去 上下内边距与安全空隙(约45px)
-    const maxPureHeight = Math.max(320, window.innerHeight - 120);
-
-    // 2. 读取 DOM 的原始尺寸
-    const zoneWidth = boardZone.clientWidth || 600;
-    const zoneHeight = boardZone.clientHeight || maxPureHeight;
-
-    // 3. 混合计算：取 zone 宽度、zone 高度以及视口硬性最大高度三者的【极小值】
-    // 这样即便 zoneHeight 被内部撑大到了 949，也会被 maxPureHeight 无情地强行拉回到 700+
-    let cssSize = Math.floor(Math.min(zoneWidth, Math.min(zoneHeight, maxPureHeight)));
-
-    // 4. 扣除外壳 padding 四周间距（18px * 2）
-    cssSize = cssSize - 36;
-
-    // 5. 🌟 最终死锁：无论外界如何膨胀，JS 层面在此强行掐死上限为 760
-    if (cssSize > 760) {
-      cssSize = 760;
-    }
-    if (cssSize < 320) {
-      cssSize = 320;
-    }
-
-    const dpr = Math.max(1, Math.floor(window.devicePixelRatio || 1));
-
-    // 6. 只有当实际像素值真的发生变化时才动作，完美防止闭环死循环
-    const targetWidth = cssSize * dpr;
-    const targetHeight = cssSize * dpr;
-
-    if (state.canvas.width !== targetWidth || state.canvas.height !== targetHeight) {
-      
-      state.canvas.width = targetWidth;
-      state.canvas.height = targetHeight;
-      state.canvas.style.width = `${cssSize}px`;
-      state.canvas.style.height = `${cssSize}px`;
-
-      // 重新应用高分屏矩阵
-      state.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-
-      // 计算格线间距参数
-      state.padding = cssSize / (SIZE + 1);
-      state.cellSize = (cssSize - state.padding * 2) / (SIZE - 1);
-
-      // 单帧延迟渲染，避开样式的同步回流锁
-      requestAnimationFrame(() => {
-        if (typeof drawFullBoard === 'function') {
-          drawFullBoard();
-        }
-      });
-    }
   }
   function drawFullBoard() {
     if (!state.canvas || !state.ctx) return;
