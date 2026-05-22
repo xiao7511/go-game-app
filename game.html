@@ -303,7 +303,6 @@
       color: #ffb0b0;
       border-color: rgba(239, 68, 68, 0.16);
     }
-
     .board-zone {
       display: flex;
       align-items: center;
@@ -311,7 +310,19 @@
       min-width: 0;
       min-height: 0;
       position: relative;
+      /* 🌟 新增：防止父级容器在 PC/iPad 上被强行撑高 */
+      height: 100%; 
+      width: 100%;
     }
+    /*
+    .board-zone {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 0;
+      min-height: 0;
+      position: relative;
+    }*/
     /*.board-shell {
       position: relative;
       width: min(100%, min(78vmin, calc(100vh - 120px)));
@@ -327,23 +338,23 @@
     /* 🌟 优化后的围棋棋盘外壳 🌟 */
     .board-shell {
       position: relative;
-      /* 1. 核心改变：限制最大宽度为 600px，防止在 PC 宽屏上无限撑大 */
-      /* 2. 同时在笔记本/手机端，它依然能保持 min(100%, 76vmin) 的丝滑自适应 */
-      width: min(100%, min(76vmin, calc(100vh - 150px)));
-      max-width: 500px; 
-      max-height: 500px;
+      /* 🌟 核心优化：在 PC 端将最大尺寸严格限制在 460px，给周围留出舒适的呼吸空间 */
+      width: min(100%, min(65vmin, calc(100vh - 180px)));
+      max-width: 460px; 
+      max-height: 460px;
       
       aspect-ratio: 1 / 1;
-      border-radius: 24px;
+      border-radius: 20px;
       background: var(--wood-image);
-      box-shadow: 0 24px 80px rgba(0, 0, 0, 0.42);
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4);
       overflow: hidden;
       display: flex;
       align-items: center;
       justify-content: center;
       
-      /* 3. 在大屏幕的 grid 槽位里时刻保持居中 */
-      margin: 0 auto; 
+      /* 确保在 Grid 轨道中绝对居中，不被拉伸 */
+      margin: auto; 
+      align-self: center;
     }
     canvas#goBoard {
       display: block;
@@ -462,12 +473,15 @@
       .sidebar-left { grid-area: left; }
       .sidebar-right { grid-area: right; }
       .board-zone { grid-area: board; }
-      /* 🌟 同步收紧中等屏幕下的最大边界，保持正方形视觉黄金比例 🌟 */
+      
+      /* 🌟 iPad 端及中等屏幕的终极自适应：将最大尺寸卡在 420px */
+      /* 降低 vmin 权重到 58，避免在 iPad 横屏时棋盘挤占侧边栏空间 */
       .board-shell { 
-        width: min(100%, min(74vmin, calc(100vh - 140px))); 
-        max-width: 460px;
-        max-height: 460px;
-        margin: 0 auto;
+        width: min(100%, min(58vmin, calc(100vh - 160px))); 
+        max-width: 420px;
+        max-height: 420px;
+        margin: auto;
+        align-self: center;
       }
     }
 
