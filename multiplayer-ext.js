@@ -346,7 +346,7 @@
     return true;
   }
   
-  /*
+  
   function resizeCanvas() {
     if (!state.canvas || !state.ctx) return;
     const parent = state.canvas.parentElement;
@@ -362,57 +362,6 @@
     state.padding = cssSize / (SIZE + 1);
     state.cellSize = (cssSize - state.padding * 2) / (SIZE - 1);
     drawFullBoard();
-  }*/
- /****===============2026-05-22================*/
-  function resizeCanvas() {
-    if (!state.canvas || !state.ctx) return;
-
-    // 1. 🌟 防死循环核心：量最外层不缩水的 .board-zone（或者直接量主框架 layout）
-    const boardZone = document.querySelector('.board-zone');
-    const parent = state.canvas.parentElement; // 即 .board-shell
-    
-    if (!boardZone || !parent) return;
-
-    // 获取外层不受 Canvas 干扰的可用纯净宽度与高度
-    const zoneWidth = boardZone.clientWidth;
-    // 减去少许上下安全边距，防止贴紧顶部栏
-    const zoneHeight = boardZone.clientHeight || (window.innerHeight - 100); 
-
-    // 2. 🌟 防塌陷计算：精准算出理想的 CSS 视觉正方形大小
-    let cssSize = Math.floor(Math.min(zoneWidth, zoneHeight));
-    
-    // 减去父容器 shell 自身的 padding (比如上一轮加的左右 18px * 2 = 36px)
-    cssSize = cssSize - 36; 
-
-    // 设定安全上下限，防止极小或超出
-    cssSize = Math.max(320, Math.min(cssSize, 800));
-
-    // 3. 物理像素放大（高清屏支持）
-    const dpr = window.devicePixelRatio || 1;
-    
-    // 只有当尺寸真正发生改变时才重置画布，极大提高渲染性能
-    if (state.canvas.width !== cssSize * dpr || state.canvas.height !== cssSize * dpr) {
-      state.canvas.width = cssSize * dpr;
-      state.canvas.height = cssSize * dpr;
-      state.canvas.style.width = `${cssSize}px`;
-      state.canvas.style.height = `${cssSize}px`;
-
-      // 4. 🌟 标准高清矩阵缩放：配合标准的 ctx 状态管理
-      state.ctx.restore(); // 先恢复一次，防止多次叠加
-      state.ctx.save();    // 保存基础状态
-      state.ctx.scale(dpr, dpr);
-      
-      // 5. 重新分配围棋格线参数
-      state.padding = cssSize / (SIZE + 1);
-      state.cellSize = (cssSize - state.padding * 2) / (SIZE - 1);
-
-      // 6. 异步单帧延时重绘，确保浏览器 Buffer 刷新完毕
-      requestAnimationFrame(() => {
-        if (typeof drawFullBoard === 'function') {
-          drawFullBoard();
-        }
-      });
-    }
   }
   function drawFullBoard() {
     if (!state.canvas || !state.ctx) return;
@@ -1743,21 +1692,6 @@
     state.canvas.addEventListener('pointerdown', canvasCaptureHandler, {
       passive: false,
       capture: true
-    });
-    /*点击监听  2026-05-22*/
-    state.canvas.addEventListener('click', (e) => {
-      const rect = state.canvas.getBoundingClientRect();
-      // 无论 DPR 是多少，getBoundingClientRect 拿到的永远是 CSS 视觉像素
-      const mouseX = e.clientX - rect.left;
-      const mouseY = e.clientY - rect.top;
-
-      // 直接使用根据 cssSize 算出来的基础 padding 和 cellSize，完美对应
-      const col = Math.round((mouseX - state.padding) / state.cellSize);
-      const row = Math.round((mouseY - state.padding) / state.cellSize);
-
-      if (col >= 0 && col < SIZE && row >= 0 && row < SIZE) {
-        handlePlaceStone(row, col);
-      }
     });
 
     if (state.resizeObserver) state.resizeObserver.disconnect();
