@@ -772,8 +772,106 @@ function judgeWinner(board, blackTerritory, whiteTerritory) {
       ctx.restore();
     }
   }
-
+  /*****修复PC端围棋的版面****** */
   function initGame() {
+    canvas = document.getElementById('goBoard');
+    if (!canvas) return;
+    ctx = canvas.getContext('2d');
+
+    // 🌟 1. 纯净自适应：直接读取父容器（.board-shell）的实际渲染宽高，不再用 JS 算死公式
+    const shell = canvas.parentElement;
+    const rect = shell ? shell.getBoundingClientRect() : { width: 600, height: 600 };
+    
+    // 如果需要极致细腻的高清屏显示，这里可以使用物理像素缩放（DPR）
+    // 为了不破坏你原本的坐标转换逻辑，我们先用 1:1 的容器大小
+    const size = Math.floor(Math.min(rect.width, rect.height)) || 600;
+    
+    canvas.width = size;
+    canvas.height = size;
+
+    // 2. 核心参数：间距和边距
+    padding = size / (SIZE + 1);
+    cellSize = (size - padding * 2) / (SIZE - 1);
+
+    // 1.5 最新落子闪烁控制
+    if (latestMoveTimer) clearInterval(latestMoveTimer);
+    latestMoveTimer = setInterval(() => {
+        if (!latestMove) return;
+        latestMoveFlash = !latestMoveFlash;
+        drawBoard();
+    }, 280);
+
+    // 初始绘制
+    drawBoard();
+
+    // 初始化 Supabase 实时同步
+    initRealtime();
+
+    // 3. Canvas 点击事件：坐标转换并落子
+    if (boardClickHandler) {
+        canvas.removeEventListener('click', boardClickHandler);
+    }
+    boardClickHandler = (e) => {
+        if (animating || gameEnded) return;
+        const cRect = canvas.getBoundingClientRect();
+        const scaleX = canvas.width / cRect.width;
+        const scaleY = canvas.height / cRect.height;
+        const mouseX = (e.clientX - cRect.left) * scaleX;
+        const mouseY = (e.clientY - cRect.top) * scaleY;
+
+        const col = Math.round((mouseX - padding) / cellSize);
+        const row = Math.round((mouseY - padding) / cellSize);
+
+        if (col >= 0 && col < SIZE && row >= 0 && row < SIZE) {
+            handlePlaceStone(row, col);
+        }
+    };
+    canvas.addEventListener('click', boardClickHandler);
+
+    // 🌟 4. 健壮的监听器：当父容器（.board-shell）大小改变时，同步更新 Canvas 像素大小
+    if (!resizeObserver && 'ResizeObserver' in window && shell) {
+        resizeObserver = new ResizeObserver(() => {
+            if (canvasResizeRaf) cancelAnimationFrame(canvasResizeRaf);
+            canvasResizeRaf = requestAnimationFrame(() => {
+                if (!canvas || !canvas.parentElement) return;
+                
+                const nextRect = canvas.parentElement.getBoundingClientRect();
+                const nextSize = Math.floor(Math.min(nextRect.width, nextRect.height));
+                
+                if (canvas.width !== nextSize || canvas.height !== nextSize) {
+                    canvas.width = nextSize;
+                    canvas.height = nextSize;
+                    padding = nextSize / (SIZE + 1);
+                    cellSize = (nextSize - padding * 2) / (SIZE - 1);
+                    drawBoard();
+                }
+            });
+        });
+        resizeObserver.observe(shell);
+    }
+
+    // 🌟 5. 窗口大小改变的兜底处理
+    if (!window.__goGameResizeBound) {
+        window.__goGameResizeBound = true;
+        window.addEventListener('resize', () => {
+            if (canvasResizeRaf) cancelAnimationFrame(canvasResizeRaf);
+            canvasResizeRaf = requestAnimationFrame(() => {
+                if (canvas && canvas.parentElement) {
+                    const nextRect = canvas.parentElement.getBoundingClientRect();
+                    const nextSize = Math.floor(Math.min(nextRect.width, nextRect.height));
+                    
+                    canvas.width = nextSize;
+                    canvas.height = nextSize;
+                    padding = nextSize / (SIZE + 1);
+                    cellSize = (nextSize - padding * 2) / (SIZE - 1);
+                    drawBoard();
+                }
+            });
+        });
+    }
+}
+  
+  /*function initGame() {
     canvas = document.getElementById('goBoard');
     if (!canvas) return;
     ctx = canvas.getContext('2d');
@@ -862,7 +960,7 @@ function judgeWinner(board, blackTerritory, whiteTerritory) {
         });
       });
     }
-  }
+  }*/
 
 
   // --- 5. 事件绑定 ---
