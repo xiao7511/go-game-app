@@ -7,11 +7,16 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="theme-color" content="#0f1720" />
   <title>围棋 Pro - 在线对战</title>
+  <script>
+    window.CONFIG = {
+      SUPABASE_URL: "https://kogjjfccyncdszuuwlun.supabase.co/rest/v1/",
+      SUPABASE_ANON_KEY: "sb_publishable_sUhEUYYHIr7hQl6A_iE4zQ_F-P3KENr"
+    };
+  </script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="config.js"></script>
   <script src="game.js"></script>
   <script src="multiplayer-ext.js"></script>
-  <script src="guandan-game.js"></script>
   <style>
     :root {
       --bg: #0f1720;
@@ -43,26 +48,33 @@
     button, input { font: inherit; }
 
     button {
-      border: 0;
+      padding: 12px 24px;
       border-radius: 12px;
+      border: none;
+      font-weight: bold;
       cursor: pointer;
-      transition: transform 0.18s ease, opacity 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
+      transition: 0.2s;
+      background: var(--accent);
+      color: #000;
     }
     button:hover { transform: translateY(-1px); }
     button:disabled { cursor: not-allowed; opacity: 0.55; transform: none; }
 
     .hidden { display: none !important; }
 
-    /* Selection view */
     #game-selection {
-      position: fixed;
-      inset: 0;
-      z-index: 50;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: radial-gradient(circle at center, #1a2635, #0f1720 78%);
-      padding: 24px;
+      position: fixed; inset: 0; z-index: 500;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      background: radial-gradient(circle at center, #1a2635, #0f1720);
+    }
+    .card {
+      background: var(--panel); border: 1px solid var(--panel-border);
+      padding: 30px; border-radius: var(--radius); text-align: center;
+      backdrop-filter: blur(10px); box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+    }
+    .badge {
+      padding: 6px 14px; background: rgba(255,255,255,0.06);
+      border: 1px solid var(--panel-border); border-radius: 999px; font-size: 0.85rem; margin-left: 8px;
     }
     .selection-card {
       width: min(560px, 100%);
@@ -73,9 +85,21 @@
       box-shadow: var(--shadow);
       backdrop-filter: blur(12px);
     }
-    .selection-card h1 { margin: 0 0 8px; font-size: 2rem; letter-spacing: 0.04em; }
-    .selection-subtitle { margin: 0 0 20px; color: var(--muted); line-height: 1.6; }
-    .mode-list { display: flex; flex-direction: column; gap: 12px; }
+    .selection-card h1 {
+      margin: 0 0 8px;
+      font-size: 2rem;
+      letter-spacing: 0.04em;
+    }
+    .selection-subtitle {
+      margin: 0 0 20px;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+    .mode-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
     .mode-btn {
       width: 100%;
       display: flex;
@@ -90,10 +114,10 @@
       border: 1px solid rgba(255, 255, 255, 0.08);
     }
     .mode-btn.primary {
-      background: linear-gradient(135deg, #f6c453, #d89d1e);
-      color: #161616;
+      background: #28a745;
+      color: #fff;
       font-weight: 700;
-      box-shadow: 0 12px 28px rgba(246, 196, 83, 0.24);
+      box-shadow: 0 12px 28px rgba(40, 167, 69, 0.24);
     }
     .mode-btn .badge {
       flex: 0 0 auto;
@@ -106,15 +130,19 @@
     }
     .mode-btn.primary .badge { background: rgba(0, 0, 0, 0.14); }
 
-    /* Game app layout */
     .app {
       display: none;
       height: 100vh;
+      min-height: 100vh;
       grid-template-rows: auto 1fr;
       overflow: hidden;
+      max-width: 100vw;
     }
 
     .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 20;
       display: grid;
       grid-template-columns: minmax(220px, 1fr) auto minmax(220px, 1fr);
       align-items: center;
@@ -123,13 +151,35 @@
       background: rgba(8, 12, 18, 0.85);
       border-bottom: 1px solid var(--panel-border);
       backdrop-filter: blur(12px);
-      z-index: 10;
     }
-    .topbar-brand { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
-    .topbar-brand strong { font-size: 1.05rem; letter-spacing: 0.08em; }
-    .topbar-brand span { font-size: 12px; color: var(--muted); }
-    .topbar-center { display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap; }
-    .topbar-actions { display: flex; align-items: center; justify-content: flex-end; gap: 10px; flex-wrap: wrap; }
+    .topbar-brand {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      min-width: 0;
+    }
+    .topbar-brand strong {
+      font-size: 1.05rem;
+      letter-spacing: 0.08em;
+    }
+    .topbar-brand span {
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .topbar-center {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .topbar-actions {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
 
     .chip {
       display: inline-flex;
@@ -145,32 +195,46 @@
     }
     .chip b { color: var(--accent); }
     .chip--muted b { color: var(--text); }
+    .chip--success b { color: var(--success); }
 
-    .btn { padding: 11px 16px; border-radius: 12px; font-weight: 700; border: 1px solid transparent; }
-    .btn-ghost { background: rgba(255, 255, 255, 0.08); color: var(--text); border-color: rgba(255, 255, 255, 0.1); }
-    .btn-danger { background: rgba(239, 68, 68, 0.95); color: white; box-shadow: 0 10px 24px rgba(239, 68, 68, 0.24); }
-    .btn-accent { background: linear-gradient(135deg, #f6c453, #d89d1e); color: #171717; font-weight: 800; }
-
-    /* 🌟 PC端经典三栏自适应框架 - 稳固、永不坍塌错位 🌟 */
-    .layout {
-      display: grid;
-      grid-template-columns: 280px 1fr 320px;
-      gap: 24px;
-      padding: 24px;
-      height: calc(100vh - 75px);
-      min-height: 0;
-      align-items: center;
+    .btn {
+      padding: 11px 16px;
+      border-radius: 12px;
+      font-weight: 700;
+      border: 1px solid transparent;
+    }
+    .btn-ghost {
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text);
+      border-color: rgba(255, 255, 255, 0.1);
+    }
+    .btn-danger {
+      background: rgba(239, 68, 68, 0.95);
+      color: white;
+      box-shadow: 0 10px 24px rgba(239, 68, 68, 0.24);
+    }
+    .btn-accent {
+      background: linear-gradient(135deg, #f6c453, #d89d1e);
+      color: #171717;
+      font-weight: 800;
     }
 
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(224px, 280px) minmax(0, 1fr) minmax(224px, 320px);
+      gap: 16px;
+      padding: 16px;
+      min-height: 0;
+      align-items: stretch;
+      max-width: 100vw;
+    }
     .sidebar {
       display: flex;
       flex-direction: column;
-      gap: 20px;
+      gap: 16px;
       min-width: 0;
-      height: 100%;
-      justify-content: center;
+      min-height: 0;
     }
-
     .panel {
       background: var(--panel);
       border: 1px solid var(--panel-border);
@@ -187,16 +251,48 @@
       gap: 12px;
       border-bottom: 1px solid rgba(255, 255, 255, 0.06);
     }
-    .panel-header h2 { margin: 0; font-size: 15px; letter-spacing: 0.06em; }
+    .panel-header h2 {
+      margin: 0;
+      font-size: 15px;
+      letter-spacing: 0.06em;
+    }
     .panel-body { padding: 16px; }
 
-    .player-card { display: flex; align-items: center; gap: 14px; }
-    .player-avatar { width: 52px; height: 52px; border-radius: 50%; object-fit: cover; background: rgba(255,255,255,0.08); flex: 0 0 auto; }
+    .player-card {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .player-avatar {
+      width: 52px;
+      height: 52px;
+      border-radius: 50%;
+      object-fit: cover;
+      background: rgba(255,255,255,0.08);
+      flex: 0 0 auto;
+    }
     .player-meta { min-width: 0; flex: 1; }
-    .player-meta .name-row { display: flex; align-items: center; gap: 8px; min-width: 0; margin-bottom: 6px; }
-    .player-meta .name-row strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 1rem; }
-    .player-meta .sub { display: flex; flex-wrap: wrap; gap: 8px; color: var(--muted); font-size: 13px; }
-    
+    .player-meta .name-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+      margin-bottom: 6px;
+    }
+    .player-meta .name-row strong {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-size: 1rem;
+    }
+    .player-meta .sub {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      color: var(--muted);
+      font-size: 13px;
+    }
     .status-pill {
       padding: 4px 8px;
       border-radius: 999px;
@@ -206,156 +302,278 @@
       font-size: 12px;
       font-weight: 700;
     }
-    .status-pill.offline { background: rgba(239, 68, 68, 0.14); color: #ffb0b0; border-color: rgba(239, 68, 68, 0.16); }
+    .status-pill.offline {
+      background: rgba(239, 68, 68, 0.14);
+      color: #ffb0b0;
+      border-color: rgba(239, 68, 68, 0.16);
+    }
 
-    /* 棋盘核心居中区域 */
     .board-zone {
       display: flex;
       align-items: center;
       justify-content: center;
-      width: 100%;
-      height: 100%;
       min-width: 0;
       min-height: 0;
+      position: relative;
+      max-width: 100vw;
+      padding: 0;
     }
-
-    /* 🌟 棋盘外壳：关键核心在于增加 18px 的 padding，把 Canvas 往里挤，边框就全露出来了 🌟 */
     .board-shell {
       position: relative;
-      width: min(100%, min(85vmin, calc(100vh - 130px)));
-      max-width: 640px;
-      max-height: 640px;
+      width: min(100%, min(78vmin, calc(100vh - 120px)));
       aspect-ratio: 1 / 1;
-      border-radius: 16px;
+      border-radius: 26px;
       background: var(--wood-image);
-      padding: 18px; /* ✨ 关键优化：给四周留出呼吸空隙，让棋盘最外圈长出木纹边框 */
       box-shadow:
-        0 24px 70px rgba(0, 0, 0, 0.55),
-        0 8px 24px rgba(0, 0, 0, 0.3),
-        inset 0 1px 0 rgba(255, 255, 255, 0.2),
-        inset 0 -10px 20px rgba(0, 0, 0, 0.15);
-      border: 1px solid rgba(255, 240, 200, 0.15);
+        0 28px 90px rgba(0, 0, 0, 0.48),
+        0 10px 26px rgba(0, 0, 0, 0.20),
+        inset 0 1px 0 rgba(255, 255, 255, 0.18),
+        inset 0 -14px 28px rgba(0, 0, 0, 0.18);
+      overflow: hidden;
       display: flex;
       align-items: center;
       justify-content: center;
-      overflow: hidden;
+      isolation: isolate;
+      max-width: 100vw;
+      touch-action: none;
     }
-
+    .board-shell::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(circle at 18% 16%, rgba(255,255,255,0.18), transparent 26%),
+        radial-gradient(circle at 78% 84%, rgba(0,0,0,0.16), transparent 32%),
+        repeating-linear-gradient(95deg, rgba(255,255,255,0.035) 0 2px, rgba(0,0,0,0.04) 2px 7px),
+        linear-gradient(180deg, rgba(255,255,255,0.04), rgba(0,0,0,0.12));
+      opacity: 0.76;
+      pointer-events: none;
+      mix-blend-mode: soft-light;
+      z-index: 0;
+    }
+    .board-shell::after {
+      content: '';
+      position: absolute;
+      inset: 10px;
+      border-radius: 20px;
+      box-shadow: inset 0 0 0 1px rgba(255, 247, 228, 0.10);
+      pointer-events: none;
+      z-index: 0;
+    }
     canvas#goBoard {
+      position: relative;
+      z-index: 1;
       display: block;
       width: 100%;
       height: 100%;
       cursor: pointer;
-      touch-action: manipulation;
+      touch-action: none;
+      max-width: 100vw;
+      filter: drop-shadow(0 8px 16px rgba(0,0,0,0.12));
     }
 
-    .hint-list { display: grid; gap: 10px; font-size: 13px; color: var(--muted); line-height: 1.6; }
+    .hint-list {
+      display: grid;
+      gap: 10px;
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.6;
+    }
     .hint-list strong { color: var(--text); }
 
-    #room-panel .room-code { display: inline-flex; align-items: center; gap: 8px; font-weight: 800; letter-spacing: 0.08em; color: var(--accent); word-break: break-all; }
-    #room-panel .room-link { margin-top: 10px; display: flex; gap: 10px; flex-wrap: wrap; }
-    #room-panel .room-link input { flex: 1 1 180px; min-width: 0; padding: 10px 12px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.06); color: var(--text); }
+    #room-panel .room-code {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      color: var(--accent);
+      word-break: break-all;
+    }
+    #room-panel .room-link {
+      margin-top: 10px;
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    #room-panel .room-link input {
+      flex: 1 1 180px;
+      min-width: 0;
+      padding: 10px 12px;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.12);
+      background: rgba(255,255,255,0.06);
+      color: var(--text);
+    }
+    #room-panel .room-link button { flex: 0 0 auto; }
 
-    /* Modal & Toast */
-    .modal-backdrop { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.5); display: none; align-items: center; justify-content: center; z-index: 1000; padding: 16px; }
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.5);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      padding: 16px;
+    }
     .modal-backdrop.is-open { display: flex; }
-    .modal { width: min(440px, 100%); background: var(--panel-strong); border: 1px solid var(--panel-border); border-radius: 22px; box-shadow: var(--shadow); padding: 22px; }
+    .modal {
+      width: min(440px, 100%);
+      background: var(--panel-strong);
+      border: 1px solid var(--panel-border);
+      border-radius: 22px;
+      box-shadow: var(--shadow);
+      padding: 22px;
+    }
     .modal h3 { margin: 0 0 10px; }
     .modal p { margin: 0 0 18px; color: var(--muted); line-height: 1.6; }
-    .modal-actions { display: flex; justify-content: flex-end; gap: 10px; flex-wrap: wrap; }
+    .modal-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
 
-    .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 1100; padding: 12px 16px; border-radius: 999px; background: rgba(11, 18, 31, 0.92); color: var(--text); border: 1px solid rgba(255,255,255,0.12); box-shadow: var(--shadow); display: none; max-width: min(92vw, 520px); text-align: center; }
+    .toast {
+      position: fixed;
+      left: 50%;
+      bottom: 24px;
+      transform: translateX(-50%);
+      z-index: 1100;
+      padding: 12px 16px;
+      border-radius: 999px;
+      background: rgba(11, 18, 31, 0.92);
+      color: var(--text);
+      border: 1px solid rgba(255,255,255,0.12);
+      box-shadow: var(--shadow);
+      display: none;
+      max-width: min(92vw, 520px);
+      text-align: center;
+    }
     .toast.is-visible { display: block; }
 
-    /* ==========================================================================
-       🌟 严密的自适应断点（确保全平台绝不坍塌）
-       ========================================================================== */
-
-    /* 1. 平板与小屏幕笔记本 (1240px及以下) */
-    @media (max-width: 1240px) {
+    @media (max-width: 1200px) {
       .layout {
-        grid-template-columns: 260px 1fr;
+        grid-template-columns: minmax(200px, 260px) minmax(0, 1fr);
         grid-template-areas:
           "left board"
           "right board";
-        gap: 16px;
-        padding: 16px;
+        align-items: start;
       }
       .sidebar-left { grid-area: left; }
       .sidebar-right { grid-area: right; }
       .board-zone { grid-area: board; }
-      .board-shell { max-width: 500px; max-height: 500px; padding: 14px; }
+      .board-shell { width: min(100%, min(74vmin, calc(100vh - 140px))); }
     }
 
-    /* 2. 手机竖屏 (860px及以下) */
-    @media (max-width: 860px) and (orientation: portrait) {
+    @media (max-width: 860px) {
       html, body { overflow: auto; }
       .app { height: auto; min-height: 100%; }
-      .topbar { grid-template-columns: 1fr; justify-items: stretch; gap: 10px; padding: 12px 16px; }
-      .topbar-center, .topbar-actions { justify-content: flex-start; width: 100%; }
-      .topbar-actions .btn { flex: 1; }
-      .layout {
-        display: flex;
-        flex-direction: column;
-        height: auto;
-        padding: 12px;
-        gap: 16px;
+      .topbar {
+        grid-template-columns: 1fr;
+        justify-items: stretch;
       }
-      .sidebar { height: auto; justify-content: flex-start; }
+      .topbar-center, .topbar-actions { justify-content: flex-start; }
+      .layout {
+        grid-template-columns: 1fr;
+        grid-template-areas:
+          "board"
+          "left"
+          "right";
+        padding: 12px;
+      }
+      .board-zone { min-height: unset; }
       .board-shell {
         width: min(100%, 92vmin);
-        max-width: 440px;
-        max-height: 440px;
-        margin: 0 auto;
-        padding: 12px;
+        max-width: 100%;
       }
     }
 
-    /* 3. 手机横屏模式 */
-    @media (max-height: 540px) and (orientation: landscape), (max-width: 932px) and (orientation: landscape) {
-      html, body { overflow: hidden; }
-      .app { height: 100vh; grid-template-rows: auto 1fr; }
-      .topbar { padding: 6px 12px; gap: 8px; grid-template-columns: auto 1fr auto; }
-      .topbar-brand span { display: none; }
-      .topbar-center .chip { padding: 5px 10px; font-size: 12px; }
-      .topbar-actions .btn { padding: 6px 12px; font-size: 13px; }
-      
+    @media (max-width: 600px) {
+      .app {
+        grid-template-rows: auto 1fr;
+      }
       .layout {
-        display: grid;
-        grid-template-columns: 1fr 280px;
-        grid-template-areas: "board sidebars";
+        grid-template-columns: 1fr;
+        grid-template-areas:
+          "board"
+          "left"
+          "right";
+        gap: 12px;
         padding: 10px;
-        gap: 16px;
-        height: calc(100vh - 50px);
       }
-      .board-zone { grid-area: board; height: 100%; }
+      .sidebar, .panel, .selection-card, .card {
+        border-radius: 16px;
+      }
       .board-shell {
-        width: calc(100vh - 76px);
-        height: calc(100vh - 76px);
+        width: 100%;
         max-width: 100%;
-        max-height: 100%;
-        padding: 12px;
+        border-radius: 18px;
       }
-      
-      .sidebar-left { grid-area: sidebars; height: 100%; overflow-y: auto; justify-content: flex-start; }
-      .sidebar-right { display: none; }
+      .topbar {
+        padding: 10px;
+        gap: 10px;
+      }
+      .topbar-brand {
+        width: 100%;
+        justify-content: center;
+        text-align: center;
+      }
+      .topbar-center,
+      .topbar-actions {
+        width: 100%;
+        justify-content: center;
+      }
+      .btn {
+        width: 100%;
+        justify-content: center;
+      }
+      .topbar-actions .btn { flex: 1 1 0; }
+      .room-link {
+        flex-direction: column;
+      }
+      .room-link input,
+      .room-link button,
+      #room-panel .room-link button {
+        width: 100%;
+      }
+      .player-card { align-items: flex-start; }
+      .player-avatar {
+        width: 46px;
+        height: 46px;
+      }
+      .player-meta .sub {
+        font-size: 12px;
+      }
+    }
+
+    @media (max-width: 520px) {
+      .selection-card { padding: 22px; }
+      .selection-card h1 { font-size: 1.6rem; }
+      .panel-body, .panel-header { padding-left: 14px; padding-right: 14px; }
+      .chip { padding: 8px 10px; font-size: 13px; }
+      .card { padding: 20px; width: 92%; }
+      #game-selection .card button { font-size: 0.95rem; padding: 12px 20px; }
+      .hint-list { font-size: 12px; }
     }
   </style>
+
 </head>
 <body>
-
   <div id="game-selection">
+    <div class="card">
     <section class="selection-card">
       <h1>选择游戏</h1>
       <p class="selection-subtitle">当前版本已聚焦围棋对局，并为后续玩法保留扩展位。进入后将自动加载对战 UI。</p>
       <div class="mode-list">
         <button id="go-game-btn" class="mode-btn primary">
-          <span>经典围棋 19×19</span>
+          <span>经典围棋 19×19（点击进入AI单机版）</span>
           <span class="badge">已上线</span>
         </button>
-        <button id="go-guandan-btn" class="mode-btn btn btn--secondary" type="button">
-          <span>掼蛋娱乐模式</span>
-          <span class="badge">独立沙箱</span>
+        <button class="mode-btn" disabled>
+          <span>掼蛋 (Guandan)</span>
+          <span class="badge">开发中</span>
         </button>
         <button class="mode-btn" disabled>
           <span>上海麻将</span>
@@ -363,6 +581,7 @@
         </button>
       </div>
     </section>
+    </div>
   </div>
 
   <div class="app">
@@ -413,7 +632,7 @@
           <div class="panel-body hint-list">
             <div><strong>落子反馈：</strong>最新落点会持续闪烁，直到对手完成应手。</div>
             <div><strong>棋盘自适应：</strong>主棋盘会随屏幕高度缩放，保持正方形比例。</div>
-            <div><strong>全端适配：</strong>支持移动端竖屏、横屏以及PC宽屏自动对称居中。</div>
+            <div><strong>退出逻辑：</strong>顶部“退出游戏”会先二次确认，再执行清理。</div>
           </div>
         </section>
       </aside>
@@ -467,63 +686,23 @@
           <div class="panel-body hint-list">
             <div><strong>回合：</strong><span id="turn-summary">黑棋先行</span></div>
             <div><strong>连接：</strong><span id="connection-summary">未建立</span></div>
-            <div><strong>提醒：</strong>认输按钮会调用 Supabase RPC <code>game.handle_surrender</code>。</div>
+            <div><strong>提醒：</strong>认输按钮会触发确认流并同步 GAME_OVER。</div>
           </div>
         </section>
       </aside>
     </main>
   </div>
 
-  <div id="confirm-modal" class="modal-backdrop" aria-hidden="true">
-    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="confirm-modal-title">
-      <h3 id="confirm-modal-title">确认操作</h3>
-      <p id="confirm-modal-message">—</p>
+  <div id="result-overlay" class="modal-backdrop" aria-hidden="true">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="result-title">
+      <h3 id="result-title">对局结束</h3>
+      <p id="result-desc">—</p>
       <div class="modal-actions">
-        <button id="confirm-modal-cancel" class="btn btn-ghost" type="button">取消</button>
-        <button id="confirm-modal-ok" class="btn btn-danger" type="button">确认</button>
+        <button id="result-close-btn" class="btn btn-accent" type="button">确定</button>
       </div>
     </div>
   </div>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
-  
-  <script>
-    function resizeGameBoardCanvas() {
-      const canvas = document.getElementById('goBoard');
-      if (!canvas) return;
-      const rect = canvas.getBoundingClientRect();
-      const dpr = window.devicePixelRatio || 1;
-      
-      if (canvas.width !== Math.floor(rect.width * dpr) || canvas.height !== Math.floor(rect.height * dpr)) {
-        canvas.width = Math.floor(rect.width * dpr);
-        canvas.height = Math.floor(rect.height * dpr);
-        if (window.drawBoard) {
-          window.drawBoard();
-        }
-      }
-    }
-    
-    window.addEventListener('resize', resizeGameBoardCanvas);
-    window.addEventListener('orientationchange', () => {
-      setTimeout(resizeGameBoardCanvas, 200);
-    });
-    
-    document.addEventListener('DOMContentLoaded', () => {
-      setTimeout(resizeGameBoardCanvas, 300);
-      
-      const mediaQuery = window.matchMedia("(orientation: landscape) and (max-height: 540px)");
-      function handleLandscapeChange(e) {
-        const rightSidebar = document.querySelector('.sidebar-right');
-        const leftSidebar = document.querySelector('.sidebar-left');
-        if (e.matches && rightSidebar && leftSidebar) {
-          while(rightSidebar.childNodes.length > 0) {
-            leftSidebar.appendChild(rightSidebar.childNodes[0]);
-          }
-        }
-      }
-      mediaQuery.addListener(handleLandscapeChange);
-      handleLandscapeChange(mediaQuery);
-    });
-  </script>
 </body>
 </html>
