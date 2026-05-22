@@ -827,7 +827,7 @@ function judgeWinner(board, blackTerritory, whiteTerritory) {
         }
     };
     canvas.addEventListener('click', boardClickHandler);
-
+    /*
     // 🌟 4. 健壮的监听器：当父容器（.board-shell）大小改变时，同步更新 Canvas 像素大小
     if (!resizeObserver && 'ResizeObserver' in window && shell) {
         resizeObserver = new ResizeObserver(() => {
@@ -868,6 +868,29 @@ function judgeWinner(board, blackTerritory, whiteTerritory) {
                 }
             });
         });
+    }*/
+   // === 彻底清理掉原本 initGame 结尾处杂乱的 resize 计算，统一换成下面这段 ===
+    
+    // 1. 挂载唯一的 ResizeObserver
+    if (!resizeObserver && 'ResizeObserver' in window && shell) {
+      resizeObserver = new ResizeObserver(() => {
+        if (canvasResizeRaf) cancelAnimationFrame(canvasResizeRaf);
+        canvasResizeRaf = requestAnimationFrame(() => {
+          resizeCanvas(); // 唯一调度中心
+        });
+      });
+      resizeObserver.observe(shell);
+    }
+
+    // 2. 挂载唯一的 window resize 兜底器
+    if (!window.__goGameResizeBound) {
+      window.__goGameResizeBound = true;
+      window.addEventListener('resize', () => {
+        if (canvasResizeRaf) cancelAnimationFrame(canvasResizeRaf);
+        canvasResizeRaf = requestAnimationFrame(() => {
+          resizeCanvas(); // 唯一调度中心
+        });
+      });
     }
 }
   

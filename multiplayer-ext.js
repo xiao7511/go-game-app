@@ -363,43 +363,50 @@
     drawFullBoard();
   }*/
   function resizeCanvas() {
-    if (!state.canvas || !state.ctx) return;
-    const parent = state.canvas.parentElement;
-    const shell = parent?.closest('.board-shell') || parent;
-    
-    // 1. 严格计算视觉尺寸（这一步你打印出来是 760 没问题）
-    const cssSize = Math.max(320, Math.floor(Math.min(shell?.clientWidth || 0, shell?.clientHeight || shell?.clientWidth || 0) || 760));
-    
-    // 2. 🌟 终极防死锁：画布的内部像素宽高永久死死锁死在 760（或你的理想底稿大小）
-    // 绝不乘以任何 dpr，从根本上杜绝浏览器将其变成 949 的借口！
-    const renderSize = 760; 
-    
-    if (state.canvas.width !== renderSize || state.canvas.height !== renderSize) {
-      state.canvas.width = renderSize;
-      state.canvas.height = renderSize;
+      if (!state.canvas || !state.ctx) return;
+      const parent = state.canvas.parentElement;
+      const shell = parent?.closest('.board-shell') || parent;
       
-      // 3. 🌟 清除所有的矩阵缩放干扰，恢复 1:1 纯净画布状态
-      state.ctx.resetTransform(); 
+      // 1. 读取外壳理想的布局大小
+      let cssSize = Math.max(320, Math.floor(Math.min(shell?.clientWidth || 0, shell?.clientHeight || shell?.clientWidth || 0) || 760));
       
-      // 4. 围棋参数完全基于稳定的 760 像素底稿进行计算，数值再也不会因为窗口拉伸而漂移
-      state.padding = renderSize / (SIZE + 1);
-      state.cellSize = (renderSize - state.padding * 2) / (SIZE - 1);
+      // 2. 🌟 加上物理天花板拦截，杜绝关闭调试面板时数据失控
+      if (cssSize > 760) {
+        cssSize = 760;
+      }
+
+      // 3. 🌟 保留非整数 DPR（1.25, 1.5），消除线条和字体边缘发虚、模糊
+      const dpr = window.devicePixelRatio || 1;
+
+      // 4. 物理画布分配（同步计算）
+      state.canvas.width = Math.round(cssSize * dpr);
+      state.canvas.height = Math.round(cssSize * dpr);
+      
+      // 5. 样式尺寸死锁
+      state.canvas.style.width = `${cssSize}px`;
+      state.canvas.style.height = `${cssSize}px`;
+      
+      // 6. 应用高清屏缩放矩阵
+      state.ctx.resetTransform();
+      state.ctx.scale(dpr, dpr);
+
+      // 7. 同步更新全局/状态参数，防止代码前后端命名打架
+      state.padding = cssSize / (SIZE + 1);
+      state.cellSize = (cssSize - state.padding * 2) / (SIZE - 1);
+      
+      // 兼容可能存在的旧全局变量，双重保险
+      window.padding = state.padding;
+      window.cellSize = state.cellSize;
+
+      // 8. 异步单帧顺滑渲染
+      requestAnimationFrame(() => {
+        if (typeof drawFullBoard === 'function') {
+          drawFullBoard();
+        } else if (typeof drawBoard === 'function') {
+          drawBoard();
+        }
+      });
     }
-
-    // 5. 🌟 CSS 样式动态缩放（让浏览器在显卡渲染层去自适应高分屏，性能最好且绝不反噬高度）
-    state.canvas.style.width = `${cssSize}px`;
-    state.canvas.style.height = `${cssSize}px`;
-    
-    // 6. 🌟 强行开启浏览器的抗锯齿高清图像平滑通道
-    state.canvas.style.imageRendering = 'auto'; 
-    
-    console.log("[Canvas 终极锁定] 画布属性:", state.canvas.width, "x", state.canvas.height, " | CSS样式样式:", state.canvas.style.width);
-
-    // 7. 单帧延时安全重绘
-    requestAnimationFrame(() => {
-      drawFullBoard();
-    });
-  }
   function drawFullBoard() {
     if (!state.canvas || !state.ctx) return;
     const size = state.canvas.clientWidth || state.canvas.width / Math.max(1, window.devicePixelRatio || 1);
