@@ -346,7 +346,7 @@
     return true;
   }
   
-  
+  /*
   function resizeCanvas() {
     if (!state.canvas || !state.ctx) return;
     const parent = state.canvas.parentElement;
@@ -362,6 +362,48 @@
     state.padding = cssSize / (SIZE + 1);
     state.cellSize = (cssSize - state.padding * 2) / (SIZE - 1);
     drawFullBoard();
+  }*/
+  function resizeCanvas() {
+    if (!state.canvas || !state.ctx) return;
+
+    // 1. 🌟 治本核心：绝不测量 shell，转而测量最干净的外层棋盘承载区 .board-zone
+    // .board-zone 的大小由顶层 Grid 决定，绝对不会被内部的 Canvas 撑大
+    const boardZone = document.querySelector('.board-zone');
+    if (!boardZone) return;
+
+    // 2. 获取不受内部组件干扰的纯净可用宽度与高度
+    const zoneWidth = boardZone.clientWidth || 0;
+    const zoneHeight = boardZone.clientHeight || 0;
+
+    // 3. 严格计算正方形视觉大小（取宽高极小值）
+    let cssSize = Math.floor(Math.min(zoneWidth, zoneHeight));
+
+    // 4. 减去外壳 .board-shell 自身可能存在的 padding 内边距（如四周各有18px，共减去36）
+    // 这样能确保 Canvas 缩在木纹边框内部，让边框完美露出来
+    cssSize = cssSize - 36;
+
+    // 5. 设定安全的绝对上下限，防止大屏 PC 上突破天际或调试时缩成一团
+    cssSize = Math.max(320, Math.min(cssSize, 760)); // 如果你希望上限就是 760，这里死锁 760
+
+    const dpr = Math.max(1, Math.floor(window.devicePixelRatio || 1));
+
+    // 6. 🌟 性能与防闪烁优化：只有当尺寸真正改变时才动画布 Buffer
+    if (state.canvas.width !== cssSize * dpr || state.canvas.height !== cssSize * dpr) {
+      state.canvas.width = cssSize * dpr;
+      state.canvas.height = cssSize * dpr;
+      state.canvas.style.width = `${cssSize}px`;
+      state.canvas.style.height = `${cssSize}px`;
+
+      state.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+      state.padding = cssSize / (SIZE + 1);
+      state.cellSize = (cssSize - state.padding * 2) / (SIZE - 1);
+
+      // 7. 放入下一帧异步队列，避开浏览器的样式计算锁，确保顺滑
+      requestAnimationFrame(() => {
+        drawFullBoard();
+      });
+    }
   }
   function drawFullBoard() {
     if (!state.canvas || !state.ctx) return;
