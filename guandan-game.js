@@ -265,6 +265,23 @@
     });
   }
 
+    // 🌟 创建游戏界面的基础 DOM 结构
+  function createShell() {
+    const div = document.createElement('div');
+    div.id = ROOT_ID;
+    div.innerHTML = `
+      <div id="gd-timer-display" style="color: gold; font-size: 20px; font-weight: bold; text-align: center; margin: 10px;">剩余时间: 30s</div>
+      <div data-gd-hand class="gd-hand"></div>
+      <div class="gd-controls" style="display:flex; justify-content:center; gap:10px; margin-top:20px;">
+        <button data-gd-play>出牌</button>
+        <button data-gd-pass>过牌</button>
+        <button data-gd-sort>理牌</button>
+        <button data-gd-exit>退出</button>
+      </div>
+    `;
+    return div;
+  }
+
   function init() {
     if (state.active) return;
     injectResponsiveStyles();
@@ -321,6 +338,7 @@
       GD.init();
     });
   }
+
 
   Object.assign(GD, { init, destroy, playGDSound, injectResponsiveStyles });
 
