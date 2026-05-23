@@ -287,18 +287,6 @@
       if (state.timerValue > 0) {
         state.timerValue--;
       } else {
-        // Timer expired actions
-      }
-    }, 1000);
-
-    state.active = true;
-    console.log('[Guandan] 全真牌桌沙箱初始化完毕。');
-  }
-
-  state.timer = setInterval(() => {
-      if (state.timerValue > 0) {
-        state.timerValue--;
-      } else {
         // 时间到，如果是玩家回合自动过牌
         if (state.currentTurn === 0) {
           playGDSound('pass');
@@ -310,6 +298,10 @@
       const timerEl = document.getElementById('gd-timer-display');
       if (timerEl) timerEl.innerText = `剩余时间: ${state.timerValue}s`;
     }, 1000);
+
+    state.active = true;
+    console.log('[Guandan] 全真牌桌沙箱初始化完毕。');
+  }
 
   Object.assign(GD, { init, destroy, playGDSound, injectResponsiveStyles });
 
