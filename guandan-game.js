@@ -303,6 +303,17 @@
     console.log('[Guandan] 全真牌桌沙箱初始化完毕。');
   }
 
+  function destroy() {
+    const root = document.getElementById(ROOT_ID);
+    if (root) root.remove();
+    if (state.styleNode) state.styleNode.remove();
+    if (state.timerInterval) clearInterval(state.timerInterval); // 清除倒计时定时器
+    state.active = false;
+    // 恢复大厅可见性
+    const selection = document.getElementById('game-selection');
+    if (selection) selection.style.display = 'block';
+  }
+
   Object.assign(GD, { init, destroy, playGDSound, injectResponsiveStyles });
 
   document.addEventListener('DOMContentLoaded', () => { bindLaunchButton(); }, { once: true });
