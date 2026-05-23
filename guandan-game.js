@@ -313,6 +313,14 @@
     const selection = document.getElementById('game-selection');
     if (selection) selection.style.display = 'block';
   }
+  function bindLaunchButton() {
+    const btn = document.getElementById('go-guandan-btn');
+    if (!btn || btn.dataset.gdBound) return;
+    btn.dataset.gdBound = 'true';
+    btn.addEventListener('click', () => {
+      GD.init();
+    });
+  }
 
   Object.assign(GD, { init, destroy, playGDSound, injectResponsiveStyles });
 
