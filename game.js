@@ -870,13 +870,20 @@ function judgeWinner(board, blackTerritory, whiteTerritory) {
         });
     }*/
    // === 彻底清理掉原本 initGame 结尾处杂乱的 resize 计算，统一换成下面这段 ===
-    
+// 在 game.js 底部左右，找到 // === 彻底清理掉原本 initGame 结尾处杂乱的 resize 计算 === 这部分
+  // 替换成下面这样调用统一的 resize 函数：
+  
     // 1. 挂载唯一的 ResizeObserver
     if (!resizeObserver && 'ResizeObserver' in window && shell) {
       resizeObserver = new ResizeObserver(() => {
         if (canvasResizeRaf) cancelAnimationFrame(canvasResizeRaf);
         canvasResizeRaf = requestAnimationFrame(() => {
-          resizeCanvas(); // 唯一调度中心
+          // 适配联机脚本挂载的全局 resize
+          if (typeof window.unifiedResizeCanvas === 'function') {
+            window.unifiedResizeCanvas();
+          } else if (typeof resizeCanvas === 'function') {
+            resizeCanvas(); 
+          }
         });
       });
       resizeObserver.observe(shell);
@@ -888,7 +895,11 @@ function judgeWinner(board, blackTerritory, whiteTerritory) {
       window.addEventListener('resize', () => {
         if (canvasResizeRaf) cancelAnimationFrame(canvasResizeRaf);
         canvasResizeRaf = requestAnimationFrame(() => {
-          resizeCanvas(); // 唯一调度中心
+          if (typeof window.unifiedResizeCanvas === 'function') {
+            window.unifiedResizeCanvas();
+          } else if (typeof resizeCanvas === 'function') {
+            resizeCanvas(); 
+          }
         });
       });
     }
