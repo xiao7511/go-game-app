@@ -1,6 +1,6 @@
 /**
  * guandan-game.js
- * 掼蛋扑克游戏扩展包 (控制台上下置换 + 四方高光按钮 + 原站出牌提醒版)
+ * 掼蛋扑克游戏扩展包 (控制台上下置换 + 四方高光按钮 + 修复跑光后死循环与报错版)
  */
 (() => {
   'use strict';
@@ -136,7 +136,6 @@
       .gd-seat.right { right: 40px; top: 40%; transform: translateY(-50%); }
       .gd-seat.bottom { bottom: 20px; left: 50%; transform: translateX(-50%); width: auto; display: flex; flex-direction: column; align-items: center; }
       
-      /* 🔘 完美优化：悬浮在时钟上方的【四方、扁平高光、加大间隔】按钮 */
       .gd-action-bar { display: none; gap: 24px; justify-content: center; height: 38px; margin-bottom: 12px; z-index: 10005; }
       .gd-action-bar.show { display: flex !important; }
       .gd-action-bar button { border: 1px solid rgba(255,255,255,0.25); padding: 0 32px; border-radius: 4px; font-weight: 900; font-size: 15px; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.3), inset 0 12px 12px rgba(255,255,255,0.25); text-shadow: 0 1px 2px rgba(0,0,0,0.6); transition: all 0.1s; }
@@ -146,12 +145,10 @@
       .gd-btn-sort { background: linear-gradient(180deg, #22d3ee 0%, #0891b2 100%); color: white; }
       .gd-action-bar button:disabled { background: linear-gradient(180deg, #475569 0%, #334155 100%) !important; color: #94a3b8 !important; cursor: not-allowed; box-shadow: none; text-shadow: none; opacity: 0.55; inset: none; }
       
-      /* ⏱ 时钟面板：完美被按钮悬浮压在下方 */
       .gd-clock-panel { display: none; background: #000000; padding: 5px 16px; border-radius: 20px; border: 2px solid #22c55e; margin-bottom: 14px; font-size: 14px; font-weight: bold; align-items: center; gap: 6px; box-shadow: 0 0 12px rgba(34,197,94,0.6); color: #22c55e; }
       .gd-clock-panel.show { display: flex; }
       .gd-clock-icon { color: #22c55e; animation: gd-pulse 1s infinite; font-size: 15px; }
       
-      /* 👤 恢复并加强：当前出牌玩家的框体发光提醒功能 */
       .gd-player-info { background: rgba(5,20,10,0.85); padding: 8px 18px; border-radius: 12px; text-align: center; min-width: 130px; border: 1px solid rgba(255,255,255,0.15); box-shadow: 0 4px 10px rgba(0,0,0,0.4); transition: all 0.2s ease-in-out; }
       .gd-player-info.active { border-color: #ff9f00; background: rgba(30,60,35,0.95); box-shadow: 0 0 25px #ff9f00, inset 0 0 10px rgba(255,159,0,0.5); animation: gd-turn-glow 1.4s ease-in-out infinite alternate; }
       .gd-player-name { font-weight: bold; font-size: 14px; color: #fff; }
@@ -185,7 +182,6 @@
       .gd-toast { position: fixed; top: 15%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.85); border: 1px solid #ff9f00; color: #fff; padding: 12px 32px; border-radius: 20px; font-size: 15px; font-weight: bold; z-index: 10005; opacity: 0; transition: opacity 0.2s ease; pointer-events: none; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
       
       @keyframes gd-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
-      /* 💡 提醒呼吸动画 */
       @keyframes gd-turn-glow { 0% { box-shadow: 0 0 10px #ff9f00; } 100% { box-shadow: 0 0 25px #fffa65, inset 0 0 4px rgba(255,250,101,0.4); } }
     `;
     document.head.appendChild(s);
@@ -206,7 +202,7 @@
         <div class="gd-seat right" data-gd-seat="1"></div>
         <div class="gd-center-table"><div class="gd-trick" data-gd-trick></div></div>
         
-        <div class="gd-seat bottom">
+        <div class="gd-seat bottom" data-gd-seat="0">
           <div class="gd-action-bar" data-gd-action-bar>
             <button class="gd-btn-play" data-gd-play>出 牌</button>
             <button class="gd-btn-pass" data-gd-pass>过 牌</button>
@@ -216,7 +212,7 @@
             <span class="gd-clock-icon">⏱</span>
             <span data-gd-clock-time>20s</span>
           </div>
-          <div class="gd-player-info" data-gd-seat="0" style="margin-bottom:6px;"></div>
+          <div class="gd-player-wrap" data-gd-player-zone style="margin-bottom:6px;"></div>
           <div class="gd-hand" data-gd-hand></div>
         </div>
       </div>
@@ -271,8 +267,11 @@
     }
   }
 
+  let finishOrder = [];
+
   function startNewRound() {
     const deck = makeDeck();
+    finishOrder = [];
     state.players.forEach((p) => { p.hand = []; p.rankOutOrder = null; });
     deck.forEach((card, idx) => { state.players[idx % 4].hand.push(card); });
     state.players.forEach((p) => { p.hand = sortCards(p.hand); });
@@ -374,16 +373,27 @@
   function renderSeats() {
     if (!state.root) return;
     SEATS.forEach((seat, idx) => {
-      const seatNode = state.root.querySelector(`[data-gd-seat="${idx}"]`);
+      // 针对南家采用精准包裹层，防范 innerHTML 清空导致的控制栏崩溃
+      const seatNode = (idx === 0) 
+        ? state.root.querySelector('[data-gd-player-zone]')
+        : state.root.querySelector(`[data-gd-seat="${idx}"]`);
+        
       if (!seatNode) return;
       const p = state.players[idx];
       if (!p) return;
-      const isActive = state.currentTurn === idx;
+      const isActive = state.currentTurn === idx && state.active;
       const cardCount = p.hand ? p.hand.length : 0;
+      
+      let rankString = '';
+      if (p.rankOutOrder === 1) rankString = ' 🥇 头游出光';
+      else if (p.rankOutOrder === 2) rankString = ' 🥈 二游出光';
+      else if (p.rankOutOrder === 3) rankString = ' 🥉 三游出光';
+      else rankString = `剩余 ${cardCount} 张`;
+
       seatNode.innerHTML = `
         <div class="gd-player-info ${isActive ? 'active' : ''}">
           <div class="gd-player-name">${p.name}</div>
-          <div class="gd-player-detail">🂠 ${cardCount === 0 ? '🏅 已跑光' : `剩余 ${cardCount} 张`}</div>
+          <div class="gd-player-detail">🂠 ${rankString}</div>
         </div>`;
     });
   }
@@ -420,7 +430,7 @@
     }
 
     if (actionBar && me && me.hand) {
-      if (state.currentTurn === 0 && me.hand.length > 0) {
+      if (state.currentTurn === 0 && me.hand.length > 0 && state.active) {
         actionBar.classList.add('show');
         const playBtn = root.querySelector('[data-gd-play]');
         const passBtn = root.querySelector('[data-gd-pass]');
@@ -441,9 +451,20 @@
     }
   }
 
-  let finishOrder = [];
+  // 核心修复算法：找到下一个应当有权出牌的玩家，彻底终结跑光导致的无限死循环
+  function findNextTurn(current) {
+    let next = current;
+    for (let i = 0; i < 4; i++) {
+      next = (next + 1) % 4;
+      if (state.players[next].hand.length > 0) {
+        return next;
+      }
+    }
+    return current; 
+  }
 
   function playCards(seat, cards) {
+    if (!state.active) return false;
     const move = typeOf(cards);
     if (!move || (state.trick && !beats(move, state.trick))) return false;
 
@@ -457,15 +478,18 @@
         finishOrder.push(seat);
         player.rankOutOrder = finishOrder.length;
       }
-      showToast(`👏 恭喜 ${player.name} 出光！`);
+      showToast(`👏 恭喜 ${player.name} 出光牌！`);
     }
     
     if (checkGameOver()) return true;
 
-    let nextTurn = (seat + 1) % 4;
-    while (state.players[nextTurn].hand.length === 0) nextTurn = (nextTurn + 1) % 4;
+    // 跑光传递逻辑：如果下一个要接牌的人出光了，继续向下传
+    let nextTurn = findNextTurn(seat);
 
-    if (state.trick && state.trick.seat === nextTurn) state.trick = null;
+    // 如果转了一圈又回到出牌人（或者出牌人的队友），且他们已经跑光，则清除桌面的接牌权，由剩下的未出光者重新任意出牌
+    if (state.trick && (state.trick.seat === nextTurn || state.players[state.trick.seat].hand.length === 0)) {
+      state.trick = null;
+    }
 
     state.currentTurn = nextTurn;
     state.aiDelay = performance.now() + 600;
@@ -475,20 +499,36 @@
   }
 
   function passTurn(seat) {
-    let nextTurn = (seat + 1) % 4;
-    while (state.players[nextTurn].hand.length === 0) nextTurn = (nextTurn + 1) % 4;
-    if (state.trick && state.trick.seat === nextTurn) state.trick = null;
+    if (!state.active) return;
+    let nextTurn = findNextTurn(seat);
+    
+    // 如果全部人都不要或者全跑光了，导致接牌者回到了最大牌者的座位
+    if (state.trick && state.trick.seat === nextTurn) {
+      state.trick = null;
+    }
+    // 边界漏洞补充：如果最大出牌人已经出光走了，别人全过牌了，把出牌权让给接牌人的下一个未出光者
+    if (state.trick && state.players[state.trick.seat].hand.length === 0) {
+      if (nextTurn === state.trick.seat) {
+        state.trick = null;
+        nextTurn = findNextTurn(nextTurn);
+      }
+    }
+
     state.currentTurn = nextTurn;
     playGDSound('pass');
     renderTable();
     startCountdown();
   }
 
+  // 核心修复算法：全面重构掼蛋阵营和双下判定，防止游戏无法退出
   function checkGameOver() {
-    const team0Left = state.players[0].hand.length > 0 || state.players[2].hand.length > 0;
-    const team1Left = state.players[1].hand.length > 0 || state.players[3].hand.length > 0;
+    const team0Alive = state.players[0].hand.length > 0 || state.players[2].hand.length > 0;
+    const team1Alive = state.players[1].hand.length > 0 || state.players[3].hand.length > 0;
 
-    if (!team0Left || !team1Left) {
+    // 只要有一方阵营的所有人全部跑光，或者场上剩下的人数已经不足以组合（只剩 1 个人有牌）
+    const aliveCount = state.players.filter(p => p.hand.length > 0).length;
+
+    if (!team0Alive || !team1Alive || aliveCount <= 1) {
       state.active = false;
       clearInterval(state.clockTimer);
 
@@ -507,19 +547,18 @@
           winMsg = `🎉 完胜！南北同盟达成了【双下】！主级连升 3 级！`;
         } else if (state.players[0].rankOutOrder === 1 && state.players[2].rankOutOrder === 2) {
           levelGained = 3;
-          winMsg = `🎉 配合天衣无缝！包揽前两名！主级连升 3 级！`;
+          winMsg = `🎉 配合天衣无缝！南北包揽前两名！主级连升 3 级！`;
         } else {
           levelGained = 2;
           winMsg = `👍 获胜！赢下本局，主级提升 2 级！`;
         }
         state.currentRankIndex = Math.min(RANKS.length - 1, state.currentRankIndex + levelGained);
       } else {
-        winMsg = `💔 局势失守！东西同盟抢先跑光，未过级。`;
+        winMsg = `💔 局势失守！东西同盟抢先跑光成功过级。`;
       }
 
       setTimeout(() => {
         alert(`${winMsg}\n下一局主级：打 ${getCurrentRankStr()}`);
-        finishOrder = [];
         startNewRound();
       }, 500);
       return true;
@@ -568,7 +607,7 @@
   }
 
   function humanPlay() {
-    if (state.currentTurn !== 0) return;
+    if (state.currentTurn !== 0 || !state.active) return;
     const cards = [...state.selected].map(id => state.cardsById.get(id)).filter(Boolean);
     if (!cards.length) return showToast('请先选择想要击出的牌');
     const move = typeOf(cards);
@@ -584,7 +623,7 @@
 
     on(hand, 'click', (e) => {
       const card = e.target.closest('.gd-card');
-      if (!card || state.currentTurn !== 0) return;
+      if (!card || state.currentTurn !== 0 || !state.active) return;
       const id = card.getAttribute('data-card-id');
       if (state.selected.has(id)) state.selected.delete(id); else state.selected.add(id);
       playGDSound('click');
@@ -593,7 +632,7 @@
 
     on(hand, 'contextmenu', (e) => {
       e.preventDefault(); 
-      if (state.currentTurn !== 0) return;
+      if (state.currentTurn !== 0 || !state.active) return;
       
       const card = e.target.closest('.gd-card');
       if (card) {
@@ -628,7 +667,6 @@
     if (selection) selection.style.display = 'none';
 
     state.currentRankIndex = 0; 
-    finishOrder = [];
 
     const newShell = createShell();
     document.body.appendChild(newShell);
