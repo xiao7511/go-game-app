@@ -377,22 +377,23 @@
     if (isWild) extraClass = 'gd-wild-card';
     else if (isNormalRank) extraClass = 'gd-rank-card';
 
-    // 1. 将花色缩写（S/H/C/D）映射为国外图片包对应的小写全称
+    // 1. 将花色缩写转换为您文件夹里的小写全称
     let suitName = '';
     if (card.suit === 'S') suitName = 'spades';
     if (card.suit === 'H') suitName = 'hearts';
     if (card.suit === 'C') suitName = 'clubs';
     if (card.suit === 'D') suitName = 'diamonds';
 
-    // 2. 将点数转换为小写（主要应对 A, J, Q, K）
+    // 2. 将点数转换为小写（主要是 A, J, Q, K）
     let rankName = card.rank.toLowerCase();
 
-    // 3. 完美拼接出对应你下载资产包的文件名（如：hearts-8.png, joker-black.png）
+    // 3. 💡 精准匹配图3中类似 "8_of_hearts.png" 的格式
     let imgUrl = '';
     if (card.kind === 'joker') {
+      // 这里的王牌名字请参考下方注意事项检查一下
       imgUrl = `./images/cards/joker-${card.label === '大王' ? 'red' : 'black'}.png`;
     } else {
-      imgUrl = `./images/cards/${rankName}-of-${suitName}.png`;
+      imgUrl = `./images/cards/${rankName}_of_${suitName}.png`;
     }
 
     return `
