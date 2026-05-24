@@ -544,73 +544,54 @@ function renderSeats() {
     }
   }*/
   function renderTable() {
-      const root = state.root;
-      if (!root) return;
+    // 🌟 防御性升级：直接从当前文档树内抓取活跃的真实游戏根容器，避开闭包指针错位
+    const root = document.getElementById(ROOT_ID);
+    if (!root) return;
 
-      renderSeats();
+    renderSeats();
 
-      // 更新公共桌牌 (Trick)
-      const trick = root.querySelector('[data-gd-trick]');
-      const move = root.querySelector('[data-gd-move]');
-      const hand = root.querySelector('[data-gd-hand]');
+    const trick = root.querySelector('[data-gd-trick]');
+    const move = root.querySelector('[data-gd-move]');
+    const hand = root.querySelector('[data-gd-hand]');
+    const actionBar = root.querySelector('[data-gd-action-bar]');
 
-      // 2. 如果核心 UI 还没生成（例如 DOM 插入延迟），不进行渲染
-      if (!trick || !hand) {
-        console.warn('[Guandan] UI 节点尚未就绪，跳过本次渲染');
-        return;
-      }
+    // 绝对防御：如果核心 UI 容器在 DOM 解析中未就绪，直接安全返回，不给 null 任何报错机会
+    if (!hand || !trick) return; 
 
-      if (state.trick) {
-        trick.innerHTML = state.trick.cards.map(formatCard).join('');
-        move.textContent = `${state.trick.type} · ${state.trick.cards.length}张`;
-      } else {
-        trick.innerHTML = `<span class="gd-trick-empty">等待出牌...</span>`;
-        move.textContent = '—';
-      }
+    // 更新公共桌牌 (Trick)
+    if (state.trick) {
+      trick.innerHTML = state.trick.cards.map(formatCard).join('');
+      if (move) move.textContent = `${state.trick.type} · ${state.trick.cards.length}张`;
+    } else {
+      trick.innerHTML = `<span class="gd-trick-empty">等待出牌...</span>`;
+      if (move) move.textContent = '—';
+    }
 
-      // 🌟 修复：确保这里能正确获取并渲染手牌
-      const me = state.players[0]; // 获取南家数据
-      if (me && me.hand) {
-        // 这里的 sortCards(me.hand) 会将牌排序后生成 HTML
-        hand.innerHTML = sortCards(me.hand).map(formatCard).join('');
-      } else {
-        console.warn('[Guandan] 南家手牌数据为空！');
-      }
-
-      // 4. 更新选中状态
+    // 更新玩家南家手牌
+    const me = state.players[0];
+    if (me && me.hand) {
+      hand.innerHTML = sortCards(me.hand).map(formatCard).join('');
+      
+      // 更新选中态样式
       hand.querySelectorAll('[data-card-id]').forEach((cardDOM) => {
         if (state.selected.has(cardDOM.getAttribute('data-card-id'))) {
           cardDOM.classList.add('sel');
         }
       });
+    }
 
-      // 5. 🌟 核心逻辑：玩家出牌结束后的状态控制
-      const actionBar = root.querySelector('[data-gd-action-bar]');
-      const playBtn = root.querySelector('[data-gd-play]');
-      const passBtn = root.querySelector('[data-gd-pass]');
-      
-      // 判断玩家是否已经出完所有牌
-      const isPlayerDone = state.players[0].hand.length === 0;
-
-      // 逻辑判定：只有当轮到玩家且玩家尚未出完牌时，才显示操作栏
-      if (state.currentTurn === 0 && !isPlayerDone) {
+    // 智能操作栏显隐控制
+    if (actionBar) {
+      if (state.currentTurn === 0 && me && me.hand.length > 0) {
         actionBar.classList.add('show');
-        playBtn.disabled = state.selected.size === 0;
-        passBtn.disabled = !state.trick; 
-        
-        // 若玩家出完牌，给予恭喜提示（只在刚出完那一刻触发）
+        const playBtn = root.querySelector('[data-gd-play]');
+        const passBtn = root.querySelector('[data-gd-pass]');
+        if (playBtn) playBtn.disabled = state.selected.size === 0;
+        if (passBtn) passBtn.disabled = !state.trick;
       } else {
         actionBar.classList.remove('show');
       }
-
-      // 6. 同步 toast 提示
-      const toastNode = root.querySelector('[data-gd-toast]');
-      if (toastNode && state._toastText) {
-        toastNode.textContent = state._toastText;
-        toastNode.style.opacity = '1';
-        clearTimeout(state._toastTimer);
-        state._toastTimer = setTimeout(() => { toastNode.style.opacity = '0'; state._toastText = ''; }, 1500);
-      }
+    }
   }
 
   function showToast(msg) {
@@ -800,23 +781,21 @@ function renderSeats() {
     renderTable();
   }
 
-  // --- 针对问题 1：优化点击体验 ---
   function bindHandInteraction() {
-    const hand = state.root?.querySelector('[data-gd-hand]');
+    // 直接从实时文档树中抓取最新的手牌区 DOM 绑定事件
+    const container = document.getElementById(ROOT_ID);
+    const hand = container?.querySelector('[data-gd-hand]');
     if (!hand) return;
-    // 使用事件委托，增加响应区域
+    
     on(hand, 'click', (e) => {
       const card = e.target.closest('.gd-card');
-      if (!card || state.currentTurn !== 0 || state.players[0].finished) return;
-      
+      if (!card || state.currentTurn !== 0) return;
       const id = card.getAttribute('data-card-id');
       if (state.selected.has(id)) state.selected.delete(id);
       else state.selected.add(id);
-      
-      // 增加视觉反馈
       playGDSound('click');
       renderTable();
-    }, true);
+    });
   }
 /*
   function bindHandInteraction() {
@@ -879,69 +858,77 @@ function renderSeats() {
  // --- 核心修复：更鲁棒的初始化绑定 ---
 
   function init() {
-    console.log('[Guandan] 尝试初始化游戏...');
+    console.log('[Guandan] 开始安全初始化流程...');
     
-    // 1. 强制清理旧状态，防止重复加载导致的静默失败
-    if (state.root) {
-      console.log('[Guandan] 清理旧实例...');
-      destroy(); 
+    // 1. 彻底清除页面上可能残留的同名旧 DOM 容器，防止 querySelector 发生选择器漂移
+    const oldContainer = document.getElementById(ROOT_ID);
+    if (oldContainer) {
+      oldContainer.remove();
+    }
+    
+    // 清除可能正在运行的旧定时器
+    if (state.timer) {
+      clearInterval(state.timer);
     }
 
-    // 2. 注入样式
     injectResponsiveStyles();
     
-    // 3. 隐藏大厅
+    // 隐藏大厅
     const selection = document.getElementById('game-selection');
     if (selection) selection.style.display = 'none';
 
-    // 4. 创建 UI
-    state.root = createShell();
-    document.body.appendChild(state.root);
+    // 2. 创建并挂载全新的独立壳体到 body
+    const newShell = createShell();
+    document.body.appendChild(newShell);
+    state.root = newShell; // 确保全局引用指向最新挂载的 DOM
 
-    // 5. 绑定事件
+    // 3. 实时重新初始化数据与手牌事件绑定
+    initDeckAndPlayers();
     bindHandInteraction();
     
-    // 绑定按钮事件（这里使用直接查询 DOM 的方式）
-    const root = state.root;
-    on(root.querySelector('[data-gd-play]'), 'click', () => { playGDSound('click'); humanPlay(); });
-    on(root.querySelector('[data-gd-pass]'), 'click', () => { playGDSound('click'); humanPass(); });
-    on(root.querySelector('[data-gd-sort]'), 'click', () => { 
+    // 4. 精准关联核心操作按钮事件
+    on(newShell.querySelector('[data-gd-play]'), 'click', () => { playGDSound('click'); humanPlay(); });
+    on(newShell.querySelector('[data-gd-pass]'), 'click', () => { playGDSound('click'); humanPass(); });
+    on(newShell.querySelector('[data-gd-sort]'), 'click', () => { 
       playGDSound('click'); state.players[0].hand = sortCards(state.players[0].hand); renderTable(); 
     });
-    on(root.querySelector('[data-gd-exit]'), 'click', () => { playGDSound('click'); destroy(); });
+    on(newShell.querySelector('[data-gd-exit]'), 'click', () => { playGDSound('click'); destroy(); });
 
-    // 6. 初始化游戏数据
-    initDeckAndPlayers();
+    // 5. 激发首次全面渲染
     renderTable();
     
-    
-    state.active = true;
+    // 开启 AI 轮询
     state.timer = setInterval(triggerAIMove, 300);
-    console.log('[Guandan] 游戏初始化成功！');
+    state.active = true;
+    console.log('[Guandan] 全真桌牌沙箱初始化成功，已强行渲染。');
   }
 
-  // 彻底重写绑定逻辑，确保点击就能生效
-  document.addEventListener('DOMContentLoaded', () => {
-      const btn = document.getElementById('go-guandan-btn');
-      if (btn) {
-          btn.addEventListener('click', () => {
-              console.log('[Guandan] 捕获到点击事件');
-              init();
-          });
-      } else {
-          console.error('[Guandan] 错误：未找到 ID 为 go-guandan-btn 的按钮');
-      }
-  });
-
+// ==========================================
+  // 🌟 统一且唯一的启动按钮绑定逻辑（替换原有所有底层绑定）
+  // ==========================================
+  
   function bindLaunchButton() {
     const btn = document.getElementById('go-guandan-btn');
-    if (!btn || btn.dataset.gdBound) return;
-    btn.dataset.gdBound = '1';
-    on(btn, 'click', init, { passive: true });
+    if (!btn) return;
+    
+    // 使用 onclick 覆盖确保全局唯一性，防止多重 addEventListener 堆叠
+    btn.onclick = (e) => {
+      e.preventDefault(); // 阻止可能存在的默认表单或锚点行为
+      if (typeof GD.init === 'function') {
+        GD.init(); 
+      } else {
+        init();
+      }
+    };
   }
 
+  // 将核心生命周期安全暴露给沙箱
   Object.assign(GD, { init, destroy, playGDSound, injectResponsiveStyles, triggerAIMove });
 
-  document.addEventListener('DOMContentLoaded', bindLaunchButton, { once: true });
-  if (document.readyState !== 'loading') bindLaunchButton();
+  // 确保在任何页面加载状态下都能准确安全地绑定
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', bindLaunchButton, { once: true });
+  } else {
+    bindLaunchButton();
+  }
 })();
