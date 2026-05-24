@@ -1,13 +1,12 @@
 /**
  * guandan-game.js
- * 掼蛋扑克游戏扩展包 (全面修复拼写及未定义报错稳定版)
+ * 掼蛋扑克游戏扩展包 (终极防御：全面解决 DOM 找不到节点导致的 null 报错版)
  */
 (() => {
   'use strict';
 
   const GD_ICON_SUITS = { SPADE: '♠', HEART: '♥', CLUB: '♣', DIAMOND: '♦' };
   
-  // 初始化或提取全局 GD 对象沙箱
   const GD = (window.GD = window.GD || {});
   GD.__loaded = true;
 
@@ -30,7 +29,6 @@
     { id: 3, name: '西家', short: 'West', team: 1, pos: 'left' },
   ];
 
-  // 核心状态：默认主级调整为从打 3 开始
   const state = {
     gameMode: 'SINGLE_PLAYER',
     currentRank: 3, 
@@ -55,8 +53,8 @@
   const ctx = AudioCtor ? new AudioCtor() : null;
   const uid = () => `${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
   
-  // 按照主级动态排序：将当前打的级牌权重提高
   function sortCards(cards) {
+    if (!cards) return [];
     return cards.slice().sort((a, b) => {
       const valA = a.rank === String(state.currentRank) ? (a.suit === 'H' ? 15.5 : 14.5) : a.value;
       const valB = b.rank === String(state.currentRank) ? (b.suit === 'H' ? 15.5 : 14.5) : b.value;
@@ -100,7 +98,6 @@
     }
   }
 
-  // 样式布局注入
   function injectResponsiveStyles() {
     let s = document.getElementById(STYLE_ID);
     if (s) s.remove();
@@ -124,7 +121,7 @@
       .gd-seat.right { right: 40px; top: 40%; transform: translateY(-50%); }
       .gd-seat.bottom { bottom: 180px; left: 50%; transform: translateX(-50%); }
       
-      .gd-action-bar { display: none; gap: 20px; justify-content: center; width: auto; margin-bottom: 12px; height: 45px; }
+      .gd-action-bar { display: none; gap: 20px; justify-content: center; width: auto; margin-bottom: 12px; height: 45px; z-index: 1005; }
       .gd-action-bar.show { display: flex !important; }
       .gd-action-bar button { border: none; padding: 8px 30px; border-radius: 20px; font-weight: 900; font-size: 16px; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
       .gd-btn-play { background: linear-gradient(180deg, #fff3bf 0%, #fab005 100%); color: #111; }
@@ -303,8 +300,9 @@
   }
 
   function renderSeats() {
+    if (!state.root) return;
     SEATS.forEach((seat, idx) => {
-      const seatNode = state.root?.querySelector(`[data-gd-seat="${idx}"]`);
+      const seatNode = state.root.querySelector(`[data-gd-seat="${idx}"]`);
       if (!seatNode) return;
       const p = state.players[idx];
       if (!p) return;
@@ -318,9 +316,11 @@
     });
   }
 
+  // 🌟 终极防御：全面进行空指针安全拦截，绝不发生 innerHTML of null 崩溃
   function renderTable() {
-    const root = document.getElementById(ROOT_ID);
-    if (!root) return;
+    const root = document.getElementById(ROOT_ID) || state.root;
+    if (!root) return; 
+    
     renderSeats();
 
     const trick = root.querySelector('[data-gd-trick]');
@@ -328,16 +328,18 @@
     const hand = root.querySelector('[data-gd-hand]');
     const actionBar = root.querySelector('[data-gd-action-bar]');
 
-    if (state.trick) {
-      trick.innerHTML = state.trick.cards.map(formatCard).join('');
-      if (move) move.textContent = `${state.trick.type} · ${state.trick.cards.length}张`;
-    } else {
-      trick.innerHTML = `<span class="gd-trick-empty">桌上干净，等待出牌...</span>`;
-      if (move) move.textContent = '—';
+    if (trick) {
+      if (state.trick) {
+        trick.innerHTML = state.trick.cards.map(formatCard).join('');
+        if (move) move.textContent = `${state.trick.type} · ${state.trick.cards.length}张`;
+      } else {
+        trick.innerHTML = `<span class="gd-trick-empty">桌上干净，等待出牌...</span>`;
+        if (move) move.textContent = '—';
+      }
     }
 
     const me = state.players[0];
-    if (me && me.hand) {
+    if (hand && me && me.hand) {
       hand.innerHTML = sortCards(me.hand).map(formatCard).join('');
       hand.querySelectorAll('[data-card-id]').forEach((cardDOM) => {
         if (state.selected.has(cardDOM.getAttribute('data-card-id'))) {
@@ -346,11 +348,13 @@
       });
     }
 
-    if (actionBar) {
-      if (state.currentTurn === 0 && me && me.hand.length > 0) {
+    if (actionBar && me && me.hand) {
+      if (state.currentTurn === 0 && me.hand.length > 0) {
         actionBar.classList.add('show');
-        root.querySelector('[data-gd-play]').disabled = state.selected.size === 0;
-        root.querySelector('[data-gd-pass]').disabled = !state.trick;
+        const playBtn = root.querySelector('[data-gd-play]');
+        const passBtn = root.querySelector('[data-gd-pass]');
+        if (playBtn) playBtn.disabled = state.selected.size === 0;
+        if (passBtn) passBtn.disabled = !state.trick;
       } else {
         actionBar.classList.remove('show');
       }
@@ -442,7 +446,6 @@
     return null;
   }
 
-  // 🌟 这里已完美将之前的 planetary 拼写错误修复为标准的 try...finally 结构
   function triggerAIMove() {
     if (!state.active || state.busy || state.currentTurn === 0) return;
     if (performance.now() < state.aiDelay) return;
@@ -508,12 +511,17 @@
     startNewRound();
     bindHandInteraction();
     
-    on(newShell.querySelector('[data-gd-play]'), 'click', () => { playGDSound('click'); humanPlay(); });
-    on(newShell.querySelector('[data-gd-pass]'), 'click', () => { playGDSound('click'); if(state.trick) passTurn(0); });
-    on(newShell.querySelector('[data-gd-sort]'), 'click', () => { 
+    const playBtn = newShell.querySelector('[data-gd-play]');
+    const passBtn = newShell.querySelector('[data-gd-pass]');
+    const sortBtn = newShell.querySelector('[data-gd-sort]');
+    const exitBtn = newShell.querySelector('[data-gd-exit]');
+
+    if (playBtn) on(playBtn, 'click', () => { playGDSound('click'); humanPlay(); });
+    if (passBtn) on(passBtn, 'click', () => { playGDSound('click'); if(state.trick) passTurn(0); });
+    if (sortBtn) on(sortBtn, 'click', () => { 
       playGDSound('click'); state.players[0].hand = sortCards(state.players[0].hand); renderTable(); 
     });
-    on(newShell.querySelector('[data-gd-exit]'), 'click', () => { playGDSound('click'); destroy(); });
+    if (exitBtn) on(exitBtn, 'click', () => { playGDSound('click'); destroy(); });
 
     state.timer = setInterval(triggerAIMove, 200);
   }
