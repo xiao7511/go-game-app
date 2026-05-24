@@ -369,15 +369,6 @@
 
   // 💡 【终极修改】：完全解耦网络，使用完全可靠的本地绝对或相对路径
   function formatCard(card) {
-    // 💡 1. 【新增核心判断】：如果这张牌是背面状态，直接读取本地的牌背背景图
-    if (card.isBack || card.hidden) {
-      // 浏览器会自动根据屏幕分辨率选择 back.png 或利用 CSS 处理，这里我们首选标准 back.png
-      return `
-        <div class="gd-card gd-card-back" data-card-id="${card.id || ''}">
-          <img src="./images/cards/back.png" alt="牌背" onerror="this.src='./images/cards/back@2x.png'" />
-        </div>`;
-    }
-
     const curRankStr = getCurrentRankStr();
     const isWild = card.rank === curRankStr && card.suit === 'H';
     const isNormalRank = card.rank === curRankStr && card.suit !== 'H';
@@ -386,20 +377,25 @@
     if (isWild) extraClass = 'gd-wild-card';
     else if (isNormalRank) extraClass = 'gd-rank-card';
 
-    // 映射花色为小写全称
+    // 将花色缩写转换为资产包里对应的小写全称
     let suitName = '';
     if (card.suit === 'S') suitName = 'spades';
     if (card.suit === 'H') suitName = 'hearts';
     if (card.suit === 'C') suitName = 'clubs';
     if (card.suit === 'D') suitName = 'diamonds';
 
-    // 将大写字母精确转换为国外资产包里的英文全称
+    // 将点数转换为小写（主要应对 A, J, Q, K）
     let rankName = card.rank.toLowerCase();
+
+    // 💡 处理字母牌和 10 的特殊全称
     if (rankName === 'a') rankName = 'ace';
     if (rankName === 'j') rankName = 'jack';
     if (rankName === 'q') rankName = 'queen';
     if (rankName === 'k') rankName = 'king';
+    // 检查：如果 10 的文件名是 '10_of_spades'，则不需要特殊处理；如果是 'ten_of_spades'，则启用下行代码
+    // if (rankName === '10') rankName = 'ten'; 
 
+    // 完美拼接路径 (数字_of_花色全称.png)
     let imgUrl = '';
     if (card.kind === 'joker') {
       imgUrl = `./images/cards/joker-${card.label === '大王' ? 'red' : 'black'}.png`;
@@ -407,8 +403,21 @@
       imgUrl = `./images/cards/${rankName}_of_${suitName}.png`;
     }
 
+    // 💡【核心修改】：在 gd-card 容器上强制加上白色背景、圆角和阴影，解决镂空问题
     return `
-      <div class="gd-card ${extraClass}" data-card-id="${card.id}">
+      <div class="gd-card ${extraClass}" data-card-id="${card.id}" style="
+        background: #ffffff; 
+        border: 2px solid rgba(0,0,0,0.15); 
+        border-radius: 8px; 
+        box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        width: 85px; 
+        height: 120px;
+        box-sizing: border-box;
+        overflow: hidden;
+      ">
         <img src="${imgUrl}" alt="${rankLabel(card)}" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2280%22 height=%22110%22><rect width=%22100%%22 height=%22100%%22 fill=%22white%22 stroke=%22red%22 stroke-width=%224%22/><text x=%2250%%22 y=%2250%%22 font-size=%2216%22 font-weight=%22bold%22 fill=%22black%22 text-anchor=%22middle%22 dominant-baseline=%22middle%22>${rankLabel(card)}</text></svg>'" />
       </div>`;
   }
