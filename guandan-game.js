@@ -547,10 +547,9 @@ function renderSeats() {
       const root = state.root;
       if (!root) return;
 
-      // 1. 渲染座位及头像高亮
       renderSeats();
 
-      // 2. 更新公共桌牌 (Trick)
+      // 更新公共桌牌 (Trick)
       const trick = root.querySelector('[data-gd-trick]');
       const move = root.querySelector('[data-gd-move]');
       if (state.trick) {
@@ -561,10 +560,15 @@ function renderSeats() {
         move.textContent = '—';
       }
 
-      // 3. 更新玩家手牌 (Seat 0)
+      // 🌟 修复：确保这里能正确获取并渲染手牌
       const hand = root.querySelector('[data-gd-hand]');
-      const me = state.players[0];
-      hand.innerHTML = sortCards(me.hand).map(formatCard).join('');
+      const me = state.players[0]; // 获取南家数据
+      if (me && me.hand) {
+        // 这里的 sortCards(me.hand) 会将牌排序后生成 HTML
+        hand.innerHTML = sortCards(me.hand).map(formatCard).join('');
+      } else {
+        console.warn('[Guandan] 南家手牌数据为空！');
+      }
 
       // 4. 更新选中状态
       hand.querySelectorAll('[data-card-id]').forEach((cardDOM) => {
