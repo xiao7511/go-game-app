@@ -1,6 +1,6 @@
 /**
  * guandan-game.js
- * 掼蛋扑克游戏扩展包 (控制台上下置换 + 四方高光按钮 + 完美恢复原站出牌玩家发光提醒版)
+ * 掼蛋扑克游戏扩展包 (控制台上下置换 + 增大出牌区 + 中央出牌提示版)
  */
 (() => {
   'use strict';
@@ -149,7 +149,6 @@
       .gd-clock-panel.show { display: flex; }
       .gd-clock-icon { color: #22c55e; animation: gd-pulse 1s infinite; font-size: 15px; }
       
-      /* 👤 核心恢复：当前出牌玩家的框体发光提醒样式与呼吸动画 */
       .gd-player-info { background: rgba(5,20,10,0.85); padding: 8px 18px; border-radius: 12px; text-align: center; min-width: 130px; border: 2px solid rgba(255,255,255,0.15); box-shadow: 0 4px 10px rgba(0,0,0,0.4); transition: all 0.2s ease-in-out; }
       .gd-player-info.active { border-color: #ff9f00; background: rgba(30,60,35,0.95); box-shadow: 0 0 25px #ff9f00, inset 0 0 10px rgba(255,159,0,0.5); animation: gd-turn-glow 1.4s ease-in-out infinite alternate; }
       .gd-player-name { font-weight: bold; font-size: 14px; color: #fff; }
@@ -157,15 +156,22 @@
       .gd-player-detail { font-size: 12px; color: #FFD700; margin-top: 2px; }
       .gd-player-info.active .gd-player-detail { color: #fffa65; font-weight: bold; }
       
-      .gd-center-table { position: absolute; width: 520px; height: 230px; border: 2px dashed rgba(255,255,255,0.12); border-radius: 115px; display: flex; flex-direction: column; justify-content: center; align-items: center; background: rgba(0,0,0,0.1); }
-      .gd-trick { display: flex; justify-content: center; align-items: center; width: 100%; min-height: 125px; }
-      .gd-trick-empty { font-size: 14px; color: rgba(255,255,255,0.2); font-weight: bold; }
+      /* 🎴 核心调整一：显著增大桌面中央出牌区 */
+      .gd-center-table { position: absolute; width: 640px; height: 320px; border: 2px dashed rgba(255,255,255,0.15); border-radius: 160px; display: flex; flex-direction: column; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.15); padding: 24px 0; box-shadow: inset 0 0 40px rgba(0,0,0,0.3); }
+      
+      /* 📢 核心调整二：出牌区中央上方的当前玩家状态提示牌 */
+      .gd-center-status-bar { background: rgba(0, 0, 0, 0.6); padding: 6px 20px; border-radius: 15px; border: 1px solid rgba(255, 255, 255, 0.1); font-size: 13px; font-weight: bold; color: #cbd5e1; box-shadow: 0 2px 8px rgba(0,0,0,0.2); transition: all 0.3s ease; }
+      .gd-center-status-bar.my-turn { border-color: #22c55e; color: #22c55e; background: rgba(4, 30, 12, 0.8); animation: gd-text-pulse 1s infinite alternate; }
+      .gd-center-status-bar.ai-turn { border-color: #eab308; color: #eab308; background: rgba(30, 25, 4, 0.8); }
+      
+      .gd-trick { display: flex; justify-content: center; align-items: center; width: 100%; flex: 1; min-height: 130px; }
+      .gd-trick-empty { font-size: 14px; color: rgba(255,255,255,0.25); font-weight: bold; letter-spacing: 1px; }
       
       .gd-hand { display: flex; align-items: flex-end; justify-content: center; min-height: 130px; width: auto; max-width: 96vw; pointer-events: auto; margin-top: 6px; padding: 4px; }
       
       .gd-card { width: ${CARD_W}px; height: 122px; position: relative; background: #ffffff; border-radius: 8px; box-shadow: -4px 4px 8px rgba(0,0,0,0.35), inset 0 -4px 8px rgba(0,0,0,0.05); margin-left: -54px; transition: transform 0.15s cubic-bezier(0.2, 0.8, 0.2, 1); color: #000; border: 1px solid #c5c5c5; overflow: hidden; cursor: pointer; }
       .gd-card:first-child { margin-left: 0 !important; }
-      .gd-trick .gd-card { margin-left: -48px; box-shadow: -4px 4px 10px rgba(0,0,0,0.4); }
+      .gd-trick .gd-card { margin-left: -44px; box-shadow: -5px 5px 12px rgba(0,0,0,0.4); }
       .gd-trick .gd-card:first-child { margin-left: 0 !important; }
       
       .gd-card.sel { transform: translateY(-26px) !important; border: 2px solid #eab308 !important; box-shadow: 0 8px 16px rgba(234,179,8,0.4); }
@@ -186,6 +192,7 @@
       
       @keyframes gd-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
       @keyframes gd-turn-glow { 0% { box-shadow: 0 0 12px #ff9f00; border-color: #ff9f00; } 100% { box-shadow: 0 0 28px #fffa65, inset 0 0 6px rgba(255,250,101,0.4); border-color: #fffa65; } }
+      @keyframes gd-text-pulse { 0% { box-shadow: 0 0 4px rgba(34,197,94,0.4); } 100% { box-shadow: 0 0 12px rgba(34,197,94,0.8); } }
     `;
     document.head.appendChild(s);
     state.styleNode = s;
@@ -203,7 +210,11 @@
         <div class="gd-seat top" data-gd-seat="2"></div>
         <div class="gd-seat left" data-gd-seat="3"></div>
         <div class="gd-seat right" data-gd-seat="1"></div>
-        <div class="gd-center-table"><div class="gd-trick" data-gd-trick></div></div>
+        
+        <div class="gd-center-table">
+          <div class="gd-center-status-bar" data-gd-center-status>等待开局...</div>
+          <div class="gd-trick" data-gd-trick></div>
+        </div>
         
         <div class="gd-seat bottom" data-gd-seat="0">
           <div class="gd-action-bar" data-gd-action-bar>
@@ -384,7 +395,6 @@
       const p = state.players[idx];
       if (!p) return;
       
-      // ✨ 极其精准的高光核心：只要当前转到谁，谁的 active 属性就立刻生效，激活外圈金光呼吸灯
       const isActive = state.currentTurn === idx && state.active;
       const cardCount = p.hand ? p.hand.length : 0;
       
@@ -400,6 +410,22 @@
           <div class="gd-player-detail">🂠 ${rankString}</div>
         </div>`;
     });
+
+    // 📢 核心更新：同步在出牌区中央上方显示当前是谁的回合
+    const centerStatus = state.root.querySelector('[data-gd-center-status]');
+    if (centerStatus && state.active) {
+      const activePlayer = state.players[state.currentTurn];
+      if (activePlayer) {
+        centerStatus.className = 'gd-center-status-bar';
+        if (state.currentTurn === 0) {
+          centerStatus.classList.add('my-turn');
+          centerStatus.textContent = `轮到你了，请选择出牌或过牌`;
+        } else {
+          centerStatus.classList.add('ai-turn');
+          centerStatus.textContent = `正在等待 [ ${activePlayer.name} ] 出牌...`;
+        }
+      }
+    }
   }
 
   function renderTable() {
