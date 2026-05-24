@@ -463,17 +463,32 @@
       `;
     });
   }*/
- function renderSeats() {
-    state.players.forEach((p, seatIdx) => {
-      const seatNode = state.root?.querySelector(`[data-gd-seat="${seatIdx}"]`);
+function renderSeats() {
+    // 强制遍历所有座位 ID (0-3)，保证 DOM 永远有内容
+    SEATS.forEach((seat, idx) => {
+      const seatNode = state.root?.querySelector(`[data-gd-seat="${idx}"]`);
       if (!seatNode) return;
+
+      const p = state.players[idx];
       
-      // 当前回合者 或 刚出完牌的人(可选逻辑) 高亮
-      const isActive = state.currentTurn === seatIdx;
-      const infoDiv = seatNode.querySelector('.gd-player-info');
-      if (infoDiv) {
-        infoDiv.classList.toggle('active', isActive);
+      // 1. 如果没有玩家数据，显示占位符，防止信息消失
+      if (!p) {
+        seatNode.innerHTML = `<div class="gd-player-info">等待加入...</div>`;
+        return;
       }
+
+      // 2. 正常渲染逻辑
+      const isActive = state.currentTurn === idx;
+      const cardCount = p.hand ? p.hand.length : 0;
+      
+      seatNode.innerHTML = `
+        <div class="gd-player-info ${isActive ? 'active' : ''}">
+          <div class="gd-player-name">${p.name}</div>
+          <div class="gd-player-detail">
+            <span class="gd-card-icon">🂠</span> 剩余 ${cardCount} 张
+          </div>
+        </div>
+      `;
     });
 }
 /*
@@ -593,7 +608,9 @@
   }
 
   function initDeckAndPlayers() {
-    initPlayers(makeDeck());
+    const deck = makeDeck();
+    initPlayers(deck); // 确认这里确实生成了数据
+    console.log('[Guandan] 玩家数据:', state.players); // 在控制台确认是否有输出
     state.selected.clear();
     state.currentTurn = 0;
     state.trick = null;
@@ -626,20 +643,27 @@
     renderTable();
     return true;
   }*/
- // --- 动作执行 ---
+ // 2. 重写出牌逻辑
   function playCards(seat, cards) {
-    const move = getMoveType(cards);
-    if (!move) { alert("非法牌型"); return false; }
-    if (state.trick && !beats(move, state.trick)) { alert("压不过去"); return false; }
+    const move = typeOf(cards);
+    if (!move || (state.trick && !beats(move, state.trick))) return false;
 
-    // 执行出牌
-    state.players[seat].hand = state.players[seat].hand.filter(c => !cards.includes(c));
+    const player = state.players[seat];
+    player.hand = player.hand.filter(c => !cards.includes(c));
+    
     state.trick = { ...move, cards, seat };
+    state.selected.clear();
+    
+    // 增加恭喜提醒与终止判定
+    if (player.hand.length === 0) {
+      showToast(`恭喜 ${player.name} 出完牌！`);
+    }
     
     if (checkGameOver()) return true;
 
     state.currentTurn = (seat + 1) % 4;
-    state.selected.clear();
+    state.aiDelay = performance.now() + 500;
+    renderTable();
     return true;
   }
 
@@ -878,6 +902,7 @@
     // 6. 初始化游戏数据
     initDeckAndPlayers();
     renderTable();
+    
     
     state.active = true;
     state.timer = setInterval(triggerAIMove, 300);
