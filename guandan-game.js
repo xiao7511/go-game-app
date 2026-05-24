@@ -1,6 +1,6 @@
 /**
  * guandan-game.js
- * 掼蛋扑克游戏扩展包 (控制台上下置换 + 增大出牌区 + 中央出牌提示版)
+ * 掼蛋扑克游戏扩展包 (控制台上下置换 + 增大出牌区 + 中央出牌提示常驻记忆版)
  */
 (() => {
   'use strict';
@@ -37,7 +37,8 @@
     currentTurn: 0,
     selected: new Set(),
     players: [],
-    trick: null,
+    trick: null, // 当前需要被大牌压的账面
+    lastPlayedTrick: null, // 💡 新增：用于在中央出牌区持续显示上一手出牌，直到有人出新牌
     timer: null,
     root: null,
     styleNode: null,
@@ -156,10 +157,8 @@
       .gd-player-detail { font-size: 12px; color: #FFD700; margin-top: 2px; }
       .gd-player-info.active .gd-player-detail { color: #fffa65; font-weight: bold; }
       
-      /* 🎴 核心调整一：显著增大桌面中央出牌区 */
       .gd-center-table { position: absolute; width: 640px; height: 320px; border: 2px dashed rgba(255,255,255,0.15); border-radius: 160px; display: flex; flex-direction: column; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.15); padding: 24px 0; box-shadow: inset 0 0 40px rgba(0,0,0,0.3); }
       
-      /* 📢 核心调整二：出牌区中央上方的当前玩家状态提示牌 */
       .gd-center-status-bar { background: rgba(0, 0, 0, 0.6); padding: 6px 20px; border-radius: 15px; border: 1px solid rgba(255, 255, 255, 0.1); font-size: 13px; font-weight: bold; color: #cbd5e1; box-shadow: 0 2px 8px rgba(0,0,0,0.2); transition: all 0.3s ease; }
       .gd-center-status-bar.my-turn { border-color: #22c55e; color: #22c55e; background: rgba(4, 30, 12, 0.8); animation: gd-text-pulse 1s infinite alternate; }
       .gd-center-status-bar.ai-turn { border-color: #eab308; color: #eab308; background: rgba(30, 25, 4, 0.8); }
@@ -292,6 +291,7 @@
     
     state.selected.clear();
     state.trick = null;
+    state.lastPlayedTrick = null; // 重新开局时重置
     state.currentTurn = 0; 
     state.aiDelay = performance.now() + 600;
     state.active = true;   
@@ -411,7 +411,7 @@
         </div>`;
     });
 
-    // 📢 核心更新：同步在出牌区中央上方显示当前是谁的回合
+    // 📢 持续更新：常驻同步中央提示谁正在出牌
     const centerStatus = state.root.querySelector('[data-gd-center-status]');
     if (centerStatus && state.active) {
       const activePlayer = state.players[state.currentTurn];
@@ -439,12 +439,14 @@
     const hand = root.querySelector('[data-gd-hand]');
     const actionBar = root.querySelector('[data-gd-action-bar]');
 
+    // 💡 核心调整：使用 state.lastPlayedTrick 让出牌信息一直显示在出牌区，直到有人出新牌
     if (trick) {
-      if (state.trick) {
-        trick.innerHTML = state.trick.cards.map(formatCard).join('');
-        if (move) move.textContent = `${state.trick.type} · ${state.trick.cards.length}张`;
+      if (state.lastPlayedTrick) {
+        const pName = state.players[state.lastPlayedTrick.seat]?.name || '';
+        trick.innerHTML = state.lastPlayedTrick.cards.map(formatCard).join('');
+        if (move) move.textContent = `${pName}：${state.lastPlayedTrick.type} · ${state.lastPlayedTrick.cards.length}张`;
       } else {
-        trick.innerHTML = `<span class="gd-trick-empty">桌上干净，等待出牌...</span>`;
+        trick.innerHTML = `<span class="gd-trick-empty">桌上干净，等待首发...</span>`;
         if (move) move.textContent = '—';
       }
     }
@@ -465,7 +467,7 @@
         const playBtn = root.querySelector('[data-gd-play]');
         const passBtn = root.querySelector('[data-gd-pass]');
         if (playBtn) playBtn.disabled = state.selected.size === 0;
-        if (passBtn) passBtn.disabled = !state.trick;
+        if (passBtn) passBtn.disabled = !state.trick; // 只有当别人出了牌需要压的时候才能过牌
       } else {
         actionBar.classList.remove('show');
       }
@@ -499,7 +501,10 @@
 
     const player = state.players[seat];
     player.hand = player.hand.filter(c => !cards.includes(c));
+    
+    // 更新账面状态
     state.trick = { ...move, cards, seat };
+    state.lastPlayedTrick = state.trick; // 💡 只要出新牌，就立刻更新中央显示区
     state.selected.clear();
     
     if (player.hand.length === 0) {
@@ -514,8 +519,9 @@
 
     let nextTurn = findNextTurn(seat);
 
+    // 如果一圈转回来没人要得起
     if (state.trick && (state.trick.seat === nextTurn || state.players[state.trick.seat].hand.length === 0)) {
-      state.trick = null;
+      state.trick = null; // 清空压牌要求，但先不删除 lastPlayedTrick，直到下一手打出来
     }
 
     state.currentTurn = nextTurn;
@@ -530,7 +536,7 @@
     let nextTurn = findNextTurn(seat);
     
     if (state.trick && state.trick.seat === nextTurn) {
-      state.trick = null;
+      state.trick = null; // 所有人不要，下一轮没人能压
     }
     if (state.trick && state.players[state.trick.seat].hand.length === 0) {
       if (nextTurn === state.trick.seat) {
