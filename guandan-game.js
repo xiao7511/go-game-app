@@ -6,10 +6,10 @@
   'use strict';
 
   // 🌟 核心防线：防重复加载
-  if (window.GD && window.GD.__loaded) {
-    console.log('[Guandan-AntiLoad] 检测到脚本重复加载，已自动拦截并跳过。');
-    return;
-  }
+  //if (window.GD && window.GD.__loaded) {
+   // console.log('[Guandan-AntiLoad] 检测到脚本重复加载，已自动拦截并跳过。');
+  //  return;
+ // }
 
   const GD_ICON_SUITS = { SPADE: '♠', HEART: '♥', CLUB: '♣', DIAMOND: '♦' };
   
