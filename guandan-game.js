@@ -1,22 +1,21 @@
 /**
  * guandan-game.js
- * 掼蛋扑克游戏扩展包 (全真牌桌沉浸式 UI 优化版)
- * * // 2026-05-24 FINAL UPDATE 重大终极重构说明：
- * 1. 彻底移除了文件最顶部导致新代码失效的 GD.__loaded 拦截死锁。
- * 2. 重写了 renderTable 内部的节点提取，引入动态降级机制：如果 data-gd-hand 意外为 null，
- * 程序将现场实时自主生成并挂载该容器，100% 斩断 Cannot set property of null 报错。
- * 3. 使用严格的宏任务时序控制，确保发牌和渲染万无一失。
+ * 掼蛋扑克游戏扩展包 (全真牌桌沉浸式 UI 终极优化版)
+ * * // 2026-05-24 UI-OPTIMIZED 重大更新说明：
+ * 1. 终极修复手牌挤压变形问题，加入扑克立体层叠阴影与清晰的自适应扇形排列样式。
+ * 2. 修复操作栏不显示 Bug，优化初始化时 Turn 的控制，防止 AI 瞬间抢占导致按钮隐藏。
+ * 3. 增强扑克花色与数字的字体大小与对比度，确保全屏清晰可见。
  */
 (() => {
   'use strict';
 
-  // 2026-05-24 FINAL UPDATE: 解除全局死锁，允许热更新及反复重载时新代码能够立刻生效
+  // 解除全局死锁，允许反复重载时新修改的代码立刻生效
   const GD = (window.GD = window.GD || {});
   GD.__loaded = true;
 
   const ROOT_ID = 'guandan-game-container';
   const STYLE_ID = 'gd-style';
-  const CARD_W = 80;
+  const CARD_W = 75; // 优化后的标准卡片宽度
 
   const GD_ICON_SUITS = { SPADE: '♠', HEART: '♥', CLUB: '♣', DIAMOND: '♦' };
   const GD_SUITS = [
@@ -34,7 +33,6 @@
     { id: 3, name: '西家', short: 'West', team: 1, pos: 'left' },
   ];
 
-  // 确保全局状态单例且纯净
   GD.state = GD.state || {};
   const state = GD.state;
   
@@ -144,44 +142,65 @@
       </div>`;
   }
 
+  // 2026-05-24 UI-OPTIMIZED: 重新精密重构了扑克牌布局与操作按钮控制样式
   function injectResponsiveStyles() {
-    if (document.getElementById(STYLE_ID)) return;
-    const s = document.createElement('style');
+    let s = document.getElementById(STYLE_ID);
+    if (s) s.remove(); // 强制刷新最新样式
+    
+    s = document.createElement('style');
     s.id = STYLE_ID;
     s.textContent = `
       #${ROOT_ID} { position: fixed; inset: 0; z-index: 9999; background: radial-gradient(circle at center, #1e5e36 0%, #0d321a 100%); color: #f5f7f4; font-family: system-ui, sans-serif; display: flex; flex-direction: column; overflow: hidden; }
-      #${ROOT_ID} * { box-sizing: border-box; }
-      .gd-header { position: absolute; top: 0; left: 0; right: 0; display: flex; justify-content: space-between; align-items: center; padding: 15px 25px; pointer-events: none; z-index: 10; }
-      .gd-header-info { background: rgba(0,0,0,0.4); padding: 8px 16px; border-radius: 20px; border: 1px solid rgba(255,215,0,0.3); pointer-events: auto; }
+      #${ROOT_ID} * { box-sizing: border-box; margin: 0; padding: 0; }
+      .gd-header { position: absolute; top: 0; left: 0; right: 0; display: flex; justify-content: space-between; align-items: center; padding: 15px 25px; pointer-events: none; z-index: 100; }
+      .gd-header-info { background: rgba(0,0,0,0.6); padding: 8px 20px; border-radius: 20px; border: 1px solid rgba(255,215,0,0.4); pointer-events: auto; font-size: 14px; }
       .gd-header-info span { color: #FFD700; font-weight: bold; margin: 0 5px; }
-      .gd-exit-btn { pointer-events: auto; background: #ef4444; color: white; border: none; padding: 8px 16px; border-radius: 12px; font-weight: bold; cursor: pointer; }
+      .gd-exit-btn { pointer-events: auto; background: #ef4444; color: white; border: none; padding: 8px 18px; border-radius: 12px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
       .gd-arena { position: relative; flex: 1; display: flex; justify-content: center; align-items: center; width: 100%; height: 100%; }
-      .gd-seat { position: absolute; display: flex; flex-direction: column; align-items: center; gap: 8px; }
-      .gd-seat.top { top: 20px; left: 50%; transform: translateX(-50%); }
-      .gd-seat.bottom { bottom: 20px; left: 50%; transform: translateX(-50%); width: 100%; max-width: 900px; }
-      .gd-seat.left { left: 20px; top: 50%; transform: translateY(-50%); }
-      .gd-seat.right { right: 20px; top: 50%; transform: translateY(-50%); }
-      .gd-player-info { background: rgba(0,0,0,0.5); padding: 8px 16px; border-radius: 12px; text-align: center; min-width: 120px; border: 2px solid transparent; }
-      .gd-player-info.active { border-color: #FFD700; background: rgba(0,0,0,0.7); box-shadow: 0 0 20px rgba(255, 215, 0, 0.4); }
-      .gd-player-name { font-weight: bold; font-size: 14px; }
-      .gd-player-detail { font-size: 12px; opacity: 0.8; }
-      .gd-action-bar { display: flex; gap: 15px; margin-bottom: 20px; justify-content: center; opacity: 0; transform: translateY(20px); transition: 0.2s; pointer-events: none; }
+      
+      .gd-seat { position: absolute; display: flex; flex-direction: column; align-items: center; gap: 8px; z-index: 10; }
+      .gd-seat.top { top: 25px; left: 50%; transform: translateX(-50%); }
+      .gd-seat.bottom { bottom: 15px; left: 50%; transform: translateX(-50%); width: 90%; max-width: 950px; display: flex; flex-direction: column; align-items: center; z-index: 50; }
+      .gd-seat.left { left: 25px; top: 45%; transform: translateY(-50%); }
+      .gd-seat.right { right: 25px; top: 45%; transform: translateY(-50%); }
+      
+      .gd-player-info { background: rgba(0,0,0,0.6); padding: 8px 18px; border-radius: 14px; text-align: center; min-width: 130px; border: 2px solid transparent; box-shadow: 0 4px 6px rgba(0,0,0,0.2); }
+      .gd-player-info.active { border-color: #FFD700; background: rgba(0,0,0,0.85); box-shadow: 0 0 25px rgba(255, 215, 0, 0.6); }
+      .gd-player-name { font-weight: bold; font-size: 14px; color: #fff; }
+      .gd-player-detail { font-size: 12px; color: #FFD700; margin-top: 2px; }
+      
+      .gd-action-bar { display: flex; gap: 20px; margin-bottom: 15px; justify-content: center; opacity: 0; transform: translateY(15px); transition: all 0.25s cubic-bezier(0.18, 0.89, 0.32, 1.28); pointer-events: none; z-index: 80; }
       .gd-action-bar.show { opacity: 1; transform: translateY(0); pointer-events: auto; }
-      .gd-action-bar button { border: none; padding: 10px 20px; border-radius: 20px; font-weight: 900; cursor: pointer; }
-      .gd-btn-play { background: #FFD700; color: #000; }
-      .gd-btn-pass, .gd-btn-sort { background: rgba(255,255,255,0.2); color: white; }
-      .gd-hand { display: flex; align-items: flex-end; justify-content: center; height: 140px; width: 100%; }
-      .gd-center-table { position: absolute; width: 400px; height: 200px; border: 2px dashed rgba(255,255,255,0.15); border-radius: 100px; display: flex; justify-content: center; align-items: center; }
-      .gd-trick { display: flex; justify-content: center; }
-      .gd-card { width: ${CARD_W}px; aspect-ratio: 1 / 1.42; position: relative; background: white; border-radius: 6px; border: 1px solid #ccc; margin-left: -48px; transition: transform 0.1s; color: black; }
-      .gd-hand .gd-card:first-child { margin-left: 0; }
-      .gd-hand .gd-card:hover, .gd-hand .gd-card.sel { transform: translateY(-20px); border-color: #FFD700; }
-      .gd-card.red { color: red; }
-      .gd-card .corner { position: absolute; font-size: 14px; padding: 2px; display: flex; flex-direction: column; }
-      .gd-card .tl { top: 0; left: 2px; }
-      .gd-card .br { bottom: 0; right: 2px; transform: rotate(180deg); }
-      .gd-card .center { font-size: 28px; }
-      .gd-toast { position: absolute; top: 25%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.8); padding: 10px 20px; border-radius: 20px; opacity: 0; transition: opacity 0.3s; pointer-events: none; }
+      .gd-action-bar button { border: none; padding: 10px 28px; border-radius: 25px; font-weight: 900; font-size: 15px; cursor: pointer; box-shadow: 0 4px 15px rgba(0,0,0,0.4); transition: transform 0.1s; }
+      .gd-action-bar button:active { transform: scale(0.95); }
+      .gd-action-bar button:disabled { background: #555 !important; color: #888 !important; cursor: not-allowed; box-shadow: none; }
+      .gd-btn-play { background: linear-gradient(180deg, #ffe042 0%, #ffb900 100%); color: #301a00; border: 1px solid #ffea75 !important; }
+      .gd-btn-pass { background: linear-gradient(180deg, #ffffff 0%, #cccccc 100%); color: #333; }
+      .gd-btn-sort { background: linear-gradient(180deg, #4be391 0%, #179e5b 100%); color: white; border: 1px solid #7bfcb4 !important; }
+      
+      .gd-hand { display: flex; align-items: flex-end; justify-content: center; min-height: 155px; width: 100%; padding: 10px 40px; background: rgba(0, 0, 0, 0.15); border-radius: 16px; box-shadow: inset 0 0 20px rgba(0,0,0,0.2); }
+      .gd-center-table { position: absolute; width: 450px; height: 220px; border: 2px dashed rgba(255,255,255,0.2); border-radius: 110px; display: flex; justify-content: center; align-items: center; background: rgba(255,255,255,0.02); }
+      .gd-trick { display: flex; justify-content: center; align-items: center; }
+      .gd-trick-empty { font-size: 14px; opacity: 0.4; letter-spacing: 2px; }
+      
+      /* 扑克牌核心实体结构优化 */
+      .gd-card { width: ${CARD_W}px; height: 105px; position: relative; background: #ffffff; border-radius: 6px; box-shadow: -3px 2px 8px rgba(0,0,0,0.35), 0 2px 4px rgba(0,0,0,0.2); margin-left: -52px; transition: transform 0.15s ease, box-shadow 0.15s ease; color: #000000; flex-shrink: 0; border: 1px solid #d0d0d0; cursor: pointer; user-select: none; }
+      .gd-card:first-child { margin-left: 0; }
+      
+      /* 悬浮及选中态 */
+      .gd-card:hover { transform: translateY(-15px); box-shadow: -3px 8px 16px rgba(0,0,0,0.4), 0 4px 6px rgba(0,0,0,0.2); z-index: 100; border-color: #ffeb60; }
+      .gd-card.sel { transform: translateY(-30px) !important; box-shadow: 0 10px 20px rgba(255,215,0,0.4), -3px 5px 12px rgba(0,0,0,0.3) !important; border: 2px solid #ffcc00 !important; z-index: 90; }
+      
+      .gd-card.red { color: #dc2626; }
+      .gd-card.black { color: #111827; }
+      
+      .gd-card .corner { position: absolute; font-size: 16px; line-height: 1.1; padding: 4px; display: flex; flex-direction: column; align-items: center; font-family: "Impact", "Arial Black", sans-serif; font-weight: bold; }
+      .gd-card .tl { top: 2px; left: 4px; }
+      .gd-card .br { bottom: 2px; right: 4px; transform: rotate(180deg); }
+      .gd-card .corner .s { font-size: 12px; margin-top: 1px; }
+      .gd-card .center { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 32px; opacity: 0.95; }
+      
+      .gd-toast { position: absolute; top: 25%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.85); padding: 12px 24px; border-radius: 20px; opacity: 0; transition: opacity 0.3s; pointer-events: none; border: 1px solid #ffcc00; font-size: 14px; color: #ffcc00; }
     `;
     document.head.appendChild(s);
     state.styleNode = s;
@@ -222,8 +241,8 @@
           deck.push({ id: uid(), kind: 'normal', rank, suit: suit.key, symbol: symbolFix(suit), color: suit.color, value: RANK_VALUE[rank] });
         }
       }
-      deck.push({ id: uid(), kind: 'joker', label: '小王', rank: '小王', suit: 'J', symbol: '🃏', color: 'red', value: 16 });
-      deck.push({ id: uid(), kind: 'joker', label: '大王', rank: '大王', suit: 'J', symbol: '🃏', color: 'black', value: 17 });
+      deck.push({ id: uid(), kind: 'joker', label: '小王', rank: 'w', suit: 'J', symbol: '🃏', color: 'red', value: 16 });
+      deck.push({ id: uid(), kind: 'joker', label: '大王', rank: 'W', suit: 'J', symbol: '🃏', color: 'black', value: 17 });
     }
     for (let i = deck.length - 1; i > 0; i--) {
       const j = (Math.random() * (i + 1)) | 0;
@@ -258,9 +277,9 @@
     });
 
     state.selected.clear();
-    state.currentTurn = 0;
+    state.currentTurn = 0; // 🌟核心：确保发牌完毕后当前出牌人首位是你(0)
     state.trick = null;
-    state.aiDelay = 0;
+    state.aiDelay = performance.now() + 1500; // 延缓AI首次行动，留足UI渲染及按钮弹出的时间
     console.log('[Guandan] 数据分发完毕，南家手牌总张数 =', state.players[0].hand.length);
   }
 
@@ -281,7 +300,6 @@
     });
   }
 
-  // 2026-05-24 FINAL UPDATE: 绝对防御重构。抛弃对 DOM 结构的完全信任，如手牌区因异步延迟未就绪，直接现场现场重造，彻底斩断 null 报错
   function renderTable() {
     const root = document.getElementById(ROOT_ID);
     if (!root) return;
@@ -293,9 +311,7 @@
     let hand = root.querySelector('[data-gd-hand]');
     let actionBar = root.querySelector('[data-gd-action-bar]');
 
-    // 🌟核心防空：如果容器还没解析完毕，直接程序代为创建，100% 避免为 null
     if (!hand) {
-      console.warn('[Guandan-Defend] 侦测到手牌区 data-gd-hand 临时真空，启动现场自愈生成机制');
       const bottomSeat = root.querySelector('[data-gd-seat="0"]');
       if (bottomSeat) {
         hand = document.createElement('div');
@@ -303,7 +319,7 @@
         hand.setAttribute('data-gd-hand', '');
         bottomSeat.appendChild(hand);
       } else {
-        return; // 底层结构彻底损毁才返回
+        return;
       }
     }
 
@@ -325,12 +341,10 @@
       if (move) move.textContent = '—';
     }
 
-    // 强防玩家数组被意外清空
     if (!state.players || state.players.length === 0 || !state.players[0].hand) {
       initDeckAndPlayers();
     }
 
-    // 100% 放心覆写，此时 hand 绝对不是 null
     hand.innerHTML = sortCards(state.players[0].hand).map(formatCard).join('');
     
     hand.querySelectorAll('[data-card-id]').forEach((cardDOM) => {
@@ -339,6 +353,7 @@
       }
     });
 
+    // 2026-05-24 UI-OPTIMIZED: 操作栏显隐控制状态同步
     if (actionBar) {
       if (state.currentTurn === 0 && state.players[0].hand.length > 0) {
         actionBar.classList.add('show');
@@ -360,7 +375,7 @@
     state.trick = { ...move, cards, seat };
     state.selected.clear();
     state.currentTurn = (seat + 1) % 4;
-    state.aiDelay = performance.now() + 500;
+    state.aiDelay = performance.now() + 1200; // 出牌后给玩家 1.2 秒的观察期
     renderTable();
     return true;
   }
@@ -432,9 +447,8 @@
     if (selection) selection.style.display = 'flex';
   }
 
-  // 2026-05-24 FINAL UPDATE: 时序严密重组。使用轻量级宏任务，等待浏览器把 HTML 壳体彻底解析完毕，再绑定、发牌和执行渲染
   function init() {
-    console.log('[Guandan] 触发高防护初始化流程...');
+    console.log('[Guandan] 触发全视觉高防护初始化流程...');
     
     const oldContainer = document.getElementById(ROOT_ID);
     if (oldContainer) oldContainer.remove();
@@ -450,7 +464,7 @@
     document.body.appendChild(newShell);
     state.root = newShell; 
 
-    // 🌟 时序校准：利用 setTimeout 错开 DOM 挂载和子节点查询，确立 100% 成功率
+    // 时序校准：错开一帧以确保 DOM 树各子节点完备解析
     setTimeout(() => {
       initDeckAndPlayers();
       bindHandInteraction();
@@ -466,11 +480,10 @@
       
       state.timer = setInterval(triggerAIMove, 300);
       state.active = true;
-      console.log('[Guandan] 桌牌沙箱就绪，发牌成功！');
-    }, 16); // 刚好错开一帧的渲染时间
+      console.log('[Guandan] 桌牌沙箱视觉渲染完毕！');
+    }, 16); 
   }
 
-  // 2026-05-24 FINAL UPDATE: onclick 唯一排他绑定，根治多重注册造成的 DOM 漂移
   function bindLaunchButton() {
     const btn = document.getElementById('go-guandan-btn');
     if (!btn) return;
