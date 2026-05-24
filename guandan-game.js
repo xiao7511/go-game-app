@@ -1,6 +1,6 @@
 /**
  * guandan-game.js
- * 掼蛋扑克游戏扩展包 (修复 injectResponsiveStyles 未定义报错版)
+ * 掼蛋扑克游戏扩展包 (全面修复拼写及未定义报错稳定版)
  */
 (() => {
   'use strict';
@@ -30,7 +30,7 @@
     { id: 3, name: '西家', short: 'West', team: 1, pos: 'left' },
   ];
 
-  // 核心状态持久化（初始默认从打 3 开始）
+  // 核心状态：默认主级调整为从打 3 开始
   const state = {
     gameMode: 'SINGLE_PLAYER',
     currentRank: 3, 
@@ -100,7 +100,7 @@
     }
   }
 
-  // 🌟 补全核心：样式注入函数
+  // 样式布局注入
   function injectResponsiveStyles() {
     let s = document.getElementById(STYLE_ID);
     if (s) s.remove();
@@ -442,6 +442,7 @@
     return null;
   }
 
+  // 🌟 这里已完美将之前的 planetary 拼写错误修复为标准的 try...finally 结构
   function triggerAIMove() {
     if (!state.active || state.busy || state.currentTurn === 0) return;
     if (performance.now() < state.aiDelay) return;
@@ -452,7 +453,7 @@
       if (!player || player.hand.length === 0) { passTurn(seat); return; }
       const choice = state.trick ? chooseFollowMove(player.hand, state.trick) : bestOpening(player.hand);
       if (choice && choice.length) playCards(seat, choice); else passTurn(seat);
-    } planetary {
+    } finally {
       state.busy = false;
     }
   }
@@ -495,7 +496,7 @@
     if (oldContainer) oldContainer.remove();
     if (state.timer) clearInterval(state.timer);
 
-    injectResponsiveStyles(); // 🌟 现在这里会被安全、完美地执行
+    injectResponsiveStyles(); 
     const selection = document.getElementById('game-selection');
     if (selection) selection.style.display = 'none';
 
