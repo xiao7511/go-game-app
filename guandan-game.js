@@ -47,7 +47,7 @@
     timer: null,
     root: null,
     styleNode: null,
-    active: true,
+    active: false,
     busy: false,
     logs: [],
     cardsById: new Map(),
@@ -599,16 +599,18 @@ function renderSeats() {
     renderTable(); // 借用 render 顺便更新 toast
   }
 
-  function initDeckAndPlayers() {
+ function initDeckAndPlayers() {
     const deck = makeDeck();
-    initPlayers(deck); // 确认这里确实生成了数据
-    console.log('[Guandan] 玩家数据:', state.players); // 在控制台确认是否有输出
+    initPlayers(deck); // 在此安全生成 4 个玩家的数据与手牌
+    console.log('[Guandan] 玩家数据初始化完毕:', state.players); 
+    
     state.selected.clear();
     state.currentTurn = 0;
     state.trick = null;
     state.active = true;
     state.busy = false;
     state.aiDelay = 0;
+    // 🌟 移除原本这里的 showToast()，避免在 DOM 绑定尚未彻底完成时意外触发不成熟的 renderTable()
   }
 /*
   function playCards(seat, cards) {
@@ -860,7 +862,7 @@ function renderSeats() {
   function init() {
     console.log('[Guandan] 开始安全初始化流程...');
     
-    // 1. 彻底清除页面上可能残留的同名旧 DOM 容器，防止 querySelector 发生选择器漂移
+    // 1. 彻底清除页面上可能残留的同名旧 DOM 容器
     const oldContainer = document.getElementById(ROOT_ID);
     if (oldContainer) {
       oldContainer.remove();
@@ -877,16 +879,18 @@ function renderSeats() {
     const selection = document.getElementById('game-selection');
     if (selection) selection.style.display = 'none';
 
-    // 2. 创建并挂载全新的独立壳体到 body
+    // 2. 🌟 必须先创建并挂载全新的独立壳体到 body，让页面中绝对存在该 DOM 元素！
     const newShell = createShell();
     document.body.appendChild(newShell);
     state.root = newShell; // 确保全局引用指向最新挂载的 DOM
 
-    // 3. 实时重新初始化数据与手牌事件绑定
+    // 3. 实时重新初始化数据（此时内部 showToast 触发渲染时，DOM 已经 100% 存在了）
     initDeckAndPlayers();
+    
+    // 4. 手牌事件绑定
     bindHandInteraction();
     
-    // 4. 精准关联核心操作按钮事件
+    // 5. 精准关联核心操作按钮事件
     on(newShell.querySelector('[data-gd-play]'), 'click', () => { playGDSound('click'); humanPlay(); });
     on(newShell.querySelector('[data-gd-pass]'), 'click', () => { playGDSound('click'); humanPass(); });
     on(newShell.querySelector('[data-gd-sort]'), 'click', () => { 
@@ -894,13 +898,13 @@ function renderSeats() {
     });
     on(newShell.querySelector('[data-gd-exit]'), 'click', () => { playGDSound('click'); destroy(); });
 
-    // 5. 激发首次全面渲染
+    // 6. 激发首次全面强行渲染
     renderTable();
     
     // 开启 AI 轮询
     state.timer = setInterval(triggerAIMove, 300);
     state.active = true;
-    console.log('[Guandan] 全真桌牌沙箱初始化成功，已强行渲染。');
+    console.log('[Guandan] 全真桌牌沙箱初始化成功，手牌已强制分发渲染。');
   }
 
 // ==========================================
