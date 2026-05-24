@@ -1,6 +1,6 @@
 /**
  * guandan-game.js
- * 掼蛋扑克游戏扩展包 (中央常驻记忆 + 明确标识出牌人身份 + 稳定大厂SVG矢量扑克牌版)
+ * 掼蛋扑克游戏扩展包 (中央常驻记忆 + 明确标识出牌人身份 + 完美本地部署高清图片版)
  */
 (() => {
   'use strict';
@@ -169,7 +169,7 @@
       
       .gd-trick-owner { background: linear-gradient(90deg, rgba(234,179,8,0) 0%, rgba(234,179,8,0.25) 50%, rgba(234,179,8,0) 100%); color: #ffd700; font-size: 14px; font-weight: bold; padding: 3px 24px; text-shadow: 0 1px 4px rgba(0,0,0,0.8); border-top: 1px solid rgba(234,179,8,0.2); border-bottom: 1px solid rgba(234,179,8,0.2); width: 100%; text-align: center; animation: gd-fade-in 0.25s ease-out; }
       
-      .gd-hand { display: flex; align-items: flex-end; justify-content: center; min-height: 140px; width: auto; max-width: 98vw; pointer-events: auto; margin-top: 6px; padding: 4px; }
+      .gd-hand { display: flex; align-items: flex-end; justify-content: center; min-height: 140px; width: auto; max-width: 96vw; pointer-events: auto; margin-top: 6px; padding: 4px; }
       
       .gd-card { width: ${CARD_W}px; height: 120px; position: relative; margin-left: -60px; transition: transform 0.15s cubic-bezier(0.2, 0.8, 0.2, 1); border-radius: 6px; cursor: pointer; display: flex; justify-content: center; align-items: center; }
       .gd-card:first-child { margin-left: 0 !important; }
@@ -367,7 +367,7 @@
     return next.type === prev.type && next.size === prev.size && next.weight > prev.weight;
   }
 
-  // 💡 【核心修复】：换用极度稳定的开源 jsDelivr 大厂大带宽全球分布式 CDN (SVG 矢量高清卡牌)
+  // 💡 【终极修改】：完全解耦网络，使用完全可靠的本地绝对或相对路径
   function formatCard(card) {
     const curRankStr = getCurrentRankStr();
     const isWild = card.rank === curRankStr && card.suit === 'H';
@@ -377,25 +377,27 @@
     if (isWild) extraClass = 'gd-wild-card';
     else if (isNormalRank) extraClass = 'gd-rank-card';
 
-    let code = '';
-    if (card.kind === 'joker') {
-      // 大王映射为红颜色joker(JR)，小王映射为黑颜色joker(JB)
-      code = card.label === '大王' ? 'JR' : 'JB';
-    } else {
-      // 映射花色：S=Spades(黑桃), H=Hearts(红桃), C=Clubs(梅花), D=Diamonds(方块)
-      // 映射点数：J, Q, K, A, 10, 或其它数字。 
-      // 该开源CDN命名规范为：[点数][花色简写].svg (例如红桃A为 AH.svg，黑桃10为 10S.svg)
-      const suitLetter = card.suit; 
-      const rankLetter = card.rank;
-      code = `${rankLetter}${suitLetter}`;
-    }
+    // 1. 将花色缩写（S/H/C/D）映射为国外图片包对应的小写全称
+    let suitName = '';
+    if (card.suit === 'S') suitName = 'spades';
+    if (card.suit === 'H') suitName = 'hearts';
+    if (card.suit === 'C') suitName = 'clubs';
+    if (card.suit === 'D') suitName = 'diamonds';
 
-    // jsDelivr 大厂稳定直链 SVG，加载速度极快且永不崩溃
-    const imgUrl = `https://cdn.jsdelivr.net/js-cards/latest/visuals/svg/${code}.svg`;
+    // 2. 将点数转换为小写（主要应对 A, J, Q, K）
+    let rankName = card.rank.toLowerCase();
+
+    // 3. 完美拼接出对应你下载资产包的文件名（如：hearts-8.png, joker-black.png）
+    let imgUrl = '';
+    if (card.kind === 'joker') {
+      imgUrl = `./images/cards/joker-${card.label === '大王' ? 'red' : 'black'}.png`;
+    } else {
+      imgUrl = `./images/cards/${suitName}-${rankName}.png`;
+    }
 
     return `
       <div class="gd-card ${extraClass}" data-card-id="${card.id}">
-        <img src="${imgUrl}" alt="${rankLabel(card)}" />
+        <img src="${imgUrl}" alt="${rankLabel(card)}" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2280%22 height=%22110%22><rect width=%22100%%22 height=%22100%%22 fill=%22white%22 stroke=%22red%22 stroke-width=%224%22/><text x=%2250%%22 y=%2250%%22 font-size=%2216%22 font-weight=%22bold%22 fill=%22black%22 text-anchor=%22middle%22 dominant-baseline=%22middle%22>${rankLabel(card)}</text></svg>'" />
       </div>`;
   }
 
