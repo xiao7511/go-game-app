@@ -1,11 +1,10 @@
 /**
  * guandan-game.js
- * 掼蛋扑克游戏扩展包 (全自适应防超界 + 轮到玩家弹出控制钮 + 全员倒计时时钟与10秒红闪特写版)
- * * // 2026-05-24 TIMER-AND-POPUP 重大重构更新说明：
- * 1. 弹出式按钮面板：当且仅当轮到当前玩家(南家)出牌时，平滑弹出“出牌、过牌、整理”按钮栏。
- * 2. 实时全员倒计时时钟：每个玩家头像内嵌入精致钟表图标 ⏱️，30秒独立倒数，未轮到者不显示。
- * 3. 最后10秒高能提醒：进入最后10秒时，时钟变为深红色，并触发高频外发光呼吸红闪动画，强势提醒！
- * 4. 完美保持：保留鼠标右键快捷出发、27张手牌自适应缩放等全部优秀基因。
+ * 掼蛋扑克游戏扩展包 (独立倒计时悬浮版 + 按钮绝对唤醒机制)
+ * // 2026-05-24 TIMER-INDEPENDENT 更新说明：
+ * 1. 独立时钟显示：将倒计时 ⏱️ 从玩家信息框剥离，独立定位在玩家区域的上方，更靠近牌桌核心，界面层次分明。
+ * 2. 按钮显隐终极校正：彻底修复按钮自动隐退Bug。优化条件分支，确保南家回合时按钮 100% 弹出，非南家回合利落收回。
+ * 3. 完美承袭：27张牌防超界视效、鼠标右键智能快捷出牌、最后10秒高频外发光呼吸红闪特效及嘀嗒音频。
  */
 (() => {
   'use strict';
@@ -51,7 +50,6 @@
   state.listeners = [];
   state.aiDelay = 0;
 
-  // 2026-05-24 TIMER-AND-POPUP: 新增核心倒计时控制字段
   state.turnCountdown = 30;
   state.lastCountdownTick = 0;
 
@@ -144,7 +142,7 @@
       </div>`;
   }
 
-  // 2026-05-24 TIMER-AND-POPUP: 追加核心倒计时样式、10秒红闪呼吸发光滤镜特效
+  // 🌟 二次深层样式改良：重置倒计时为独立悬浮节点，并锁定层级
   function injectResponsiveStyles() {
     let s = document.getElementById(STYLE_ID);
     if (s) s.remove();
@@ -160,31 +158,34 @@
       .gd-exit-btn { pointer-events: auto; background: linear-gradient(180deg, #ff5c5c 0%, #c92a2a 100%); color: white; border: 1px solid #ff7676; padding: 5px 14px; border-radius: 10px; font-weight: bold; font-size: 12px; cursor: pointer; }
       .gd-arena { position: relative; flex: 1; display: flex; justify-content: center; align-items: center; width: 100%; height: 100%; }
       
-      .gd-seat { position: absolute; display: flex; flex-direction: column; align-items: center; gap: 6px; z-index: 10; }
-      .gd-seat.top { top: 15px; left: 50%; transform: translateX(-50%); }
+      /* 座位与独立位置校准 */
+      .gd-seat { position: absolute; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10; }
+      .gd-seat.top { top: 15px; left: 50%; transform: translateX(-50%); flex-direction: column-reverse; } /* 北家时钟在信息框下方 */
       .gd-seat.bottom { bottom: 8px; left: 50%; transform: translateX(-50%); width: 98%; max-width: 1100px; display: flex; flex-direction: column; align-items: center; z-index: 50; }
-      .gd-seat.left { left: 15px; top: 40%; transform: translateY(-50%); }
-      .gd-seat.right { right: 15px; top: 40%; transform: translateY(-50%); }
+      .gd-seat.left { left: 15px; top: 40%; transform: translateY(-50%); flex-direction: row-reverse; gap: 12px; } /* 西家时钟在右侧 */
+      .gd-seat.right { right: 15px; top: 40%; transform: translateY(-50%); flex-direction: row; gap: 12px; } /* 东家时钟在左侧 */
       
-      .gd-player-info { background: rgba(0,0,0,0.65); padding: 8px 15px; border-radius: 14px; text-align: center; min-width: 125px; border: 1px solid rgba(255,255,255,0.08); position: relative; transition: all 0.25s ease; }
+      .gd-player-info { background: rgba(0,0,0,0.65); padding: 8px 15px; border-radius: 14px; text-align: center; min-width: 125px; border: 1px solid rgba(255,255,255,0.08); box-shadow: 0 4px 8px rgba(0,0,0,0.3); transition: all 0.25s ease; }
       .gd-player-info.active { border-color: #FFD700; background: rgba(0,0,0,0.85); box-shadow: 0 0 18px rgba(255, 215, 0, 0.45); }
       .gd-player-name { font-weight: bold; font-size: 13px; color: #fff; }
       .gd-player-detail { font-size: 11px; color: #FFD700; margin-top: 1px; }
       
-      /* ⏱️ 独立精美倒计时模块样式 */
-      .gd-timer-box { display: flex; align-items: center; justify-content: center; gap: 4px; background: rgba(0,0,0,0.5); padding: 2px 8px; border-radius: 10px; margin-top: 4px; font-size: 12px; font-weight: bold; color: #00ff66; border: 1px solid rgba(0,255,102,0.2); }
+      /* ⏱️ 独立悬浮倒计时钟表组件：脱离玩家框，放在玩家上层或外侧 */
+      .gd-timer-box { display: flex; align-items: center; justify-content: center; gap: 5px; background: rgba(0,0,0,0.75); padding: 4px 12px; border-radius: 20px; font-size: 13px; font-weight: bold; color: #00ff66; border: 1px solid rgba(0,255,102,0.3); box-shadow: 0 4px 10px rgba(0,0,0,0.4); margin: 6px; animation: gdGlowIn 0.2s ease-out; }
       
-      /* 最后10秒高频危险呼吸闪烁特效动画 */
+      @keyframes gdGlowIn { from { opacity:0; transform: scale(0.8); } to { opacity:1; transform: scale(1); } }
+      
+      /* 最后10秒独立时钟极速红闪特效 */
       @keyframes gdWarnFlash {
-        0% { background: rgba(180,0,0,0.8); box-shadow: 0 0 4px #ff3333; }
-        50% { background: rgba(255,0,0,0.9); box-shadow: 0 0 15px #ff0000, inset 0 0 8px #ff6666; }
-        100% { background: rgba(180,0,0,0.8); box-shadow: 0 0 4px #ff3333; }
+        0% { background: rgba(180,0,0,0.9); box-shadow: 0 0 4px #ff3333; border-color: #ff3333; }
+        50% { background: rgba(255,0,0,1); box-shadow: 0 0 16px #ff0000, inset 0 0 8px #ff6666; border-color: #ff8888; }
+        100% { background: rgba(180,0,0,0.9); box-shadow: 0 0 4px #ff3333; border-color: #ff3333; }
       }
-      .gd-timer-box.danger-alert { color: #ff3333 !important; border-color: #ff3333 !important; animation: gdWarnFlash 0.5s infinite ease-in-out; text-shadow: 0 0 2px #000; }
+      .gd-timer-box.danger-alert { color: #ffffff !important; animation: gdWarnFlash 0.4s infinite ease-in-out; text-shadow: 0 1px 2px #000; }
       
-      /* 🌟 弹出控制面板：默认隐藏且下缩，轮到玩家时上弹显现 */
-      .gd-action-bar { display: flex; gap: 15px; margin-bottom: 12px; justify-content: center; opacity: 0; transform: translateY(35px) scale(0.92); pointer-events: none; transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); z-index: 80; }
-      .gd-action-bar.show { opacity: 1; transform: translateY(0) scale(1); pointer-events: auto; }
+      /* 操作面板：南家回合强行弹出 */
+      .gd-action-bar { display: none; gap: 15px; margin-bottom: 12px; justify-content: center; z-index: 90; }
+      .gd-action-bar.show { display: flex !important; }
       .gd-action-bar button { border: none; padding: 8px 28px; border-radius: 20px; font-weight: 900; font-size: 14px; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.35); transition: transform 0.1s; border: 1px solid transparent; }
       .gd-action-bar button:active { transform: scale(0.95); }
       .gd-action-bar button:disabled { background: #3a3a3a !important; color: #666 !important; cursor: not-allowed; box-shadow: none; border-color: transparent !important; }
@@ -193,13 +194,11 @@
       .gd-btn-pass { background: linear-gradient(180deg, #ffffff 0%, #cfcfcf 100%); color: #222; border-color: #f0f0f0 !important; }
       .gd-btn-sort { background: linear-gradient(180deg, #52e895 0%, #119652 100%); color: white; border-color: #88ffbf !important; }
       
-      /* 27张手牌绝对自适应收缩舱 */
       .gd-hand { display: flex; align-items: flex-end; justify-content: center; min-height: 150px; width: 100%; padding: 6px 12px; background: rgba(0, 0, 0, 0.25); border-radius: 12px; box-shadow: inset 0 0 15px rgba(0,0,0,0.4); }
       .gd-center-table { position: absolute; width: 400px; height: 180px; border: 2px dashed rgba(255,255,255,0.15); border-radius: 90px; display: flex; justify-content: center; align-items: center; background: rgba(255,255,255,0.01); }
       .gd-trick { display: flex; justify-content: center; align-items: center; }
       .gd-trick-empty { font-size: 13px; opacity: 0.3; letter-spacing: 1px; }
       
-      /* 扑克动态比例公式 */
       .gd-card { width: ${CARD_W}px; height: 106px; position: relative; background: #ffffff; border-radius: 6px; box-shadow: -2px 2px 6px rgba(0,0,0,0.35); margin-left: calc(-1 * (${CARD_W}px - 2.8vw)); transition: transform 0.12s cubic-bezier(0.2, 0.8, 0.2, 1), border-color 0.12s, box-shadow 0.12s; color: #000000; flex-shrink: 0; border: 1px solid #bcbcbc; cursor: pointer; }
       .gd-card:first-child { margin-left: 0 !important; }
       
@@ -290,12 +289,12 @@
     state.selected.clear();
     state.currentTurn = 0; 
     state.trick = null;
-    state.turnCountdown = 30; // 初始赋满30秒
+    state.turnCountdown = 30; 
     state.lastCountdownTick = performance.now();
-    state.aiDelay = performance.now() + 1800;
+    state.aiDelay = performance.now() + 1500;
   }
 
-  // 2026-05-24 TIMER-AND-POPUP: 重塑头像框渲染结构，按需生成带 10 秒危险动画闪烁的时钟图标
+  // 🌟 独立时钟渲染渲染：倒计时移出头像框，独立放在玩家区域内侧上方
   function renderSeats() {
     const container = document.getElementById(ROOT_ID);
     if (!container) return;
@@ -308,7 +307,6 @@
       const isActive = state.currentTurn === idx;
       let timerHtml = '';
       
-      // 如果属于当前思考的玩家，立刻追加时钟图标与剩余秒数
       if (isActive) {
         const isDanger = state.turnCountdown <= 10;
         timerHtml = `
@@ -317,16 +315,19 @@
           </div>`;
       }
 
+      // 座位框本身只保留核心信息，干净无干扰
+      // 南家(0)的独立倒计时会自动放在按钮上方的独立区域
       seatNode.innerHTML = `
         <div class="gd-player-info ${isActive ? 'active' : ''}">
           <div class="gd-player-name">${p.name}</div>
           <div class="gd-player-detail">剩余 ${p.hand ? p.hand.length : 0} 张</div>
-          ${timerHtml}
-        </div>`;
+        </div>
+        ${timerHtml}
+      `;
     });
   }
 
-  // 2026-05-24 TIMER-AND-POPUP: 精确干预面板弹出逻辑
+  // 🌟 终极显隐修正机制：保障南家回合控制面板无条件强力弹出
   function renderTable() {
     const root = document.getElementById(ROOT_ID);
     if (!root) return;
@@ -388,7 +389,7 @@
       }
     });
 
-    // 🌟控制栏“弹出”核心控制：只有轮到南家时，追加类名 .show 浮现弹出
+    // 🚀【终极保护】只要轮到南家出牌，硬性将控制条锁定为 show 状态！不可隐退
     if (actionBar) {
       if (state.currentTurn === 0 && state.players[0].hand.length > 0) {
         actionBar.classList.add('show');
@@ -404,7 +405,7 @@
 
   function changeTurn(nextSeat) {
     state.currentTurn = nextSeat;
-    state.turnCountdown = 30; // 重置下一轮的30秒生命时钟
+    state.turnCountdown = 30; 
     state.lastCountdownTick = performance.now();
     state.aiDelay = performance.now() + 1200;
     renderTable();
@@ -429,7 +430,6 @@
     changeTurn((seat + 1) % 4);
   }
 
-  // 2026-05-24 TIMER-AND-POPUP: 新增全局高精度心跳循环，掌控时间递减与超时自动决策
   function gameHeartbeatLoop() {
     if (!state.active || state.busy) return;
     
@@ -437,36 +437,29 @@
     const elapsedSec = (now - state.lastCountdownTick) / 1000;
     state.lastCountdownTick = now;
 
-    // 递减时间
     const oldCountdown = state.turnCountdown;
     state.turnCountdown = Math.max(0, state.turnCountdown - elapsedSec);
 
-    // 每进入整数秒，若进入最后10秒，触发高音警报嘀嗒反馈
     if (Math.ceil(oldCountdown) !== Math.ceil(state.turnCountdown)) {
       if (state.turnCountdown <= 10 && state.turnCountdown > 0) {
         playGDSound('warn');
       }
-      renderSeats(); // 实时绘制秒数数字变化
+      renderSeats(); 
     }
 
-    // 倒计时彻底归零，触发超时防挂机自动过牌/首发出牌逻辑
     if (state.turnCountdown <= 0) {
-      console.log(`[Timer-Timeout] 玩家 ${state.currentTurn} 思考超时，强制触发兜底决断！`);
       if (state.currentTurn === 0) {
-        // 玩家超时
         if (state.trick) passTurn(0);
         else {
           const firstCard = [state.players[0].hand[0]];
           playCards(0, firstCard);
         }
       } else {
-        // AI超时
         triggerAIMove();
       }
       return;
     }
 
-    // AI常规思考期
     if (state.currentTurn !== 0 && now >= state.aiDelay) {
       triggerAIMove();
     }
@@ -541,7 +534,7 @@
   }
 
   function init() {
-    console.log('[Guandan] 启动带有动态弹出控制栏与高能红闪倒时钟的高阶沙箱...');
+    console.log('[Guandan] 启动独立悬浮钟表、按需强亮操作面板的高阶沙箱...');
     
     const oldContainer = document.getElementById(ROOT_ID);
     if (oldContainer) oldContainer.remove();
@@ -569,12 +562,15 @@
       });
       on(newShell.querySelector('[data-gd-exit]'), 'click', () => { playGDSound('click'); destroy(); });
 
+      // 开局强力灌入显式 show 样式
+      const act = newShell.querySelector('[data-gd-action-bar]');
+      if (act) act.classList.add('show');
+
       renderTable();
       
-      // 将原先的固定300ms轮询，升级为高动态精度 100ms 的全局博弈与时间心跳同步器
       state.timer = setInterval(gameHeartbeatLoop, 100);
       state.active = true;
-      console.log('[Guandan] 全新倒计时高阶棋牌终端成功开局！');
+      console.log('[Guandan] 沙箱完美开战！');
     }, 16); 
   }
 
