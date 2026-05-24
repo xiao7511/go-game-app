@@ -552,6 +552,14 @@ function renderSeats() {
       // 更新公共桌牌 (Trick)
       const trick = root.querySelector('[data-gd-trick]');
       const move = root.querySelector('[data-gd-move]');
+      const hand = root.querySelector('[data-gd-hand]');
+
+      // 2. 如果核心 UI 还没生成（例如 DOM 插入延迟），不进行渲染
+      if (!trick || !hand) {
+        console.warn('[Guandan] UI 节点尚未就绪，跳过本次渲染');
+        return;
+      }
+
       if (state.trick) {
         trick.innerHTML = state.trick.cards.map(formatCard).join('');
         move.textContent = `${state.trick.type} · ${state.trick.cards.length}张`;
@@ -561,8 +569,6 @@ function renderSeats() {
       }
 
       // 🌟 修复：确保这里能正确获取并渲染手牌
-      //const hand = root.querySelector('[data-gd-hand]');
-      const hand = document.getElementsByClassName('gd-hand')[0]; // 直接通过类名获取，避免可能的 DOM 结构问题
       const me = state.players[0]; // 获取南家数据
       if (me && me.hand) {
         // 这里的 sortCards(me.hand) 会将牌排序后生成 HTML
