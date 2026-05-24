@@ -1,6 +1,6 @@
 /**
  * guandan-game.js
- * 掼蛋扑克游戏扩展包 (控制台上下置换 + 增大出牌区 + 中央出牌提示常驻记忆版)
+ * 掼蛋扑克游戏扩展包 (中央常驻记忆 + 明确标识出牌人身份版)
  */
 (() => {
   'use strict';
@@ -37,8 +37,8 @@
     currentTurn: 0,
     selected: new Set(),
     players: [],
-    trick: null, // 当前需要被大牌压的账面
-    lastPlayedTrick: null, // 💡 新增：用于在中央出牌区持续显示上一手出牌，直到有人出新牌
+    trick: null, 
+    lastPlayedTrick: null, // 持续记录桌面上最后的一手出牌信息
     timer: null,
     root: null,
     styleNode: null,
@@ -157,20 +157,25 @@
       .gd-player-detail { font-size: 12px; color: #FFD700; margin-top: 2px; }
       .gd-player-info.active .gd-player-detail { color: #fffa65; font-weight: bold; }
       
-      .gd-center-table { position: absolute; width: 640px; height: 320px; border: 2px dashed rgba(255,255,255,0.15); border-radius: 160px; display: flex; flex-direction: column; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.15); padding: 24px 0; box-shadow: inset 0 0 40px rgba(0,0,0,0.3); }
+      .gd-center-table { position: absolute; width: 640px; height: 340px; border: 2px dashed rgba(255,255,255,0.15); border-radius: 160px; display: flex; flex-direction: column; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.15); padding: 20px 0; box-shadow: inset 0 0 40px rgba(0,0,0,0.3); }
       
-      .gd-center-status-bar { background: rgba(0, 0, 0, 0.6); padding: 6px 20px; border-radius: 15px; border: 1px solid rgba(255, 255, 255, 0.1); font-size: 13px; font-weight: bold; color: #cbd5e1; box-shadow: 0 2px 8px rgba(0,0,0,0.2); transition: all 0.3s ease; }
-      .gd-center-status-bar.my-turn { border-color: #22c55e; color: #22c55e; background: rgba(4, 30, 12, 0.8); animation: gd-text-pulse 1s infinite alternate; }
-      .gd-center-status-bar.ai-turn { border-color: #eab308; color: #eab308; background: rgba(30, 25, 4, 0.8); }
+      .gd-center-status-bar { background: rgba(0, 0, 0, 0.7); padding: 6px 20px; border-radius: 15px; border: 1px solid rgba(255, 255, 255, 0.15); font-size: 13px; font-weight: bold; color: #cbd5e1; box-shadow: 0 2px 8px rgba(0,0,0,0.2); transition: all 0.3s ease; z-index: 10; }
+      .gd-center-status-bar.my-turn { border-color: #22c55e; color: #22c55e; background: rgba(4, 30, 12, 0.85); animation: gd-text-pulse 1s infinite alternate; }
+      .gd-center-status-bar.ai-turn { border-color: #eab308; color: #eab308; background: rgba(30, 25, 4, 0.85); }
       
-      .gd-trick { display: flex; justify-content: center; align-items: center; width: 100%; flex: 1; min-height: 130px; }
+      /* 💡 核心强化：中央出牌展示区样式 */
+      .gd-trick { display: flex; flex-direction: column; justify-content: center; align-items: center; width: 100%; flex: 1; min-height: 160px; position: relative; }
+      .gd-trick-cards-wrap { display: flex; justify-content: center; align-items: center; width: 100%; min-height: 122px; margin-top: 8px; }
       .gd-trick-empty { font-size: 14px; color: rgba(255,255,255,0.25); font-weight: bold; letter-spacing: 1px; }
+      
+      /* 💡 新增：出牌人专属的高亮常驻身份标签 */
+      .gd-trick-owner { background: linear-gradient(90deg, rgba(234,179,8,0) 0%, rgba(234,179,8,0.25) 50%, rgba(234,179,8,0) 100%); color: #ffd700; font-size: 14px; font-weight: bold; padding: 3px 24px; text-shadow: 0 1px 4px rgba(0,0,0,0.8); border-top: 1px solid rgba(234,179,8,0.2); border-bottom: 1px solid rgba(234,179,8,0.2); width: 100%; text-align: center; animation: gd-fade-in 0.25s ease-out; }
       
       .gd-hand { display: flex; align-items: flex-end; justify-content: center; min-height: 130px; width: auto; max-width: 96vw; pointer-events: auto; margin-top: 6px; padding: 4px; }
       
       .gd-card { width: ${CARD_W}px; height: 122px; position: relative; background: #ffffff; border-radius: 8px; box-shadow: -4px 4px 8px rgba(0,0,0,0.35), inset 0 -4px 8px rgba(0,0,0,0.05); margin-left: -54px; transition: transform 0.15s cubic-bezier(0.2, 0.8, 0.2, 1); color: #000; border: 1px solid #c5c5c5; overflow: hidden; cursor: pointer; }
       .gd-card:first-child { margin-left: 0 !important; }
-      .gd-trick .gd-card { margin-left: -44px; box-shadow: -5px 5px 12px rgba(0,0,0,0.4); }
+      .gd-trick .gd-card { margin-left: -44px; box-shadow: -5px 5px 12px rgba(0,0,0,0.4); pointer-events: none; }
       .gd-trick .gd-card:first-child { margin-left: 0 !important; }
       
       .gd-card.sel { transform: translateY(-26px) !important; border: 2px solid #eab308 !important; box-shadow: 0 8px 16px rgba(234,179,8,0.4); }
@@ -192,6 +197,7 @@
       @keyframes gd-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
       @keyframes gd-turn-glow { 0% { box-shadow: 0 0 12px #ff9f00; border-color: #ff9f00; } 100% { box-shadow: 0 0 28px #fffa65, inset 0 0 6px rgba(255,250,101,0.4); border-color: #fffa65; } }
       @keyframes gd-text-pulse { 0% { box-shadow: 0 0 4px rgba(34,197,94,0.4); } 100% { box-shadow: 0 0 12px rgba(34,197,94,0.8); } }
+      @keyframes gd-fade-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
     `;
     document.head.appendChild(s);
     state.styleNode = s;
@@ -291,7 +297,7 @@
     
     state.selected.clear();
     state.trick = null;
-    state.lastPlayedTrick = null; // 重新开局时重置
+    state.lastPlayedTrick = null; 
     state.currentTurn = 0; 
     state.aiDelay = performance.now() + 600;
     state.active = true;   
@@ -336,31 +342,31 @@
     const counts = [...grouped.values()].map((x) => x.length).sort((a, b) => a - b);
     const allSame = counts.length === 1;
 
-    if (n === 1) return { type: 'single', weight: values[0], size: 1 };
-    if (n === 2 && (allSame || wildCount === 1)) return { type: 'pair', weight: values[0], size: 2 };
-    if (n === 3 && (allSame || wildCount >= 1)) return { type: 'triple', weight: values[0], size: 3 };
-    if (n >= 4 && (allSame || (counts.length <= 2 && wildCount >= 1))) return { type: 'bomb', weight: values[0] * 100 + n, size: n };
-    if (n === 5 && rankSeq(values) && sameSuit(cards)) return { type: 'straight_flush', weight: values[0], size: 5 };
-    if (n === 4 && cards.every((c) => c.kind === 'joker')) return { type: 'rocket', weight: 9999, size: 4 };
-    if (n >= 5 && rankSeq(values) && values.every((v) => v < 16)) return { type: 'straight', weight: values[0], size: n };
+    if (n === 1) return { type: '单张', weight: values[0], size: 1 };
+    if (n === 2 && (allSame || wildCount === 1)) return { type: '对子', weight: values[0], size: 2 };
+    if (n === 3 && (allSame || wildCount >= 1)) return { type: '三张', weight: values[0], size: 3 };
+    if (n >= 4 && (allSame || (counts.length <= 2 && wildCount >= 1))) return { type: '炸弹', weight: values[0] * 100 + n, size: n };
+    if (n === 5 && rankSeq(values) && sameSuit(cards)) return { type: '同花顺', weight: values[0], size: 5 };
+    if (n === 4 && cards.every((c) => c.kind === 'joker')) return { type: '天王炸', weight: 9999, size: 4 };
+    if (n >= 5 && rankSeq(values) && values.every((v) => v < 16)) return { type: '顺子', weight: values[0], size: n };
     
     if (n >= 6 && n % 2 === 0 && [...grouped.values()].every((x) => x.length === 2)) {
       const pairVals = [...grouped.keys()].sort((a, b) => a - b);
-      if (rankSeq(pairVals) && pairVals.every((v) => v < 16)) return { type: 'pair_seq', weight: pairVals[0], size: n };
+      if (rankSeq(pairVals) && pairVals.every((v) => v < 16)) return { type: '连对', weight: pairVals[0], size: n };
     }
     if (n === 5) {
       const triple = [...grouped.entries()].find(([, x]) => x.length === 3);
       const pair = [...grouped.entries()].find(([, x]) => x.length === 2);
-      if (triple && pair) return { type: 'full_house', weight: Number(triple[0]), size: 5 };
+      if (triple && pair) return { type: '三带两', weight: Number(triple[0]), size: 5 };
     }
     return null;
   }
 
   function beats(next, prev) {
-    if (next.type === 'rocket') return true;
-    if (prev.type === 'rocket') return false;
-    if (next.type === 'bomb' && prev.type !== 'bomb') return true;
-    if (next.type === 'bomb' && prev.type === 'bomb') {
+    if (next.type === '天王炸') return true;
+    if (prev.type === '天王炸') return false;
+    if (next.type === '炸弹' && prev.type !== '炸弹') return true;
+    if (next.type === '炸弹' && prev.type === '炸弹') {
       if (next.size !== prev.size) return next.size > prev.size;
       return next.weight > prev.weight;
     }
@@ -411,7 +417,6 @@
         </div>`;
     });
 
-    // 📢 持续更新：常驻同步中央提示谁正在出牌
     const centerStatus = state.root.querySelector('[data-gd-center-status]');
     if (centerStatus && state.active) {
       const activePlayer = state.players[state.currentTurn];
@@ -439,11 +444,16 @@
     const hand = root.querySelector('[data-gd-hand]');
     const actionBar = root.querySelector('[data-gd-action-bar]');
 
-    // 💡 核心调整：使用 state.lastPlayedTrick 让出牌信息一直显示在出牌区，直到有人出新牌
+    // 💡 核心调整：不仅让出牌常驻，还在牌组正上方动态注入【出牌人】姓名提示
     if (trick) {
       if (state.lastPlayedTrick) {
-        const pName = state.players[state.lastPlayedTrick.seat]?.name || '';
-        trick.innerHTML = state.lastPlayedTrick.cards.map(formatCard).join('');
+        const pName = state.players[state.lastPlayedTrick.seat]?.name || '未知';
+        const cardsHTML = state.lastPlayedTrick.cards.map(formatCard).join('');
+        
+        trick.innerHTML = `
+          <div class="gd-trick-owner">🔸 ${pName} 打出 🔸</div>
+          <div class="gd-trick-cards-wrap">${cardsHTML}</div>
+        `;
         if (move) move.textContent = `${pName}：${state.lastPlayedTrick.type} · ${state.lastPlayedTrick.cards.length}张`;
       } else {
         trick.innerHTML = `<span class="gd-trick-empty">桌上干净，等待首发...</span>`;
@@ -467,7 +477,7 @@
         const playBtn = root.querySelector('[data-gd-play]');
         const passBtn = root.querySelector('[data-gd-pass]');
         if (playBtn) playBtn.disabled = state.selected.size === 0;
-        if (passBtn) passBtn.disabled = !state.trick; // 只有当别人出了牌需要压的时候才能过牌
+        if (passBtn) passBtn.disabled = !state.trick; 
       } else {
         actionBar.classList.remove('show');
       }
@@ -502,9 +512,8 @@
     const player = state.players[seat];
     player.hand = player.hand.filter(c => !cards.includes(c));
     
-    // 更新账面状态
     state.trick = { ...move, cards, seat };
-    state.lastPlayedTrick = state.trick; // 💡 只要出新牌，就立刻更新中央显示区
+    state.lastPlayedTrick = state.trick; 
     state.selected.clear();
     
     if (player.hand.length === 0) {
@@ -519,9 +528,8 @@
 
     let nextTurn = findNextTurn(seat);
 
-    // 如果一圈转回来没人要得起
     if (state.trick && (state.trick.seat === nextTurn || state.players[state.trick.seat].hand.length === 0)) {
-      state.trick = null; // 清空压牌要求，但先不删除 lastPlayedTrick，直到下一手打出来
+      state.trick = null; 
     }
 
     state.currentTurn = nextTurn;
@@ -536,7 +544,7 @@
     let nextTurn = findNextTurn(seat);
     
     if (state.trick && state.trick.seat === nextTurn) {
-      state.trick = null; // 所有人不要，下一轮没人能压
+      state.trick = null; 
     }
     if (state.trick && state.players[state.trick.seat].hand.length === 0) {
       if (nextTurn === state.trick.seat) {
@@ -607,12 +615,12 @@
     const byValue = [...groupsByValue(sorted).entries()].sort((a, b) => a[0] - b[0]);
     if (!last) return bestOpening(sorted);
     
-    if (last.type === 'single' || last.type === 'pair' || last.type === 'triple') {
+    if (last.type === '单张' || last.type === '对子' || last.type === '三张') {
       for (const [v, g] of byValue) { 
         if (v > last.weight && g.length >= last.size) return g.slice(0, last.size); 
       }
     }
-    if (last.type !== 'bomb') {
+    if (last.type !== '炸弹') {
       const bomb = byValue.find(([, g]) => g.length >= 4);
       if (bomb) return bomb[1].slice(0, 4);
     }
