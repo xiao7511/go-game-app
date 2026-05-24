@@ -561,7 +561,8 @@ function renderSeats() {
       }
 
       // 🌟 修复：确保这里能正确获取并渲染手牌
-      const hand = root.querySelector('[data-gd-hand]');
+      //const hand = root.querySelector('[data-gd-hand]');
+      const hand = document.getElementsByClassName('gd-hand')[0]; // 直接通过类名获取，避免可能的 DOM 结构问题
       const me = state.players[0]; // 获取南家数据
       if (me && me.hand) {
         // 这里的 sortCards(me.hand) 会将牌排序后生成 HTML
