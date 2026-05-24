@@ -811,7 +811,7 @@
     state.root = null; state.styleNode = null;
   }
 
-  function init() {
+  /*function init() {
     if (state.active) return;
     injectResponsiveStyles();
     
@@ -840,7 +840,62 @@
     state.timer = setInterval(triggerAIMove, 300);
     state.active = true;
     console.log('[Guandan] 全真牌桌沙箱初始化完毕。');
+  }*/
+ // --- 核心修复：更鲁棒的初始化绑定 ---
+
+  function init() {
+    console.log('[Guandan] 尝试初始化游戏...');
+    
+    // 1. 强制清理旧状态，防止重复加载导致的静默失败
+    if (state.root) {
+      console.log('[Guandan] 清理旧实例...');
+      destroy(); 
+    }
+
+    // 2. 注入样式
+    injectResponsiveStyles();
+    
+    // 3. 隐藏大厅
+    const selection = document.getElementById('game-selection');
+    if (selection) selection.style.display = 'none';
+
+    // 4. 创建 UI
+    state.root = createShell();
+    document.body.appendChild(state.root);
+
+    // 5. 绑定事件
+    bindHandInteraction();
+    
+    // 绑定按钮事件（这里使用直接查询 DOM 的方式）
+    const root = state.root;
+    on(root.querySelector('[data-gd-play]'), 'click', () => { playGDSound('click'); humanPlay(); });
+    on(root.querySelector('[data-gd-pass]'), 'click', () => { playGDSound('click'); humanPass(); });
+    on(root.querySelector('[data-gd-sort]'), 'click', () => { 
+      playGDSound('click'); state.players[0].hand = sortCards(state.players[0].hand); renderTable(); 
+    });
+    on(root.querySelector('[data-gd-exit]'), 'click', () => { playGDSound('click'); destroy(); });
+
+    // 6. 初始化游戏数据
+    initDeckAndPlayers();
+    renderTable();
+    
+    state.active = true;
+    state.timer = setInterval(triggerAIMove, 300);
+    console.log('[Guandan] 游戏初始化成功！');
   }
+
+  // 彻底重写绑定逻辑，确保点击就能生效
+  document.addEventListener('DOMContentLoaded', () => {
+      const btn = document.getElementById('go-guandan-btn');
+      if (btn) {
+          btn.addEventListener('click', () => {
+              console.log('[Guandan] 捕获到点击事件');
+              init();
+          });
+      } else {
+          console.error('[Guandan] 错误：未找到 ID 为 go-guandan-btn 的按钮');
+      }
+  });
 
   function bindLaunchButton() {
     const btn = document.getElementById('go-guandan-btn');
