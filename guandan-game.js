@@ -1,7 +1,7 @@
 /**
  * guandan-game.js
- * 掼蛋扑克游戏扩展包 - 豪华大字独立时钟大厅版
- * 2026-05-24 终极解耦重构
+ * 掼蛋扑克游戏扩展包 - 经典宫廷花型与右键快捷出牌版
+ * 2026-05-24 全真UI完美重构
  */
 (() => {
   'use strict';
@@ -11,7 +11,7 @@
 
   const ROOT_ID = 'guandan-game-container';
   const STYLE_ID = 'gd-style';
-  const CARD_W = 85; // 放大扑克牌宽度，提升辨识度
+  const CARD_W = 90; // 再次放大扑克牌，提供完美的细节展示空间
 
   const GD_ICON_SUITS = { SPADE: '♠', HEART: '♥', CLUB: '♣', DIAMOND: '♦' };
   const GD_SUITS = [
@@ -44,7 +44,7 @@
     cardsById: new Map(),
     listeners: [],
     aiDelay: 0,
-    turnCountdown: 30, // 30秒标准倒计时
+    turnCountdown: 30,
     lastCountdownTick: 0
   };
 
@@ -88,20 +88,28 @@
     }
   }
 
+  // --- 掼蛋增强版牌型判定器 ---
   function typeOf(cards) {
     const n = cards.length;
     if (!n) return null;
-    const values = cards.map((c) => c.value);
+    const values = cards.map((c) => c.value).sort((a,b) => a-b);
     const grouped = new Map();
     for (const c of cards) {
       if (!grouped.has(c.value)) grouped.set(c.value, []);
       grouped.get(c.value).push(c);
     }
     const counts = [...grouped.values()].map((x) => x.length).sort((a, b) => a - b);
+    
     if (n === 1) return { type: '单张', weight: values[0], size: 1 };
     if (n === 2 && counts.length === 1) return { type: '对子', weight: values[0], size: 2 };
     if (n === 3 && counts.length === 1) return { type: '三张', weight: values[0], size: 3 };
     if (n >= 4 && counts.length === 1) return { type: '炸弹', weight: values[0] * 100 + n, size: n };
+    
+    // 三带两
+    if (n === 5 && counts[0] === 2 && counts[1] === 3) {
+      const mainVal = [...grouped.entries()].find(([k,v]) => v.length === 3)[0];
+      return { type: '三带两', weight: mainVal, size: 5 };
+    }
     return null;
   }
 
@@ -114,16 +122,38 @@
     return next.type === prev.type && next.size === prev.size && next.weight > prev.weight;
   }
 
+  // 🃏 核心细节：全真扑克绘制引擎 (动态花型数量阵列 / JQK宫廷人物大底纹)
   function formatCard(card) {
+    let centerHtml = '';
+    
+    if (card.kind === 'joker') {
+      centerHtml = `<div class="gd-card-art-txt">${card.rank === 'W' ? '👑' : '🃏'}</div>`;
+    } else if (['J', 'Q', 'K'].includes(card.rank)) {
+      let avatar = card.rank === 'J' ? '⚔️' : card.rank === 'Q' ? '🌸' : '👑';
+      centerHtml = `
+        <div class="gd-card-court-bg">${card.rank}</div>
+        <div class="gd-card-court-avatar">${avatar}</div>
+      `;
+    } else {
+      // 根据点数动态铺设相应数量的花色图标
+      const num = parseInt(card.rank) || 10;
+      if (num <= 10) {
+        const suitsArr = Array(Math.min(num, 6)).fill(`<span class="gd-mini-suit">${card.symbol}</span>`);
+        centerHtml = `<div class="gd-card-grid-suits">${suitsArr.join('')}</div>`;
+      } else {
+        centerHtml = `<div class="center">${card.symbol}</div>`;
+      }
+    }
+
     return `
       <div class="gd-card ${card.color}" data-card-id="${card.id}">
         <span class="corner tl"><span class="r">${rankLabel(card)}</span><span class="s">${card.symbol}</span></span>
-        <span class="center">${card.symbol}</span>
+        ${centerHtml}
         <span class="corner br"><span class="r">${rankLabel(card)}</span><span class="s">${card.symbol}</span></span>
       </div>`;
   }
 
-  // 🌟 重新规划的高端UI布局样式
+  // 🎨 精致电竞UI样式表
   function injectResponsiveStyles() {
     let s = document.getElementById(STYLE_ID);
     if (s) s.remove();
@@ -131,76 +161,77 @@
     s = document.createElement('style');
     s.id = STYLE_ID;
     s.textContent = `
-      #${ROOT_ID} { position: fixed; inset: 0; z-index: 9999; background: radial-gradient(circle at center, #155224 0%, #041408 100%); color: #f5f7f4; font-family: system-ui, -apple-system, sans-serif; display: flex; flex-direction: column; overflow: hidden; user-select: none; }
+      #${ROOT_ID} { position: fixed; inset: 0; z-index: 9999; background: radial-gradient(circle at center, #134e20 0%, #031206 100%); color: #f5f7f4; font-family: system-ui, -apple-system, sans-serif; display: flex; flex-direction: column; overflow: hidden; user-select: none; }
       #${ROOT_ID} * { box-sizing: border-box; margin: 0; padding: 0; }
       
-      .gd-header { position: absolute; top: 0; left: 0; right: 0; display: flex; justify-content: space-between; align-items: center; padding: 16px 32px; z-index: 100; pointer-events: none; }
-      .gd-header-info { background: rgba(0,0,0,0.65); padding: 8px 24px; border-radius: 20px; border: 1px solid rgba(255,215,0,0.4); pointer-events: auto; font-size: 15px; font-weight: bold; box-shadow: 0 4px 12px rgba(0,0,0,0.4); }
+      /* 顶部状态栏：信息左移，控制按钮完美居中放大 */
+      .gd-header { position: absolute; top: 0; left: 0; right: 0; display: flex; justify-content: space-between; align-items: center; padding: 12px 24px; z-index: 9999; }
+      .gd-header-info { background: rgba(0,0,0,0.75); padding: 10px 20px; border-radius: 12px; border: 1px solid rgba(255,215,0,0.4); font-size: 15px; font-weight: bold; box-shadow: 0 4px 12px rgba(0,0,0,0.4); }
       .gd-header-info span { color: #FFD700; font-weight: bold; margin: 0 4px; }
-      .gd-exit-btn { pointer-events: auto; background: linear-gradient(180deg, #ff5252 0%, #c92a2a 100%); color: white; border: none; padding: 8px 20px; border-radius: 10px; font-weight: bold; cursor: pointer; font-size: 14px; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
+      .gd-exit-btn { background: linear-gradient(180deg, #ff5252 0%, #c92a2a 100%); color: white; border: none; padding: 10px 20px; border-radius: 10px; font-weight: bold; cursor: pointer; font-size: 14px; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
+      
+      /* ✨ 核心调整：顶部正中央超级按钮控制台 */
+      .gd-top-action-container { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); z-index: 10000; }
+      .gd-action-bar { display: none; gap: 24px; justify-content: center; background: rgba(0,0,0,0.85); padding: 8px 32px; border-radius: 40px; border: 2px solid rgba(255,255,255,0.15); backdrop-filter: blur(10px); box-shadow: 0 8px 32px rgba(0,0,0,0.6); }
+      .gd-action-bar.show { display: flex !important; }
+      
+      /* 极大化高亮按钮设计 */
+      .gd-action-bar button { border: none; padding: 14px 44px; border-radius: 30px; font-weight: 900; font-size: 19px; cursor: pointer; box-shadow: 0 4px 15px rgba(0,0,0,0.4); transition: all 0.1s ease; letter-spacing: 1px; }
+      .gd-action-bar button:active { transform: scale(0.95); }
+      .gd-btn-play { background: linear-gradient(180deg, #fff3bf 0%, #fab005 100%); color: #111; border: 1px solid #ffe066; }
+      .gd-btn-pass { background: linear-gradient(180deg, #ffffff 0%, #cfd8dc 100%); color: #222; }
+      .gd-btn-sort { background: linear-gradient(180deg, #63e6be 0%, #0ca678 100%); color: white; }
+      .gd-action-bar button:disabled { background: #495057 !important; color: #868e96 !important; cursor: not-allowed; box-shadow: none; transform: none; border: none; }
       
       .gd-arena { position: relative; flex: 1; display: flex; justify-content: center; align-items: center; width: 100%; height: 100%; }
       
-      /* 座位与布局核心：列布局，确保时钟一定在头像框的正上方 */
+      /* 布局 */
       .gd-seat { position: absolute; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 50; }
-      .gd-seat.top { top: 20px; left: 50%; transform: translateX(-50%); } 
-      .gd-seat.left { left: 40px; top: 42%; transform: translateY(-50%); }
-      .gd-seat.right { right: 40px; top: 42%; transform: translateY(-50%); }
+      .gd-seat.top { top: 90px; left: 50%; transform: translateX(-50%); } 
+      .gd-seat.left { left: 40px; top: 45%; transform: translateY(-50%); }
+      .gd-seat.right { right: 40px; top: 45%; transform: translateY(-50%); }
+      .gd-seat.bottom { bottom: 185px; left: 50%; transform: translateX(-50%); }
       
-      /* 南家（玩家自己）专属绝对定位，防止与手牌冲突抹除 */
-      .gd-seat.bottom { bottom: 175px; left: 50%; transform: translateX(-50%); }
-      
-      /* ✨ 优化点 1：玩家信息框（头像框）体积与字号大幅增胖撑大 */
-      .gd-player-info { background: rgba(12,32,18,0.9); padding: 14px 28px; border-radius: 16px; text-align: center; min-width: 170px; border: 2px solid rgba(255,255,255,0.18); box-shadow: 0 6px 18px rgba(0,0,0,0.5); transition: all 0.2s ease; }
-      .gd-player-info.active { border-color: #FFD700; box-shadow: 0 0 25px rgba(255, 215, 0, 0.55); background: rgba(22,48,28,0.95); }
-      .gd-player-name { font-weight: 800; font-size: 17px; color: #fff; letter-spacing: 0.5px; }
+      .gd-player-info { background: rgba(10,25,14,0.92); padding: 14px 28px; border-radius: 16px; text-align: center; min-width: 170px; border: 2px solid rgba(255,255,255,0.18); box-shadow: 0 6px 18px rgba(0,0,0,0.5); }
+      .gd-player-info.active { border-color: #FFD700; box-shadow: 0 0 25px rgba(255, 215, 0, 0.5); background: rgba(20,45,25,0.95); }
+      .gd-player-name { font-weight: 800; font-size: 17px; color: #fff; }
       .gd-player-detail { font-size: 14px; color: #FFD700; margin-top: 6px; font-weight: bold; }
       
-      /* ✨ 优化点 2：倒计时独立挂载，100% 完美呈现在信息框的正上方 */
-      .gd-timer-outer { height: 40px; display: flex; align-items: center; justify-content: center; width: 100%; margin-bottom: 6px; }
-      .gd-timer-box { display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.9); padding: 6px 18px; border-radius: 20px; font-size: 16px; font-weight: 900; color: #00ff66; border: 1px solid #00ff66; box-shadow: 0 0 12px rgba(0,255,102,0.6); animation: gdScaleIn 0.2s cubic-bezier(0.18, 0.89, 0.32, 1.28); }
-      @keyframes gdScaleIn { from { transform: scale(0.6); opacity: 0; } to { transform: scale(1); opacity: 1; } }
-      .gd-timer-box.danger { color: #ff3838 !important; border-color: #ff3838 !important; box-shadow: 0 0 15px #ff3838 !important; animation: gdFlash 0.4s infinite alternate; }
-      @keyframes gdFlash { from { opacity: 0.4; } to { opacity: 1; } }
+      .gd-timer-outer { height: 35px; display: flex; align-items: center; justify-content: center; width: 100%; margin-bottom: 4px; }
+      .gd-timer-box { display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.9); padding: 4px 14px; border-radius: 20px; font-size: 15px; font-weight: 900; color: #00ff66; border: 1px solid #00ff66; box-shadow: 0 0 12px rgba(0,255,102,0.5); }
+      .gd-timer-box.danger { color: #ff3838 !important; border-color: #ff3838 !important; box-shadow: 0 0 15px #ff3838 !important; }
       
-      /* ✨ 优化点 3：中央出牌竞技场空间扩大，大幅容纳卡牌展示 */
-      .gd-center-table { position: absolute; width: 600px; height: 260px; border: 2px dashed rgba(255,255,255,0.22); border-radius: 130px; display: flex; justify-content: center; align-items: center; background: rgba(0,0,0,0.18); box-shadow: inset 0 0 40px rgba(0,0,0,0.3); }
+      .gd-center-table { position: absolute; width: 620px; height: 260px; border: 2px dashed rgba(255,255,255,0.2); border-radius: 130px; display: flex; justify-content: center; align-items: center; background: rgba(0,0,0,0.15); }
       .gd-trick { display: flex; justify-content: center; align-items: center; width: 100%; height: 100%; }
-      .gd-trick-empty { font-size: 16px; color: rgba(255,255,255,0.25); font-weight: bold; letter-spacing: 1px; }
+      .gd-trick-empty { font-size: 16px; color: rgba(255,255,255,0.2); font-weight: bold; }
       
-      /* 玩家控制控制台独立底层定位 */
-      .gd-action-container { position: absolute; bottom: 135px; left: 50%; transform: translateX(-50%); z-index: 999; width: auto; }
-      .gd-action-bar { display: none; gap: 20px; justify-content: center; width: 100%; }
-      .gd-action-bar.show { display: flex !important; }
-      .gd-action-bar button { border: none; padding: 10px 32px; border-radius: 24px; font-weight: 900; font-size: 16px; cursor: pointer; box-shadow: 0 6px 15px rgba(0,0,0,0.45); transition: transform 0.1s; }
-      .gd-action-bar button:active { transform: scale(0.95); }
-      .gd-btn-play { background: linear-gradient(180deg, #ffe066 0%, #f59f00 100%); color: #111; }
-      .gd-btn-pass { background: #f8f9fa; color: #222; }
-      .gd-btn-sort { background: #2f9e44; color: white; }
-      .gd-action-bar button:disabled { background: #495057 !important; color: #868e96 !important; cursor: not-allowed; box-shadow: none; transform: none; }
+      .gd-hand-container { position: absolute; bottom: 15px; left: 50%; transform: translateX(-50%); width: 96%; max-width: 1200px; z-index: 1000; }
+      .gd-hand { display: flex; align-items: flex-end; justify-content: center; min-height: 145px; width: 100%; padding: 5px; }
       
-      /* 底部独立手牌容器 */
-      .gd-hand-container { position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); width: 96%; max-width: 1150px; z-index: 1000; }
-      .gd-hand { display: flex; align-items: flex-end; justify-content: center; min-height: 135px; width: 100%; padding: 5px; }
-      
-      /* 扑克真实外观表现 */
-      .gd-card { width: ${CARD_W}px; height: 122px; position: relative; background: #ffffff; border-radius: 8px; box-shadow: -4px 4px 8px rgba(0,0,0,0.35); margin-left: calc(-1 * (${CARD_W}px - 2.6vw)); transition: transform 0.1s ease, border-color 0.1s; color: #000; border: 1px solid #c8c8c8; }
+      /* ✨ 物理扑克与精细化花阵设计 */
+      .gd-card { width: ${CARD_W}px; height: 132px; position: relative; background: #ffffff; border-radius: 9px; box-shadow: -4px 4px 8px rgba(0,0,0,0.35); margin-left: calc(-1 * (${CARD_W}px - 2.5vw)); transition: transform 0.1s ease, border-color 0.1s; color: #000; border: 1px solid #bbb; overflow: hidden; }
       .gd-card:first-child { margin-left: 0 !important; }
-      
-      /* 中央出牌间距 */
-      .gd-trick .gd-card { margin-left: -52px; box-shadow: -5px 5px 12px rgba(0,0,0,0.4); }
+      .gd-trick .gd-card { margin-left: -55px; box-shadow: -5px 5px 12px rgba(0,0,0,0.4); }
       .gd-trick .gd-card:first-child { margin-left: 0 !important; }
       
-      /* 选牌位移高度提拉 */
-      .gd-card.sel { transform: translateY(-32px) !important; border: 2px solid #ff9f00 !important; box-shadow: 0 8px 18px rgba(255,159,0,0.65); }
-      .gd-card:hover { z-index: 9999 !important; transform: translateY(-12px); }
+      .gd-card.sel { transform: translateY(-35px) !important; border: 2px solid #ff9f00 !important; box-shadow: 0 8px 20px rgba(255,159,0,0.6); }
+      .gd-card:hover { z-index: 9999 !important; transform: translateY(-15px); }
       
-      .gd-card.red { color: #e63946; }
-      .gd-card.black { color: #212529; }
-      .gd-card .corner { position: absolute; font-size: 19px; line-height: 1.1; padding: 4px 6px; display: flex; flex-direction: column; align-items: center; font-weight: bold; font-family: sans-serif; }
+      .gd-card.red { color: #d63031; }
+      .gd-card.black { color: #2d3436; }
+      .gd-card .corner { position: absolute; font-size: 20px; line-height: 1.0; padding: 4px 6px; display: flex; flex-direction: column; align-items: center; font-weight: bold; }
       .gd-card .tl { top: 2px; left: 2px; }
       .gd-card .br { bottom: 2px; right: 2px; transform: rotate(180deg); }
-      .gd-card .center { position: absolute; top: 52%; left: 50%; transform: translate(-50%, -50%); font-size: 34px; opacity: 0.9; }
+      
+      /* 点数花色小矩阵布局 */
+      .gd-card-grid-suits { position: absolute; inset: 26px 14px; display: grid; grid-template-columns: repeat(2, 1fr); gap: 4px; align-content: center; justify-items: center; opacity: 0.75; }
+      .gd-mini-suit { font-size: 13px; }
+      
+      /* JQK 宫廷底纹特效 */
+      .gd-card-court-bg { position: absolute; font-size: 75px; font-weight: 900; color: rgba(0,0,0,0.06); top: 50%; left: 50%; transform: translate(-50%, -50%); font-family: serif; }
+      .gd-card.red .gd-card-court-bg { color: rgba(214,48,49,0.06); }
+      .gd-card-court-avatar { position: absolute; font-size: 30px; top: 50%; left: 50%; transform: translate(-50%, -46%); opacity: 0.85; }
+      .gd-card-art-txt { position: absolute; font-size: 34px; top: 50%; left: 50%; transform: translate(-50%, -50%); }
     `;
     document.head.appendChild(s);
     state.styleNode = s;
@@ -214,6 +245,15 @@
         <div class="gd-header-info">当前主级: <span data-gd-rank>${state.currentRank}</span> | 桌上牌型: <span data-gd-move>—</span></div>
         <button class="gd-exit-btn" data-gd-exit>退出沙箱</button>
       </div>
+      
+      <div class="gd-top-action-container">
+        <div class="gd-action-bar" data-gd-action-bar>
+          <button class="gd-btn-play" data-gd-play>出 牌</button>
+          <button class="gd-btn-pass" data-gd-pass>过 牌</button>
+          <button class="gd-btn-sort" data-gd-sort>整 理</button>
+        </div>
+      </div>
+
       <div class="gd-arena">
         <div class="gd-seat top" data-gd-seat="2"></div>
         <div class="gd-seat left" data-gd-seat="3"></div>
@@ -221,14 +261,6 @@
         <div class="gd-center-table"><div class="gd-trick" data-gd-trick></div></div>
         
         <div class="gd-seat bottom" data-gd-seat="0"></div>
-        
-        <div class="gd-action-container">
-          <div class="gd-action-bar" data-gd-action-bar>
-            <button class="gd-btn-play" data-gd-play>出牌</button>
-            <button class="gd-btn-pass" data-gd-pass>过牌</button>
-            <button class="gd-btn-sort" data-gd-sort>整理</button>
-          </div>
-        </div>
         
         <div class="gd-hand-container">
           <div class="gd-hand" data-gd-hand></div>
@@ -270,7 +302,6 @@
     state.aiDelay = performance.now() + 1000;
   }
 
-  // ⏱️ 独立倒计时核心重绘：严格追加到头像信息框的「正上方」
   function renderSeats() {
     const container = document.getElementById(ROOT_ID);
     if (!container) return;
@@ -287,7 +318,6 @@
         timerInnerHtml = `<div class="gd-timer-box ${isDanger ? 'danger' : ''}">⏱️ ${Math.ceil(state.turnCountdown)}s</div>`;
       }
 
-      // 核心修正：倒计时外壳置于上方，头像框置于下方，彻底杜绝混叠与摧毁手牌现象
       seatNode.innerHTML = `
         <div class="gd-timer-outer">${timerInnerHtml}</div>
         <div class="gd-player-info ${isActive ? 'active' : ''}">
@@ -298,7 +328,6 @@
     });
   }
 
-  // 🃏 牌桌渲染引擎
   function renderTable() {
     const root = document.getElementById(ROOT_ID);
     if (!root) return;
@@ -316,18 +345,17 @@
       trick.innerHTML = state.trick.cards.map(formatCard).join('');
       if (move) move.textContent = `${state.trick.type} (${state.trick.cards.length}张)`;
     } else {
-      trick.innerHTML = `<span class="gd-trick-empty">等待各家出牌...</span>`;
+      trick.innerHTML = `<span class="gd-trick-empty">等 待 各 家 出 牌 ...</span>`;
       if (move) move.textContent = '—';
     }
 
-    // 完美稳固渲染玩家自己（南家）的手牌
     const me = state.players[0];
     if (me && me.hand) {
       hand.innerHTML = me.hand.map((card, i) => {
         return `
           <div class="gd-card ${card.color}" data-card-id="${card.id}" style="z-index: ${20 + i};">
             <span class="corner tl"><span class="r">${rankLabel(card)}</span><span class="s">${card.symbol}</span></span>
-            <span class="center">${card.symbol}</span>
+            ${['J','Q','K'].includes(card.rank) ? `<div class="gd-card-court-bg">${card.rank}</div><div class="gd-card-court-avatar">${card.rank === 'J' ? '⚔️' : card.rank === 'Q' ? '🌸' : '👑'}</div>` : (card.kind === 'joker' ? `<div class="gd-card-art-txt">${card.rank === 'W' ? '👑' : '🃏'}</div>` : `<div class="gd-card-grid-suits">${Array(Math.min(parseInt(card.rank)||10, 6)).fill(`<span class="gd-mini-suit">${card.symbol}</span>`).join('')}</div>`)}
             <span class="corner br"><span class="r">${rankLabel(card)}</span><span class="s">${card.symbol}</span></span>
           </div>`;
       }).join('');
@@ -339,7 +367,6 @@
       });
     }
 
-    // 按钮面板绝对唤醒弹出
     if (actionBar) {
       if (state.currentTurn === 0 && me && me.hand.length > 0) {
         actionBar.classList.add('show');
@@ -357,7 +384,7 @@
     state.currentTurn = nextSeat;
     state.turnCountdown = 30;
     state.lastCountdownTick = performance.now();
-    state.aiDelay = performance.now() + 1000;
+    state.aiDelay = performance.now() + 1200; // 略微增加延时让出牌更拟真
     renderTable();
   }
 
@@ -410,18 +437,45 @@
     }
   }
 
+  // 🤖 强化版单机自动跟牌与智能拆牌逻辑
   function triggerAIMove() {
     state.busy = true;
     try {
       const seat = state.currentTurn;
       const player = state.players[seat];
       if (!player || player.hand.length === 0) { changeTurn((seat + 1) % 4); return; }
-      const choice = [player.hand[0]];
-      if (state.trick ? beats(typeOf(choice), state.trick) : true) {
-        playCards(seat, choice);
-      } else {
-        passTurn(seat);
+      
+      const hand = player.hand;
+      
+      // 如果是主出，优先打出最小的单张或对子
+      if (!state.trick) {
+        // 先检查是否有对子
+        for (let i = 0; i < hand.length - 1; i++) {
+          if (hand[i].value === hand[i+1].value) {
+            playCards(seat, [hand[i], hand[i+1]]);
+            return;
+          }
+        }
+        playCards(seat, [hand[0]]);
+        return;
       }
+
+      // 如果需要接牌，尝试寻找合法单张或对应组合
+      const neededSize = state.trick.cards.length;
+      if (state.trick.type === '单张') {
+        const target = hand.find(c => c.value > state.trick.weight);
+        if (target) { playCards(seat, [target]); return; }
+      } else if (state.trick.type === '对子' && hand.length >= 2) {
+        for (let i = 0; i < hand.length - 1; i++) {
+          if (hand[i].value === hand[i+1].value && hand[i].value > state.trick.weight) {
+            playCards(seat, [hand[i], hand[i+1]]);
+            return;
+          }
+        }
+      }
+
+      // 实在管不起，选择过牌
+      passTurn(seat);
     } finally {
       state.busy = false;
     }
@@ -434,10 +488,13 @@
     playCards(0, cards);
   }
 
+  // 🖱️ ✨ 核心绑定：手牌鼠标左键多选与鼠标右键直接出牌
   function bindHandInteraction() {
     const root = document.getElementById(ROOT_ID);
     const hand = root?.querySelector('[data-gd-hand]');
     if (!hand) return;
+    
+    // 左键点击点选
     on(hand, 'click', (e) => {
       const card = e.target.closest('.gd-card');
       if (!card || state.currentTurn !== 0) return;
@@ -446,6 +503,24 @@
       else state.selected.add(id);
       playGDSound('click');
       renderTable();
+    });
+
+    // 右键点击直接出牌
+    on(hand, 'contextmenu', (e) => {
+      e.preventDefault(); // 拦截浏览器默认右键菜单
+      if (state.currentTurn !== 0) return;
+      
+      const card = e.target.closest('.gd-card');
+      if (!card) return;
+      
+      // 如果当前右键点击的这张牌还没被选过，自动先帮用户选上
+      const id = card.getAttribute('data-card-id');
+      if (!state.selected.has(id)) {
+        state.selected.add(id);
+      }
+      
+      // 执行出牌操作
+      humanPlay();
     });
   }
 
@@ -460,7 +535,7 @@
   }
 
   function init() {
-    console.log('[Guandan] 全功能豪华架构开启中...');
+    console.log('[Guandan] 宫廷艺术扑克沙箱加载中...');
     const oldContainer = document.getElementById(ROOT_ID);
     if (oldContainer) oldContainer.remove();
     if (state.timer) clearInterval(state.timer);
