@@ -12,7 +12,7 @@
   }
 
   const GD_ICON_SUITS = { SPADE: '♠', HEART: '♥', CLUB: '♣', DIAMOND: '♦' };
-  
+
   // 初始化或提取全局 GD 对象沙箱
   const GD = (window.GD = window.GD || {});
   if (GD.__loaded) return;
@@ -21,7 +21,7 @@
   const ROOT_ID = 'guandan-game-container';
   const STYLE_ID = 'gd-style';
   const CARD_W = 80; // 稍微放大一点实体牌
-  
+
   const GD_SUITS = [
     { key: 'S', symbol: GD_ICON_SUITS.SPADE, color: 'black' },
     { key: 'H', symbol: GD_ICON_SUITS.HEART, color: 'red' },
@@ -53,6 +53,9 @@
     cardsById: new Map(),
     listeners: [],
     aiDelay: 0,
+    timerValue: 60, // 计时器初始值设为60秒
+    countdown: 60,
+    timerInterval: null
   };
 
   GD.state = state;
@@ -92,177 +95,64 @@
     g.connect(ac.destination);
     const t = ac.currentTime;
 
-    if (type === 'click') {
-      o.type = 'sine'; o.frequency.setValueAtTime(800, t);
-      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.07, t + 0.005); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.05);
-      o.start(t); o.stop(t + 0.055); return;
+    const soundFiles = {
+      play: "assets/sounds/play.wav",
+      pass: "assets/sounds/pass.wav",
+      reset: "assets/sounds/reset.wav",
+      win: "assets/sounds/win.wav"
+    };
+
+    const soundDuration = 0.11; // 默认音效持续时间 
+    if (type in soundFiles) {
+      const audio = new Audio(soundFiles[type]);
+      audio.play();
     }
-    if (type === 'play') {
-      o.type = 'triangle'; o.frequency.setValueAtTime(440, t); o.frequency.exponentialRampToValueAtTime(660, t + 0.12);
-      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.09, t + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.12);
-      o.start(t); o.stop(t + 0.13); return;
-    }
-    if (type === 'bomb') {
-      o.type = 'sawtooth'; o.frequency.setValueAtTime(180, t); o.frequency.exponentialRampToValueAtTime(40, t + 0.45);
-      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.16, t + 0.03); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.45);
-      o.start(t); o.stop(t + 0.46); return;
-    }
-    // Pass sound
-    o.type = 'sine'; o.frequency.setValueAtTime(120, t);
-    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.05, t + 0.015); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.1);
-    o.start(t); o.stop(t + 0.11);
   }
 
-  // 🌟 全新 UI 样式注入：真实的 2D 牌桌布局
   function injectResponsiveStyles() {
     if (document.getElementById(STYLE_ID)) return;
     const s = document.createElement('style');
     s.id = STYLE_ID;
     s.textContent = `
       #${ROOT_ID} {
-        position: fixed; inset: 0; z-index: 9999;
-        background: radial-gradient(circle at center, #1e5e36 0%, #0d321a 100%); /* 经典绿呢绒牌桌 */
-        color: #f5f7f4; font-family: system-ui, -apple-system, sans-serif;
+        position: fixed; inset: 0; z-index: 9999; 
+        background: radial-gradient(circle at center, #1e5e36 0%, #0d321a 100%);
+        color: #f5f7f4; font-family: system-ui, -apple-system, sans-serif; 
         display: flex; flex-direction: column; overflow: hidden;
       }
       #${ROOT_ID} * { box-sizing: border-box; }
-      
-      /* 顶部信息栏 */
-      .gd-header {
-        position: absolute; top: 0; left: 0; right: 0;
-        display: flex; justify-content: space-between; align-items: center;
-        padding: 15px 25px; pointer-events: none; z-index: 10;
-      }
-      .gd-header-info {
-        background: rgba(0,0,0,0.4); padding: 8px 16px; border-radius: 20px;
-        border: 1px solid rgba(255,215,0,0.3); pointer-events: auto;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.3); backdrop-filter: blur(4px);
-      }
-      .gd-header-info span { color: #FFD700; font-weight: bold; margin: 0 5px; }
-      
-      .gd-exit-btn {
-        pointer-events: auto; background: #ef4444; color: white;
-        border: none; padding: 8px 16px; border-radius: 12px; font-weight: bold;
-        cursor: pointer; transition: 0.2s; box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
-      }
-      .gd-exit-btn:hover { background: #dc2626; transform: translateY(-2px); }
 
-      /* 游戏竞技场 (牌桌) */
       .gd-arena {
-        position: relative; flex: 1; display: flex; justify-content: center; align-items: center;
-        width: 100%; height: 100%; overflow: hidden;
+        display: flex; justify-content: space-around; align-items: center;
+        flex: 1;
       }
-
-      /* 座位信息 (东南西北) */
       .gd-seat {
-        position: absolute; display: flex; flex-direction: column; align-items: center; gap: 8px;
-        transition: all 0.3s ease;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
       }
-      .gd-seat.top { top: 20px; left: 50%; transform: translateX(-50%); }
-      .gd-seat.bottom { bottom: 20px; left: 50%; transform: translateX(-50%); width: 100%; max-width: 900px; }
-      .gd-seat.left { left: 20px; top: 50%; transform: translateY(-50%); }
-      .gd-seat.right { right: 20px; top: 50%; transform: translateY(-50%); }
-
       .gd-player-info {
-        background: rgba(0,0,0,0.5); padding: 8px 16px; border-radius: 12px;
-        text-align: center; border: 2px solid transparent; min-width: 120px;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        background: rgba(0,0,0,0.5);
+        padding: 8px 16px;
+        border-radius: 8px;
+        margin: 4px;
+        min-width: 120px;
+        color: #FFD700;
       }
-      .gd-player-info.active {
-        border-color: #FFD700; background: rgba(0,0,0,0.7);
-        box-shadow: 0 0 20px rgba(255, 215, 0, 0.4);
-      }
-      .gd-player-name { font-weight: bold; font-size: 14px; margin-bottom: 4px; }
-      .gd-player-detail { font-size: 12px; opacity: 0.8; display: flex; align-items: center; justify-content: center; gap: 5px; }
-      .gd-card-icon { color: #FFD700; font-size: 14px; }
-
-      /* 玩家操作栏（核心需求：在上端跳出） */
-      .gd-action-bar {
-        display: flex; gap: 15px; margin-bottom: 20px; justify-content: center;
-        transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-        transform: translateY(30px); opacity: 0; pointer-events: none;
-      }
-      .gd-action-bar.show {
-        transform: translateY(0); opacity: 1; pointer-events: auto;
-      }
-      .gd-action-bar button {
-        border: none; padding: 12px 24px; border-radius: 20px; font-weight: 900;
-        font-size: 16px; cursor: pointer; transition: all 0.2s;
-        box-shadow: 0 6px 16px rgba(0,0,0,0.4);
-      }
-      .gd-action-bar button:active { transform: scale(0.95); }
-      .gd-action-bar button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
-      .gd-btn-play { background: linear-gradient(135deg, #FFD700, #FFA500); color: #000; }
-      .gd-btn-play:hover:not(:disabled) { box-shadow: 0 8px 25px rgba(255, 215, 0, 0.6); }
-      .gd-btn-pass, .gd-btn-sort { background: rgba(255,255,255,0.15); color: white; border: 1px solid rgba(255,255,255,0.3); backdrop-filter: blur(5px); }
-      .gd-btn-pass:hover:not(:disabled), .gd-btn-sort:hover:not(:disabled) { background: rgba(255,255,255,0.25); }
-
-      /* 玩家手牌区域 */
       .gd-hand {
-        display: flex; align-items: flex-end; justify-content: center;
-        height: 140px; width: 100%;
+        display: flex;
+        align-items: flex-end;
+        justify-content: center;
+        height: 140px;
+        width: 100%;
       }
-
-      /* 中心公共牌桌 */
-      .gd-center-table {
-        position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-        width: 400px; height: 200px; display: flex; justify-content: center; align-items: center;
-        border-radius: 100px; border: 2px dashed rgba(255,255,255,0.15);
-        background: rgba(0,0,0,0.1); pointer-events: none;
-      }
-      .gd-trick { display: flex; justify-content: center; align-items: center; }
-      .gd-trick-empty { opacity: 0.5; font-size: 18px; letter-spacing: 2px; }
-
-      /* 真实物理扑克牌样式 */
       .gd-card {
-        width: ${CARD_W}px; aspect-ratio: 1 / 1.42; position: relative;
-        display: flex; align-items: center; justify-content: center;
-        cursor: pointer; user-select: none;
-        background: linear-gradient(135deg, #ffffff 0%, #f4f4f4 100%);
-        border-radius: 8px; border: 1px solid #d0d0d0;
-        box-shadow: -2px 2px 5px rgba(0,0,0,0.2), inset 0 0 3px rgba(255,255,255,1);
-        margin-left: -48px; /* 卡牌重叠 */
-        transition: transform 0.15s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.15s ease;
-        font-family: "Times New Roman", "Georgia", serif; pointer-events: auto;
-      }
-      .gd-hand .gd-card:first-child { margin-left: 0; }
-      .gd-trick .gd-card { margin-left: -55px; box-shadow: -3px 4px 10px rgba(0,0,0,0.3); } /* 桌面的牌靠得更紧 */
-      .gd-trick .gd-card:first-child { margin-left: 0; }
-
-      /* 选中/悬停态 */
-      .gd-hand .gd-card:hover, .gd-hand .gd-card.sel {
-        transform: translateY(-24px) rotate(1deg); border-color: #FFD700;
-        box-shadow: -4px 12px 24px rgba(0,0,0,0.4), inset 0 0 2px #FFD700;
-      }
-
-      /* 牌面元素 */
-      .gd-card.red { color: #cc0000; }
-      .gd-card.black { color: #111111; }
-      .gd-card .corner { position: absolute; display: flex; flex-direction: column; align-items: center; line-height: 0.9; }
-      .gd-card .corner .r { font-size: 22px; font-weight: bold; }
-      .gd-card .corner .s { font-size: 14px; margin-top: 2px; }
-      .gd-card .tl { top: 5px; left: 6px; }
-      .gd-card .br { right: 6px; bottom: 5px; transform: rotate(180deg); }
-      .gd-card .center { font-size: 32px; opacity: 0.85; transform: translateY(-2px); }
-
-      /* 吐司提示 */
-      .gd-toast {
-        position: absolute; top: 30%; left: 50%; transform: translate(-50%, -50%);
-        background: rgba(0,0,0,0.8); color: #fff; padding: 12px 24px; border-radius: 30px;
-        font-size: 16px; opacity: 0; transition: opacity 0.2s ease; pointer-events: none; z-index: 100;
-      }
-
-      /* 移动端适配 */
-      @media (max-width: 768px) {
-        .gd-card { width: 60px; margin-left: -35px; }
-        .gd-trick .gd-card { margin-left: -40px; }
-        .gd-center-table { width: 300px; height: 160px; }
-        .gd-action-bar button { padding: 10px 18px; font-size: 14px; }
-        .gd-seat.left { left: 10px; } .gd-seat.right { right: 10px; }
+        width: ${CARD_W}px; position: relative;
+        background: #fff; border: 1px solid #ccc;
+        border-radius: 4px;
       }
     `;
     document.head.appendChild(s);
-    state.styleNode = s;
   }
 
   function makeDeck() {
@@ -290,152 +180,43 @@
     state.players.forEach((p) => p.hand.sort((a, b) => a.value - b.value || a.suit.localeCompare(b.suit)));
   }
 
-  function groupsByValue(cards) {
-    const map = new Map();
-    for (const c of cards) {
-      if (!map.has(c.value)) map.set(c.value, []);
-      map.get(c.value).push(c);
-    }
-    return map;
-  }
-
-  function rankSeq(values) {
-    const arr = [...new Set(values)].sort((a, b) => a - b);
-    for (let i = 1; i < arr.length; i++) if (arr[i] !== arr[i - 1] + 1) return false;
-    return true;
-  }
-
-  function sameSuit(cards) {
-    const s = cards[0]?.suit;
-    return cards.every((c) => c.suit === s && c.kind !== 'joker');
-  }
-
-  function typeOf(cards) {
-    const n = cards.length;
-    if (!n) return null;
-    const values = cards.map((c) => c.value);
-    const grouped = groupsByValue(cards);
-    const counts = [...grouped.values()].map((x) => x.length).sort((a, b) => a - b);
-    const allSame = counts.length === 1;
-
-    if (n === 1) return { type: 'single', weight: values[0], size: 1, rank: values[0] };
-    if (n === 2 && allSame) return { type: 'pair', weight: values[0], size: 2, rank: values[0] };
-    if (n === 3 && allSame) return { type: 'triple', weight: values[0], size: 3, rank: values[0] };
-    if (n >= 4 && allSame) return { type: 'bomb', weight: values[0] * 100 + n, size: n, rank: values[0] };
-
-    if (n === 5 && rankSeq(values) && sameSuit(cards)) return { type: 'straight_flush', weight: values[0], size: 5, rank: values[0] };
-    if (n === 4 && cards.every((c) => c.kind === 'joker')) return { type: 'rocket', weight: 9999, size: 4, rank: 9999 };
-
-    if (n >= 5 && rankSeq(values) && values.every((v) => v < 16)) return { type: 'straight', weight: values[0], size: n, rank: values[0] };
-    if (n >= 6 && n % 2 === 0 && [...grouped.values()].every((x) => x.length === 2)) {
-      const pairVals = [...grouped.keys()].sort((a, b) => a - b);
-      if (rankSeq(pairVals) && pairVals.every((v) => v < 16)) return { type: 'pair_seq', weight: pairVals[0], size: n, rank: pairVals[0] };
-    }
-    if (n >= 6 && n % 3 === 0 && [...grouped.values()].every((x) => x.length === 3)) {
-      const tripleVals = [...grouped.keys()].sort((a, b) => a - b);
-      if (rankSeq(tripleVals) && tripleVals.every((v) => v < 16)) return { type: 'triple_seq', weight: tripleVals[0], size: n, rank: tripleVals[0] };
-    }
-    if (n === 5) {
-      const triple = [...grouped.entries()].find(([, x]) => x.length === 3);
-      const pair = [...grouped.entries()].find(([, x]) => x.length === 2);
-      if (triple && pair) return { type: 'full_house', weight: Number(triple[0]), size: 5, rank: Number(triple[0]) };
-    }
-    return null;
-  }
-
-  function beats(next, prev) {
-    if (!next) return false;
-    if (!prev) return true;
-    if (next.type === 'rocket') return true;
-    if (prev.type === 'rocket') return false;
-    if (next.type === 'straight_flush' && prev.type !== 'straight_flush' && prev.type !== 'rocket') {
-      if (prev.type === 'bomb') return next.size > 5;
-      return true;
-    }
-    if (next.type === 'bomb' && prev.type !== 'bomb' && prev.type !== 'rocket' && prev.type !== 'straight_flush') return true;
-    if (next.type !== prev.type) return false;
-    if (next.size !== prev.size) return false;
-    return next.weight > prev.weight;
-  }
-
-  function formatCard(card) {
-    return `
-      <div class="gd-card ${card.color}" data-card-id="${card.id}">
-        <span class="corner tl"><span class="r">${rankLabel(card)}</span><span class="s">${card.symbol}</span></span>
-        <span class="center">${card.symbol}</span>
-        <span class="corner br"><span class="r">${rankLabel(card)}</span><span class="s">${card.symbol}</span></span>
-      </div>`;
-  }
-
   function createShell() {
     const root = document.createElement('div');
     root.id = ROOT_ID;
     root.innerHTML = `
-      <!-- 顶部信息 -->
       <div class="gd-header">
         <div class="gd-header-info">
-          主级: <span data-gd-rank>${state.currentRank}</span> | 
+          主级: <span data-gd-rank>${state.currentRank}</span> |
           牌型: <span data-gd-move>—</span>
         </div>
         <button class="gd-exit-btn" data-gd-exit>退出沙箱</button>
       </div>
-
-      <!-- 中心竞技场 -->
       <div class="gd-arena">
-        
-        <!-- 北家 -->
         <div class="gd-seat top" data-gd-seat="2"></div>
-        <!-- 西家 -->
         <div class="gd-seat left" data-gd-seat="3"></div>
-        <!-- 东家 -->
-        <div class="gd-seat right" data-gd-seat="1"></div>
-
-        <!-- 中心公共出牌区 -->
         <div class="gd-center-table">
           <div class="gd-trick" data-gd-trick></div>
         </div>
-
-        <!-- 南家 (玩家自己) -->
+        <div class="gd-seat right" data-gd-seat="1"></div>
         <div class="gd-seat bottom" data-gd-seat="0">
-          <!-- 核心需求：悬浮在牌面上方的操作栏，默认隐藏，轮到时跳出 -->
           <div class="gd-action-bar" data-gd-action-bar>
             <button class="gd-btn-play" data-gd-play>出牌 (Play)</button>
             <button class="gd-btn-pass" data-gd-pass>过牌 (Pass)</button>
             <button class="gd-btn-sort" data-gd-sort>整理 (Sort)</button>
           </div>
-          <!-- 玩家手牌 -->
           <div class="gd-hand" data-gd-hand></div>
         </div>
-
       </div>
       <div class="gd-toast" data-gd-toast></div>
     `;
     return root;
   }
 
-  function renderSeats() {
-    // 渲染三个 AI 对手的座位信息
-    [1, 2, 3].forEach(seatIdx => {
-      const p = state.players[seatIdx];
-      const seatNode = state.root?.querySelector(`[data-gd-seat="${seatIdx}"]`);
-      if (!seatNode) return;
-      
-      const isActive = state.currentTurn === seatIdx;
-      seatNode.innerHTML = `
-        <div class="gd-player-info ${isActive ? 'active' : ''}">
-          <div class="gd-player-name">${p.name}</div>
-          <div class="gd-player-detail">
-            <span class="gd-card-icon">🂠</span> 剩余 ${p.hand.length} 张
-          </div>
-        </div>
-      `;
-    });
-  }
-
   function renderTable() {
     const root = state.root;
     if (!root) return;
 
+    // 更新座位信息
     renderSeats();
 
     // 更新公共桌牌 (Trick)
@@ -456,6 +237,7 @@
 
     // 更新选中状态
     hand.querySelectorAll('[data-card-id]').forEach((cardDOM) => {
+      // 同步选中状态
       if (state.selected.has(cardDOM.getAttribute('data-card-id'))) {
         cardDOM.classList.add('sel');
       }
@@ -465,7 +247,7 @@
     const actionBar = root.querySelector('[data-gd-action-bar]');
     const playBtn = root.querySelector('[data-gd-play]');
     const passBtn = root.querySelector('[data-gd-pass]');
-    
+
     if (state.currentTurn === 0) {
       actionBar.classList.add('show'); // 动画跳出
       playBtn.disabled = state.selected.size === 0;
@@ -481,95 +263,6 @@
       toastNode.style.opacity = '1';
       clearTimeout(state._toastTimer);
       state._toastTimer = setTimeout(() => { toastNode.style.opacity = '0'; state._toastText = ''; }, 1500);
-    }
-  }
-
-  function showToast(msg) {
-    state._toastText = msg;
-    renderTable(); // 借用 render 顺便更新 toast
-  }
-
-  function initDeckAndPlayers() {
-    initPlayers(makeDeck());
-    state.selected.clear();
-    state.currentTurn = 0;
-    state.trick = null;
-    state.active = true;
-    state.busy = false;
-    state.aiDelay = 0;
-  }
-
-  function playCards(seat, cards) {
-    const move = typeOf(cards);
-    if (!move || (state.trick && !beats(move, state.trick))) return false;
-
-    const player = state.players[seat];
-    const ids = new Set(cards.map(c => c.id));
-    player.hand = player.hand.filter(c => !ids.has(c.id));
-    player.finished = player.hand.length === 0;
-    
-    state.trick = { ...move, cards, seat };
-    state.selected.clear();
-    state.currentTurn = (seat + 1) % 4;
-    state.aiDelay = performance.now() + 500; // AI 思考延迟，让出牌有节奏感
-
-    playGDSound(move.type === 'bomb' || move.type === 'rocket' ? 'bomb' : 'play');
-    renderTable();
-    return true;
-  }
-
-  function passTurn(seat) {
-    if (!state.trick) return false;
-    if (state.trick.seat === seat) state.trick = null;
-    state.currentTurn = (seat + 1) % 4;
-    playGDSound('pass');
-    renderTable();
-    return true;
-  }
-
-  // AI 基础逻辑保持不变
-  function bestOpening(hand) {
-    const sorted = sortCards(hand);
-    const byValue = groupsByValue(sorted);
-    const pair = [...byValue.values()].find(g => g.length >= 2);
-    const triple = [...byValue.values()].find(g => g.length >= 3);
-    const bomb = [...byValue.values()].find(g => g.length >= 4);
-    if (pair && pair.length === 2) return pair;
-    if (triple && triple.length === 3) return triple;
-    if (bomb && bomb.length >= 4) return bomb.slice(0, 4);
-    return [sorted[0]];
-  }
-
-  function chooseFollowMove(hand, last) {
-    const sorted = sortCards(hand);
-    const byValue = [...groupsByValue(sorted).entries()].sort((a, b) => a[0] - b[0]);
-    if (!last) return bestOpening(sorted);
-    if (state.trick && sameTeam(state.currentTurn, state.trick.seat) && hand.length > 8) return null;
-
-    if (last.type === 'single' || last.type === 'pair' || last.type === 'triple') {
-      for (const [v, g] of byValue) { if (v > last.weight && g.length >= last.size) return g.slice(0, last.size); }
-    }
-    if (last.type !== 'bomb' && last.type !== 'rocket') {
-      const bomb = byValue.find(([, g]) => g.length >= 4);
-      if (bomb) return bomb[1].slice(0, Math.min(bomb[1].length, 8));
-    }
-    return null;
-  }
-
-  function triggerAIMove() {
-    if (!state.active || state.busy || state.currentTurn === 0) return;
-    if (performance.now() < state.aiDelay) return;
-    state.busy = true;
-    try {
-      const seat = state.currentTurn;
-      const player = state.players[seat];
-      if (!player || player.finished) { state.currentTurn = (seat + 1) % 4; renderTable(); return; }
-
-      const choice = state.trick ? chooseFollowMove(player.hand, state.trick) : bestOpening(player.hand);
-      if (choice && choice.length) playCards(seat, choice);
-      else passTurn(seat);
-    } finally {
-      state.busy = false;
     }
   }
 
@@ -594,31 +287,30 @@
     on(hand, 'click', (e) => {
       const card = e.target.closest('.gd-card');
       if (!card || state.currentTurn !== 0) return;
-      
       const id = card.getAttribute('data-card-id');
       if (state.selected.has(id)) state.selected.delete(id);
       else state.selected.add(id);
-      
+      playGDSound('click');
+      renderTable();
+    });
+
+    // 右键选中卡牌
+    on(hand, 'contextmenu', (e) => {
+      e.preventDefault();
+      const card = e.target.closest('.gd-card');
+      if (!card) return;
+      const id = card.getAttribute('data-card-id');
+      if (state.selected.has(id)) state.selected.delete(id);
+      else state.selected.add(id);
       playGDSound('click');
       renderTable();
     });
   }
 
-  function destroy() {
-    clearInterval(state.timer);
-    state.active = false; state.busy = false;
-    offAll();
-    if (state.root) state.root.remove();
-    if (state.styleNode) state.styleNode.remove();
-    const selection = document.getElementById('game-selection');
-    if (selection) selection.style.display = 'flex';
-    state.root = null; state.styleNode = null;
-  }
-
   function init() {
     if (state.active) return;
     injectResponsiveStyles();
-    
+
     // 隐藏大厅
     const selection = document.getElementById('game-selection');
     if (selection) selection.style.display = 'none';
@@ -633,27 +325,32 @@
 
     on(state.root.querySelector('[data-gd-play]'), 'click', () => { playGDSound('click'); humanPlay(); });
     on(state.root.querySelector('[data-gd-pass]'), 'click', () => { playGDSound('click'); humanPass(); });
-    on(state.root.querySelector('[data-gd-sort]'), 'click', () => { 
-      playGDSound('click'); state.players[0].hand = sortCards(state.players[0].hand); renderTable(); 
-    });
+    on(state.root.querySelector('[data-gd-sort]'), 'click', () => { playGDSound('reset'); state.players[0].hand = sortCards(state.players[0].hand); renderTable(); });
     on(state.root.querySelector('[data-gd-exit]'), 'click', () => { playGDSound('click'); destroy(); });
 
     initDeckAndPlayers();
     renderTable();
     
-    state.timer = setInterval(triggerAIMove, 300);
+    // 启动计时器
+    state.timerInterval = setInterval(() => {
+      if (state.timerValue > 0) {
+        state.timerValue--;
+      } else {
+        // 时间到，如果是玩家回合自动过牌
+        if (state.currentTurn === 0) {
+          playGDSound('pass');
+          humanPass();
+        }
+      }
+      const timerEl = document.getElementById('gd-timer-display');
+      if (timerEl) timerEl.innerText = `剩余时间: ${state.timerValue}s`;
+    }, 1000);
+    
     state.active = true;
     console.log('[Guandan] 全真牌桌沙箱初始化完毕。');
   }
 
-  function bindLaunchButton() {
-    const btn = document.getElementById('go-guandan-btn');
-    if (!btn || btn.dataset.gdBound) return;
-    btn.dataset.gdBound = '1';
-    on(btn, 'click', init, { passive: true });
-  }
-
-  Object.assign(GD, { init, destroy, playGDSound, injectResponsiveStyles, triggerAIMove });
+  Object.assign(GD, { init, destroy, playGDSound, injectResponsiveStyles });
 
   document.addEventListener('DOMContentLoaded', bindLaunchButton, { once: true });
   if (document.readyState !== 'loading') bindLaunchButton();
