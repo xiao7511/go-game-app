@@ -392,7 +392,7 @@
     if (card.kind === 'joker') {
       imgUrl = `./images/cards/joker-${card.label === '大王' ? 'red' : 'black'}.png`;
     } else {
-      imgUrl = `./images/cards/${suitName}-${rankName}.png`;
+      imgUrl = `./images/cards/${rankName}-of-${suitName}.png`;
     }
 
     return `
