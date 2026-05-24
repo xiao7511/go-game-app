@@ -47,7 +47,7 @@
     timer: null,
     root: null,
     styleNode: null,
-    active: false,
+    active: true,
     busy: false,
     logs: [],
     cardsById: new Map(),
@@ -111,6 +111,29 @@
     o.type = 'sine'; o.frequency.setValueAtTime(120, t);
     g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.05, t + 0.015); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.1);
     o.start(t); o.stop(t + 0.11);
+  }
+
+  // --- 规则逻辑：牌型判定 ---
+  function getMoveType(cards) {
+    const n = cards.length;
+    const values = cards.map(c => c.value).sort((a, b) => a - b);
+    const grouped = new Map();
+    cards.forEach(c => grouped.set(c.value, (grouped.get(c.value) || 0) + 1));
+    const counts = [...grouped.values()].sort((a, b) => a - b);
+    
+    // 炸弹：四张同值、五张同花顺、六张及以上同值、四王
+    const isFourKings = n === 4 && cards.every(c => c.kind === 'joker');
+    const isSameVal = counts.length === 1;
+    if (isFourKings) return { type: 'bomb', weight: 999, size: 4 };
+    if (isSameVal && n >= 4) return { type: 'bomb', weight: values[0] + n * 10, size: n };
+    
+    // 其他牌型
+    if (n === 1) return { type: 'single', weight: values[0], size: 1 };
+    if (n === 2 && isSameVal) return { type: 'pair', weight: values[0], size: 2 };
+    if (n === 3 && isSameVal) return { type: 'triple', weight: values[0], size: 3 };
+    if (n === 5 && counts.includes(3) && counts.includes(2)) return { type: 'full_house', weight: values[2], size: 5 };
+    
+    return null;
   }
 
   // 🌟 全新 UI 样式注入：真实的 2D 牌桌布局
@@ -342,7 +365,7 @@
     }
     return null;
   }
-
+/*
   function beats(next, prev) {
     if (!next) return false;
     if (!prev) return true;
@@ -356,6 +379,15 @@
     if (next.type !== prev.type) return false;
     if (next.size !== prev.size) return false;
     return next.weight > prev.weight;
+  }*/
+ // --- 规则逻辑：大小比较 ---
+  function beats(next, prev) {
+    if (next.type === 'bomb' && prev.type !== 'bomb') return true;
+    if (next.type === 'bomb' && prev.type === 'bomb') {
+      if (next.size !== prev.size) return next.size > prev.size;
+      return next.weight > prev.weight;
+    }
+    return next.type === prev.type && next.size === prev.size && next.weight > prev.weight;
   }
 
   function formatCard(card) {
@@ -431,7 +463,7 @@
       `;
     });
   }
-
+/*
   function renderTable() {
     const root = state.root;
     if (!root) return;
@@ -482,6 +514,64 @@
       clearTimeout(state._toastTimer);
       state._toastTimer = setTimeout(() => { toastNode.style.opacity = '0'; state._toastText = ''; }, 1500);
     }
+  }*/
+  function renderTable() {
+      const root = state.root;
+      if (!root) return;
+
+      // 1. 渲染座位及头像高亮
+      renderSeats();
+
+      // 2. 更新公共桌牌 (Trick)
+      const trick = root.querySelector('[data-gd-trick]');
+      const move = root.querySelector('[data-gd-move]');
+      if (state.trick) {
+        trick.innerHTML = state.trick.cards.map(formatCard).join('');
+        move.textContent = `${state.trick.type} · ${state.trick.cards.length}张`;
+      } else {
+        trick.innerHTML = `<span class="gd-trick-empty">等待出牌...</span>`;
+        move.textContent = '—';
+      }
+
+      // 3. 更新玩家手牌 (Seat 0)
+      const hand = root.querySelector('[data-gd-hand]');
+      const me = state.players[0];
+      hand.innerHTML = sortCards(me.hand).map(formatCard).join('');
+
+      // 4. 更新选中状态
+      hand.querySelectorAll('[data-card-id]').forEach((cardDOM) => {
+        if (state.selected.has(cardDOM.getAttribute('data-card-id'))) {
+          cardDOM.classList.add('sel');
+        }
+      });
+
+      // 5. 🌟 核心逻辑：玩家出牌结束后的状态控制
+      const actionBar = root.querySelector('[data-gd-action-bar]');
+      const playBtn = root.querySelector('[data-gd-play]');
+      const passBtn = root.querySelector('[data-gd-pass]');
+      
+      // 判断玩家是否已经出完所有牌
+      const isPlayerDone = state.players[0].hand.length === 0;
+
+      // 逻辑判定：只有当轮到玩家且玩家尚未出完牌时，才显示操作栏
+      if (state.currentTurn === 0 && !isPlayerDone) {
+        actionBar.classList.add('show');
+        playBtn.disabled = state.selected.size === 0;
+        passBtn.disabled = !state.trick; 
+        
+        // 若玩家出完牌，给予恭喜提示（只在刚出完那一刻触发）
+      } else {
+        actionBar.classList.remove('show');
+      }
+
+      // 6. 同步 toast 提示
+      const toastNode = root.querySelector('[data-gd-toast]');
+      if (toastNode && state._toastText) {
+        toastNode.textContent = state._toastText;
+        toastNode.style.opacity = '1';
+        clearTimeout(state._toastTimer);
+        state._toastTimer = setTimeout(() => { toastNode.style.opacity = '0'; state._toastText = ''; }, 1500);
+      }
   }
 
   function showToast(msg) {
@@ -498,7 +588,7 @@
     state.busy = false;
     state.aiDelay = 0;
   }
-
+/*
   function playCards(seat, cards) {
     const move = typeOf(cards);
     if (!move || (state.trick && !beats(move, state.trick))) return false;
@@ -521,6 +611,22 @@
     }
 
     renderTable();
+    return true;
+  }*/
+ // --- 动作执行 ---
+  function playCards(seat, cards) {
+    const move = getMoveType(cards);
+    if (!move) { alert("非法牌型"); return false; }
+    if (state.trick && !beats(move, state.trick)) { alert("压不过去"); return false; }
+
+    // 执行出牌
+    state.players[seat].hand = state.players[seat].hand.filter(c => !cards.includes(c));
+    state.trick = { ...move, cards, seat };
+    
+    if (checkGameOver()) return true;
+
+    state.currentTurn = (seat + 1) % 4;
+    state.selected.clear();
     return true;
   }
 
@@ -596,7 +702,7 @@
   }
 
   // --- 针对问题 4 & 5：增加胜负判定与恭喜逻辑 ---
-  function checkGameOver() {
+  /*function checkGameOver() {
     const team0 = [state.players[0], state.players[2]];
     const team1 = [state.players[1], state.players[3]];
     
@@ -615,6 +721,17 @@
           destroy();
         }
       }, 1000);
+      return true;
+    }
+    return false;
+  }*/
+
+  // --- 胜负判定 ---
+  function checkGameOver() {
+    const team0Done = [state.players[0], state.players[2]].every(p => p.hand.length === 0);
+    const team1Done = [state.players[1], state.players[3]].every(p => p.hand.length === 0);
+    if (team0Done || team1Done) {
+      alert(team0Done ? "🎉 你们获胜了！" : "💔 对手获胜了。");
       return true;
     }
     return false;
