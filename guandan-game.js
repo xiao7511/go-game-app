@@ -514,10 +514,17 @@
     state.aiDelay = performance.now() + 500; // AI 思考延迟，让出牌有节奏感
 
     playGDSound(move.type === 'bomb' || move.type === 'rocket' ? 'bomb' : 'play');
+    // --- 在此处调用 ---
+    // 只有在出牌后才检查游戏是否结束
+    if (player.finished) {
+       if (checkGameOver()) return; // 如果游戏结束，提前返回，不再触发后续渲染
+    }
+
     renderTable();
     return true;
   }
 
+  /*
   function passTurn(seat) {
     if (!state.trick) return false;
     if (state.trick.seat === seat) state.trick = null;
@@ -525,7 +532,7 @@
     playGDSound('pass');
     renderTable();
     return true;
-  }
+  }*/
 
   // AI 基础逻辑保持不变
   function bestOpening(hand) {
@@ -588,6 +595,65 @@
     passTurn(0);
   }
 
+  // --- 针对问题 4 & 5：增加胜负判定与恭喜逻辑 ---
+  function checkGameOver() {
+    const team0 = [state.players[0], state.players[2]];
+    const team1 = [state.players[1], state.players[3]];
+    
+    const team0Done = team0.every(p => p.finished);
+    const team1Done = team1.every(p => p.finished);
+
+    if (team0Done || team1Done) {
+      state.active = false;
+      const msg = team0Done ? "🎉 恭喜！你们赢得了比赛！" : "💔 很遗憾，对手获胜了。";
+      showToast(msg);
+      setTimeout(() => {
+        if(confirm(`${msg} 是否再来一局？`)) {
+          initDeckAndPlayers();
+          renderTable();
+        } else {
+          destroy();
+        }
+      }, 1000);
+      return true;
+    }
+    return false;
+  }
+
+  // --- 针对问题 2 & 3：修复无人要牌与轮转逻辑 ---
+  function passTurn(seat) {
+    // 核心修复：如果是你或者你的对家打出的牌被所有人过，trick 归零，轮到下家出牌
+    const nextTurn = (seat + 1) % 4;
+    
+    // 检查是否无人要
+    if (state.trick && state.trick.seat === ((seat + 2) % 4)) {
+      state.trick = null; // 无人要，开启新一轮
+    }
+    
+    state.currentTurn = nextTurn;
+    playGDSound('pass');
+    renderTable();
+  }
+
+  // --- 针对问题 1：优化点击体验 ---
+  function bindHandInteraction() {
+    const hand = state.root?.querySelector('[data-gd-hand]');
+    if (!hand) return;
+    // 使用事件委托，增加响应区域
+    on(hand, 'click', (e) => {
+      const card = e.target.closest('.gd-card');
+      if (!card || state.currentTurn !== 0 || state.players[0].finished) return;
+      
+      const id = card.getAttribute('data-card-id');
+      if (state.selected.has(id)) state.selected.delete(id);
+      else state.selected.add(id);
+      
+      // 增加视觉反馈
+      playGDSound('click');
+      renderTable();
+    }, true);
+  }
+/*
   function bindHandInteraction() {
     const hand = state.root?.querySelector('[data-gd-hand]');
     if (!hand) return;
@@ -602,7 +668,7 @@
       playGDSound('click');
       renderTable();
     });
-  }
+  }*/
 
   function destroy() {
     clearInterval(state.timer);
