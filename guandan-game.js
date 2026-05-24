@@ -307,6 +307,17 @@
     });
   }
 
+  function destroy() {
+    clearInterval(state.timer);
+    state.active = false; state.busy = false;
+    offAll();
+    if (state.root) state.root.remove();
+    if (state.styleNode) state.styleNode.remove();
+    const selection = document.getElementById('game-selection');
+    if (selection) selection.style.display = 'flex';
+    state.root = null; state.styleNode = null;
+  }
+
   function init() {
     if (state.active) return;
     injectResponsiveStyles();
@@ -350,6 +361,13 @@
     console.log('[Guandan] 全真牌桌沙箱初始化完毕。');
   }
 
+    function bindLaunchButton() {
+    const btn = document.getElementById('go-guandan-btn');
+    if (!btn || btn.dataset.gdBound) return;
+    btn.dataset.gdBound = '1';
+    on(btn, 'click', init, { passive: true });
+  }
+  
   Object.assign(GD, { init, destroy, playGDSound, injectResponsiveStyles });
 
   document.addEventListener('DOMContentLoaded', bindLaunchButton, { once: true });
