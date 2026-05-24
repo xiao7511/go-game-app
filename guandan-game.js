@@ -444,7 +444,7 @@
     `;
     return root;
   }
-
+/*
   function renderSeats() {
     // 渲染三个 AI 对手的座位信息
     [1, 2, 3].forEach(seatIdx => {
@@ -462,7 +462,20 @@
         </div>
       `;
     });
-  }
+  }*/
+ function renderSeats() {
+    state.players.forEach((p, seatIdx) => {
+      const seatNode = state.root?.querySelector(`[data-gd-seat="${seatIdx}"]`);
+      if (!seatNode) return;
+      
+      // 当前回合者 或 刚出完牌的人(可选逻辑) 高亮
+      const isActive = state.currentTurn === seatIdx;
+      const infoDiv = seatNode.querySelector('.gd-player-info');
+      if (infoDiv) {
+        infoDiv.classList.toggle('active', isActive);
+      }
+    });
+}
 /*
   function renderTable() {
     const root = state.root;
