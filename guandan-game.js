@@ -1,7 +1,7 @@
 /**
  * guandan-game.js
- * 掼蛋扑克游戏扩展包 - 终极接风、胜负进阶判定与按钮归位版
- * 2026-05-24 完美闭环重构
+ * 掼蛋扑克游戏扩展包 - 自动多局无缝接续与全规则级牌判定版
+ * 2026-05-24 终极闭环重构
  */
 (() => {
   'use strict';
@@ -29,13 +29,14 @@
     { id: 3, name: '西家', short: 'West', pos: 'left' },
   ];
 
+  // 核心跨局持久状态
   const state = {
     gameMode: 'SINGLE_PLAYER',
-    currentRank: 2, // 当前主级
+    currentRank: 2, // 跨局传承的主级数字 (2-15 代表 2-A)
     currentTurn: 0,
     selected: new Set(),
     players: [],
-    trick: null, // 当前桌面牌：{ type, weight, size, cards, seat }
+    trick: null, 
     timer: null,
     root: null,
     styleNode: null,
@@ -53,8 +54,16 @@
   const AudioCtor = window.AudioContext || window.webkitAudioContext;
   const ctx = AudioCtor ? new AudioCtor() : null;
   const uid = () => `${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
-  const sortCards = (cards) => cards.slice().sort((a, b) => a.value - b.value || a.suit.localeCompare(b.suit));
   const rankLabel = (c) => c.kind === 'joker' ? c.label : c.rank;
+
+  // 根据当前主级动态调整权重的排序函数
+  function sortCards(cards) {
+    return cards.slice().sort((a, b) => {
+      const valA = (a.rank === String(state.currentRank) && a.suit === 'H') ? 15.5 : (a.rank === String(state.currentRank) ? 14.5 : a.value);
+      const valB = (b.rank === String(state.currentRank) && b.suit === 'H') ? 15.5 : (b.rank === String(state.currentRank) ? 14.5 : b.value);
+      return valA - valB || a.suit.localeCompare(b.suit);
+    });
+  }
 
   function on(target, type, handler, options) {
     if (!target) return;
@@ -88,9 +97,21 @@
     }
   }
 
+  // 🃏 ✨ 优化点 1：全规则掼蛋核心牌型与特殊“逢人配”判定引擎
   function typeOf(cards) {
     const n = cards.length;
     if (!n) return null;
+
+    // 提取四大天王（天王炸）
+    const jokers = cards.filter(c => c.kind === 'joker');
+    if (n === 4 && jokers.length === 4) {
+      return { type: '天王炸', weight: 999999, size: 4 };
+    }
+
+    // 识别出当前红桃逢人配数量
+    const wildCount = cards.filter(c => c.rank === String(state.currentRank) && c.suit === 'H').length;
+    const normalCards = cards.filter(c => !(c.rank === String(state.currentRank) && c.suit === 'H'));
+
     const values = cards.map((c) => c.value).sort((a,b) => a-b);
     const grouped = new Map();
     for (const c of cards) {
@@ -100,21 +121,73 @@
     const counts = [...grouped.values()].map((x) => x.length).sort((a, b) => a - b);
     
     if (n === 1) return { type: '单张', weight: values[0], size: 1 };
-    if (n === 2 && counts.length === 1) return { type: '对子', weight: values[0], size: 2 };
-    if (n === 3 && counts.length === 1) return { type: '三张', weight: values[0], size: 3 };
-    if (n >= 4 && counts.length === 1) return { type: '炸弹', weight: values[0] * 100 + n, size: n };
-    
-    if (n === 5 && counts[0] === 2 && counts[1] === 3) {
-      const mainVal = [...grouped.entries()].find(([k,v]) => v.length === 3)[0];
-      return { type: '三带两', weight: mainVal, size: 5 };
+    if (n === 2 && (counts.length === 1 || wildCount === 1)) {
+      const baseVal = wildCount === 2 ? 15 : (normalCards[0]?.value || 15);
+      return { type: '对子', weight: baseVal, size: 2 };
     }
+    if (n === 3 && (counts.length === 1 || wildCount >= 1)) {
+      const baseVal = normalCards[0]?.value || 15;
+      return { type: '三张', weight: baseVal, size: 3 };
+    }
+
+    // 炸弹判定 (4张及以上相同，张数越多威力成倍递增)
+    if (n >= 4 && (counts.length === 1 || (counts.length <= 2 && wildCount >= 1))) {
+      const maxFreqVal = [...grouped.entries()].sort((a,b) => b[1].length - a[1].length)[0][0];
+      return { type: '炸弹', weight: maxFreqVal * 100 + n, size: n };
+    }
+    
+    // 三带两判定
+    if (n === 5) {
+      if (counts[0] === 2 && counts[1] === 3) {
+        const mainVal = [...grouped.entries()].find(([k,v]) => v.length === 3)[0];
+        return { type: '三带两', weight: mainVal, size: 5 };
+      }
+    }
+
+    // 顺子判定 (必须且只能是5张，连续点数)
+    if (n === 5) {
+      const uniqueVals = [...new Set(cards.map(c => c.value))].sort((a,b) => a-b);
+      if (uniqueVals.length === 5 && (uniqueVals[4] - uniqueVals[0] === 4)) {
+        // 判断是否是同花顺
+        const isSameSuit = cards.every(c => c.suit === cards[0].suit);
+        if (isSameSuit) {
+          return { type: '同花顺', weight: uniqueVals[4] * 500, size: 5 }; // 威力极其巨大，能压普通5张炸
+        }
+        return { type: '顺子', weight: uniqueVals[4], size: 5 };
+      }
+    }
+
+    // 三连对（木板）与 钢板（两个连续三张）基本判定框架
+    if (n === 6) {
+      if (counts.length === 3 && counts.every(c => c === 2)) {
+        const sortedKeys = [...grouped.keys()].sort((a,b) => a-b);
+        if (sortedKeys[2] - sortedKeys[0] === 2) return { type: '三连对', weight: sortedKeys[2], size: 6 };
+      }
+      if (counts.length === 2 && counts.every(c => c === 3)) {
+        const sortedKeys = [...grouped.keys()].sort((a,b) => a-b);
+        if (sortedKeys[1] - sortedKeys[0] === 1) return { type: '钢板', weight: sortedKeys[1], size: 6 };
+      }
+    }
+
     return null;
   }
 
   function beats(next, prev) {
-    if (next.type === '炸弹' && prev.type !== '炸弹') return true;
-    if (next.type === '炸弹' && prev.type === '炸弹') {
-      if (next.size !== prev.size) return next.size > prev.size;
+    if (next.type === '天王炸') return true;
+    if (prev.type === '天王炸') return false;
+    
+    // 炸弹与同花顺的规则链条压制
+    const nextIsBomb = ['炸弹', '同花顺'].includes(next.type);
+    const prevIsBomb = ['炸弹', '同花顺'].includes(prev.type);
+
+    if (nextIsBomb && !prevIsBomb) return true;
+    if (!nextIsBomb && prevIsBomb) return false;
+    
+    if (nextIsBomb && prevIsBomb) {
+      // 如果都是炸弹类型
+      const nextPower = next.type === '同花顺' ? 550 : next.size * 100;
+      const prevPower = prev.type === '同花顺' ? 550 : prev.size * 100;
+      if (nextPower !== prevPower) return nextPower > prevPower;
       return next.weight > prev.weight;
     }
     return next.type === prev.type && next.size === prev.size && next.weight > prev.weight;
@@ -122,7 +195,11 @@
 
   function formatCard(card) {
     let centerHtml = '';
-    if (card.kind === 'joker') {
+    const isWild = card.rank === String(state.currentRank) && card.suit === 'H';
+
+    if (isWild) {
+      centerHtml = `<div class="gd-card-art-txt" style="color:#fab005; font-size:24px;">⭐配</div>`;
+    } else if (card.kind === 'joker') {
       centerHtml = `<div class="gd-card-art-txt">${card.rank === 'W' ? '👑' : '🃏'}</div>`;
     } else if (['J', 'Q', 'K'].includes(card.rank)) {
       let avatar = card.rank === 'J' ? '⚔️' : card.rank === 'Q' ? '🌸' : '👑';
@@ -137,14 +214,13 @@
       }
     }
     return `
-      <div class="gd-card ${card.color}" data-card-id="${card.id}">
+      <div class="gd-card ${card.color} ${isWild ? 'gd-wild-card' : ''}" data-card-id="${card.id}">
         <span class="corner tl"><span class="r">${rankLabel(card)}</span><span class="s">${card.symbol}</span></span>
         ${centerHtml}
         <span class="corner br"><span class="r">${rankLabel(card)}</span><span class="s">${card.symbol}</span></span>
       </div>`;
   }
 
-  // 🎨 高级大厅 UI 级联样式表
   function injectResponsiveStyles() {
     let s = document.getElementById(STYLE_ID);
     if (s) s.remove();
@@ -162,16 +238,12 @@
       
       .gd-arena { position: relative; flex: 1; display: flex; justify-content: center; align-items: center; width: 100%; height: 100%; }
       
-      /* 座位与布局体系 */
       .gd-seat { position: absolute; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 50; }
       .gd-seat.top { top: 30px; left: 50%; transform: translateX(-50%); } 
       .gd-seat.left { left: 40px; top: 40%; transform: translateY(-50%); }
       .gd-seat.right { right: 40px; top: 40%; transform: translateY(-50%); }
-      
-      /* ✨ 优化点 1：南家整体上提抬高，腾出下方独立手牌区域 */
       .gd-seat.bottom { bottom: 200px; left: 50%; transform: translateX(-50%); }
       
-      /* ✨ 优化点 2：控制栏移回南家头像和时钟上方 */
       .gd-player-action-container { display: flex; justify-content: center; width: 100%; margin-bottom: 12px; height: 55px; }
       .gd-action-bar { display: none; gap: 20px; justify-content: center; width: auto; }
       .gd-action-bar.show { display: flex !important; }
@@ -182,31 +254,24 @@
       .gd-btn-sort { background: linear-gradient(180deg, #63e6be 0%, #0ca678 100%); color: white; }
       .gd-action-bar button:disabled { background: #495057 !important; color: #868e96 !important; cursor: not-allowed; box-shadow: none; transform: none; }
       
-      /* 头像信息大框 */
       .gd-player-info { background: rgba(10,25,14,0.92); padding: 14px 28px; border-radius: 16px; text-align: center; min-width: 170px; border: 2px solid rgba(255,255,255,0.18); box-shadow: 0 6px 18px rgba(0,0,0,0.5); }
       .gd-player-info.active { border-color: #FFD700; box-shadow: 0 0 25px rgba(255, 215, 0, 0.5); background: rgba(20,45,25,0.95); }
       .gd-player-name { font-weight: 800; font-size: 17px; color: #fff; }
       .gd-player-detail { font-size: 14px; color: #FFD700; margin-top: 6px; font-weight: bold; }
-      .gd-player-finished { color: #868e96 !important; font-style: italic; }
+      .gd-player-finished { color: #66bb6a !important; font-style: italic; font-weight: bold; }
       
-      /* 时钟挂载于信息框上方 */
       .gd-timer-outer { height: 35px; display: flex; align-items: center; justify-content: center; width: 100%; margin-bottom: 4px; }
       .gd-timer-box { display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.9); padding: 4px 14px; border-radius: 20px; font-size: 15px; font-weight: 900; color: #00ff66; border: 1px solid #00ff66; box-shadow: 0 0 12px rgba(0,255,102,0.5); }
       .gd-timer-box.danger { color: #ff3838 !important; border-color: #ff3838 !important; box-shadow: 0 0 15px #ff3838 !important; }
       
-      /* ✨ 优化点 3：中央公共竞技出牌大区 */
       .gd-center-table { position: absolute; width: 620px; height: 260px; border: 2px dashed rgba(255,255,255,0.2); border-radius: 130px; display: flex; flex-direction: column; justify-content: center; align-items: center; background: rgba(0,0,0,0.15); box-shadow: inset 0 0 30px rgba(0,0,0,0.3); }
-      
-      /* ✨ 优化点 4：当前出牌玩家源头展示标签 */
-      .gd-move-owner-tag { font-size: 15px; font-weight: bold; color: #FFD700; background: rgba(0,0,0,0.6); padding: 4px 16px; border-radius: 10px; border: 1px solid rgba(255,215,0,0.3); margin-bottom: 12px; letter-spacing: 0.5px; }
+      .gd-move-owner-tag { font-size: 15px; font-weight: bold; color: #FFD700; background: rgba(0,0,0,0.6); padding: 4px 16px; border-radius: 10px; border: 1px solid rgba(255,215,0,0.3); margin-bottom: 12px; }
       .gd-trick { display: flex; justify-content: center; align-items: center; width: 100%; min-height: 135px; }
-      .gd-trick-empty { font-size: 16px; color: rgba(255,255,255,0.2); font-weight: bold; letter-spacing: 1px; }
+      .gd-trick-empty { font-size: 16px; color: rgba(255,255,255,0.2); font-weight: bold; }
       
-      /* 底部独立手牌 */
       .gd-hand-container { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); width: 96%; max-width: 1200px; z-index: 1000; }
       .gd-hand { display: flex; align-items: flex-end; justify-content: center; min-height: 145px; width: 100%; padding: 5px; }
       
-      /* 物理卡牌微调 */
       .gd-card { width: ${CARD_W}px; height: 132px; position: relative; background: #ffffff; border-radius: 9px; box-shadow: -4px 4px 8px rgba(0,0,0,0.35); margin-left: calc(-1 * (${CARD_W}px - 2.5vw)); transition: transform 0.1s ease; color: #000; border: 1px solid #bbb; overflow: hidden; }
       .gd-card:first-child { margin-left: 0 !important; }
       .gd-trick .gd-card { margin-left: -55px; box-shadow: -5px 5px 12px rgba(0,0,0,0.4); }
@@ -215,6 +280,7 @@
       .gd-card.sel { transform: translateY(-35px) !important; border: 2px solid #ff9f00 !important; box-shadow: 0 8px 20px rgba(255,159,0,0.6); }
       .gd-card:hover { z-index: 9999 !important; transform: translateY(-15px); }
       
+      .gd-wild-card { border: 2px dashed #fab005 !important; background: #fffdf0 !important; }
       .gd-card.red { color: #d63031; }
       .gd-card.black { color: #2d3436; }
       .gd-card .corner { position: absolute; font-size: 20px; line-height: 1.0; padding: 4px 6px; display: flex; flex-direction: column; align-items: center; font-weight: bold; }
@@ -236,7 +302,7 @@
     root.id = ROOT_ID;
     root.innerHTML = `
       <div class="gd-header">
-        <div class="gd-header-info">当前主级: <span data-gd-rank>${state.currentRank}</span> | 桌上牌型: <span data-gd-move>—</span></div>
+        <div class="gd-header-info">当前主级: 打 <span data-gd-rank>${state.currentRank === 11 ? 'J' : state.currentRank === 12 ? 'Q' : state.currentRank === 13 ? 'K' : state.currentRank === 14 ? 'A' : state.currentRank}</span> | 桌上牌型: <span data-gd-move>—</span></div>
         <button class="gd-exit-btn" data-gd-exit>退出沙箱</button>
       </div>
 
@@ -289,20 +355,34 @@
     return deck;
   }
 
-  function initDeckAndPlayers() {
+  // 开始指定的一局（洗牌与重设各家手牌）
+  function startNewRound() {
     const deck = makeDeck();
-    state.players = SEATS.map((seat) => ({ id: seat.id, name: seat.name, pos: seat.pos, hand: [] }));
-    deck.forEach((card, idx) => { state.players[idx % 4].hand.push(card); });
-    state.players.forEach((p) => { p.hand.sort((a, b) => a.value - b.value || a.suit.localeCompare(b.suit)); });
+    state.players.forEach((p, idx) => {
+      p.hand = [];
+    });
+    deck.forEach((card, idx) => {
+      state.players[idx % 4].hand.push(card);
+    });
+    state.players.forEach((p) => {
+      p.hand = sortCards(p.hand);
+    });
     state.selected.clear();
-    state.currentTurn = 0; 
     state.trick = null;
+    state.currentTurn = 0; // 新局始终由玩家首发
     state.turnCountdown = 30;
     state.lastCountdownTick = performance.now();
     state.aiDelay = performance.now() + 1000;
+    
+    // 同步刷新主级
+    const rankNode = document.querySelector('[data-gd-rank]');
+    if (rankNode) {
+      const labelMap = { 11: 'J', 12: 'Q', 13: 'K', 14: 'A' };
+      rankNode.textContent = labelMap[state.currentRank] || state.currentRank;
+    }
+    renderTable();
   }
 
-  // ⏱️ 渲染玩家席位（自动过滤已出完牌的空手玩家）
   function renderSeats() {
     const container = document.getElementById(ROOT_ID);
     if (!container) return;
@@ -322,12 +402,11 @@
       let infoBody = `
         <div class="gd-player-name">${p.name}</div>
         <div class="gd-player-detail ${isFinished ? 'gd-player-finished' : ''}">
-          ${isFinished ? '🎉 已出完 (空手)' : `剩余 ${p.hand.length} 张`}
+          ${isFinished ? '🏅 已出完 (跑光)' : `剩余 ${p.hand.length} 张`}
         </div>
       `;
 
       if (idx === 0) {
-        // 南家独立定向更新，防止污染手牌与控制区
         const tZone = container.querySelector('[data-gd-timer-zone]');
         const iZone = container.querySelector('[data-gd-info-zone]');
         if (tZone) tZone.innerHTML = timerInnerHtml;
@@ -350,7 +429,6 @@
     });
   }
 
-  // 🃏 综合牌桌核心重绘
   function renderTable() {
     const root = document.getElementById(ROOT_ID);
     if (!root) return;
@@ -365,14 +443,13 @@
 
     if (!hand || !trick) return;
 
-    // ✨ 优化点 2 落实：动态更新当前桌面上牌是由哪位玩家击出的
     if (state.trick) {
       trick.innerHTML = state.trick.cards.map(formatCard).join('');
       const ownerName = state.players[state.trick.seat]?.name || '未知';
       if (ownerTag) ownerTag.textContent = `【${ownerName}】打出：`;
       if (move) move.textContent = `${state.trick.type} (${state.trick.cards.length}张)`;
     } else {
-      trick.innerHTML = `<span class="gd-trick-empty">等 待 各 家 出 牌 ...</span>`;
+      trick.innerHTML = `<span class="gd-trick-empty">桌面上空空如也，等待出牌...</span>`;
       if (ownerTag) ownerTag.textContent = '桌上风向：享有自由出牌权 🌟';
       if (move) move.textContent = '—';
     }
@@ -380,10 +457,11 @@
     const me = state.players[0];
     if (me && me.hand) {
       hand.innerHTML = me.hand.map((card, i) => {
+        const isWild = card.rank === String(state.currentRank) && card.suit === 'H';
         return `
-          <div class="gd-card ${card.color}" data-card-id="${card.id}" style="z-index: ${20 + i};">
+          <div class="gd-card ${card.color} ${isWild ? 'gd-wild-card' : ''}" data-card-id="${card.id}" style="z-index: ${20 + i};">
             <span class="corner tl"><span class="r">${rankLabel(card)}</span><span class="s">${card.symbol}</span></span>
-            ${['J','Q','K'].includes(card.rank) ? `<div class="gd-card-court-bg">${card.rank}</div><div class="gd-card-court-avatar">${card.rank === 'J' ? '⚔️' : card.rank === 'Q' ? '🌸' : '👑'}</div>` : (card.kind === 'joker' ? `<div class="gd-card-art-txt">${card.rank === 'W' ? '👑' : '🃏'}</div>` : `<div class="gd-card-grid-suits">${Array(Math.min(parseInt(card.rank)||10, 6)).fill(`<span class="gd-mini-suit">${card.symbol}</span>`).join('')}</div>`)}
+            ${isWild ? `<div class="gd-card-art-txt" style="color:#fab005; font-size:24px;">⭐配</div>` : (['J','Q','K'].includes(card.rank) ? `<div class="gd-card-court-bg">${card.rank}</div><div class="gd-card-court-avatar">${card.rank === 'J' ? '⚔️' : card.rank === 'Q' ? '🌸' : '👑'}</div>` : (card.kind === 'joker' ? `<div class="gd-card-art-txt">${card.rank === 'W' ? '👑' : '🃏'}</div>` : `<div class="gd-card-grid-suits">${Array(Math.min(parseInt(card.rank)||10, 6)).fill(`<span class="gd-mini-suit">${card.symbol}</span>`).join('')}</div>`))}
             <span class="corner br"><span class="r">${rankLabel(card)}</span><span class="s">${card.symbol}</span></span>
           </div>`;
       }).join('');
@@ -395,59 +473,58 @@
       });
     }
 
-    // 唤醒控制台
     if (actionBar) {
       if (state.currentTurn === 0 && me && me.hand.length > 0) {
         actionBar.classList.add('show');
         const playBtn = root.querySelector('[data-gd-play]');
         const passBtn = root.querySelector('[data-gd-pass]');
         if (playBtn) playBtn.disabled = state.selected.size === 0;
-        if (passBtn) passBtn.disabled = !state.trick; // 享有自由出牌权时不允许点过牌
+        if (passBtn) passBtn.disabled = !state.trick; 
       } else {
         actionBar.classList.remove('show');
       }
     }
   }
 
-  // 🏁 ✨ 优化点 3：检查双打游戏是否终结并自动进阶级数
+  // ✨ 优化点 2：单把终结触发多局级数晋升与洗牌接续机制
   function checkGameEndStatus() {
-    const p0 = state.players[0].hand.length === 0; // 南
+    const p0 = state.players[0].hand.length === 0; // 南 (你)
     const p1 = state.players[1].hand.length === 0; // 东
-    const p2 = state.players[2].hand.length === 0; // 北
+    const p2 = state.players[2].hand.length === 0; // 北 (对家)
     const p3 = state.players[3].hand.length === 0; // 西
 
-    // 南北同盟均出完牌 -> 胜利
+    // 南北同盟双扣或出完
     if (p0 && p2) {
-      state.currentRank += 1; // 实时进阶级数
-      const rankNode = document.querySelector('[data-gd-rank]');
-      if (rankNode) rankNode.textContent = state.currentRank;
-      alert(`🎉 恭喜胜利！\n你与对家配合默契，双双出完牌！主级进阶至：${state.currentRank}`);
-      destroy();
+      state.currentRank = Math.min(14, state.currentRank + 2); // 连升二级
+      setTimeout(() => {
+        alert(`🎉 恭喜本把大获全胜！\n你与对家率先跑光！南北同盟主级获得进阶！\n下一把即将自动发牌，当前主级：打 ${state.currentRank === 11 ? 'J' : state.currentRank === 12 ? 'Q' : state.currentRank === 13 ? 'K' : state.currentRank === 14 ? 'A' : state.currentRank}`);
+        startNewRound(); // 🔄 自动洗牌开下局
+      }, 600);
       return true;
     }
-    // 东西同盟均出完牌 -> 失败
+    // 东西阵营率先出完
     if (p1 && p3) {
-      alert(`💔 遗憾失败！\n对手两家已全部跑光。请重整旗鼓再来一局！`);
-      destroy();
+      setTimeout(() => {
+        alert(`💔 遗憾失败！\n对手两家抢先出完牌。请调整策略在下一把打回来！\n下一把即将自动发牌，当前主级不变。`);
+        startNewRound(); // 🔄 自动洗牌开下局
+      }, 600);
       return true;
     }
     return false;
   }
 
-  // ✨ 优化点 3：核心轮转调度器（处理接风、智能级联跳过已出完牌玩家）
   function changeTurn(nextSeat) {
     if (checkGameEndStatus()) return;
 
-    // 寻找下一个还没出完牌的有效玩家
     let loops = 0;
     while (state.players[nextSeat].hand.length === 0 && loops < 4) {
       nextSeat = (nextSeat + 1) % 4;
       loops++;
     }
 
-    // 接风/借风逻辑：如果转了一圈回来发现回到了上次出牌人（或者出牌人出完牌后无人要，回到了出完牌的人那里）
+    // 完美接风：如果转了一圈没人要，牌权属于最后出牌人的同盟或下家
     if (state.trick && state.trick.seat === nextSeat) {
-      state.trick = null; // 牌权清空，下一个人无条件重新享有自由出牌权！
+      state.trick = null; 
     }
 
     state.currentTurn = nextSeat;
@@ -456,7 +533,6 @@
     state.aiDelay = performance.now() + 1000;
     renderTable();
 
-    // 如果智能级联切到的人已经出完牌了（极端防御情况），继续切
     if (state.players[state.currentTurn].hand.length === 0) {
       changeTurn((state.currentTurn + 1) % 4);
     }
@@ -472,15 +548,11 @@
     state.trick = { ...move, cards, seat };
     state.selected.clear();
     
-    // 如果此人打完这手牌刚刚好跑完，且场上还没达到总终结条件
-    const isFinishedRightNow = player.hand.length === 0;
-    
     changeTurn((seat + 1) % 4);
     return true;
   }
 
   function passTurn(seat) {
-    // 如果下一个人是当时出牌的人，说明一圈没人要，牌权清空
     if (state.trick && state.trick.seat === ((seat + 1) % 4)) {
       state.trick = null;
     }
@@ -518,7 +590,6 @@
     }
   }
 
-  // 🤖 智能单机版 AI 出牌策略决策器
   function triggerAIMove() {
     state.busy = true;
     try {
@@ -528,21 +599,17 @@
       
       const hand = player.hand;
       
-      // AI 享有首发/自由出牌权
       if (!state.trick) {
-        // 首选对子
         for (let i = 0; i < hand.length - 1; i++) {
           if (hand[i].value === hand[i+1].value) {
             playCards(seat, [hand[i], hand[i+1]]);
             return;
           }
         }
-        // 次选单张
         playCards(seat, [hand[0]]);
         return;
       }
 
-      // AI 跟牌管牌逻辑
       if (state.trick.type === '单张') {
         const target = hand.find(c => c.value > state.trick.weight);
         if (target) { playCards(seat, [target]); return; }
@@ -555,7 +622,6 @@
         }
       }
 
-      // 管不起过牌
       passTurn(seat);
     } finally {
       state.busy = false;
@@ -606,7 +672,7 @@
   }
 
   function init() {
-    console.log('[Guandan] 全自动接风进阶判定版初始化...');
+    console.log('[Guandan] 多局连打全规则引擎版激活...');
     const oldContainer = document.getElementById(ROOT_ID);
     if (oldContainer) oldContainer.remove();
     if (state.timer) clearInterval(state.timer);
@@ -619,7 +685,9 @@
     document.body.appendChild(newShell);
     state.root = newShell;
 
-    initDeckAndPlayers();
+    // 跨局基础选手池初始化一次
+    state.players = SEATS.map((seat) => ({ id: seat.id, name: seat.name, pos: seat.pos, hand: [] }));
+
     bindHandInteraction();
 
     on(newShell.querySelector('[data-gd-play]'), 'click', () => { playGDSound('click'); humanPlay(); });
@@ -629,11 +697,9 @@
     });
     on(newShell.querySelector('[data-gd-exit]'), 'click', () => { playGDSound('click'); destroy(); });
 
-    // 初始化同步全局左上角进阶等级展示
-    const rankNode = newShell.querySelector('[data-gd-rank]');
-    if (rankNode) rankNode.textContent = state.currentRank;
+    // 🎬 直接开动首局
+    startNewRound();
 
-    renderTable();
     state.timer = setInterval(gameHeartbeatLoop, 100);
     state.active = true;
   }
@@ -644,7 +710,7 @@
     btn.onclick = (e) => { e.preventDefault(); init(); };
   }
 
-  Object.assign(GD, { init, destroy, playGDSound, injectResponsiveStyles, triggerAIMove });
+  Object.assign(GD, { init, destroy, startNewRound, playGDSound, injectResponsiveStyles });
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', bindLaunchButton, { once: true });
