@@ -1,6 +1,6 @@
 /**
  * guandan-game.js
- * 掼蛋扑克游戏扩展包 (中央常驻记忆 + 明确标识出牌人身份版)
+ * 掼蛋扑克游戏扩展包 (中央常驻记忆 + 明确标识出牌人身份 + CodyHouse风格在线精美扑克牌版)
  */
 (() => {
   'use strict';
@@ -12,7 +12,7 @@
 
   const ROOT_ID = 'guandan-game-container';
   const STYLE_ID = 'gd-style';
-  const CARD_W = 84; 
+  const CARD_W = 88; // 稍微加宽一点，让图片显示更精致
   
   const GD_SUITS = [
     { key: 'S', symbol: GD_ICON_SUITS.SPADE, color: 'black' },
@@ -38,7 +38,7 @@
     selected: new Set(),
     players: [],
     trick: null, 
-    lastPlayedTrick: null, // 持续记录桌面上最后的一手出牌信息
+    lastPlayedTrick: null, 
     timer: null,
     root: null,
     styleNode: null,
@@ -157,40 +157,35 @@
       .gd-player-detail { font-size: 12px; color: #FFD700; margin-top: 2px; }
       .gd-player-info.active .gd-player-detail { color: #fffa65; font-weight: bold; }
       
-      .gd-center-table { position: absolute; width: 640px; height: 340px; border: 2px dashed rgba(255,255,255,0.15); border-radius: 160px; display: flex; flex-direction: column; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.15); padding: 20px 0; box-shadow: inset 0 0 40px rgba(0,0,0,0.3); }
+      .gd-center-table { position: absolute; width: 660px; height: 350px; border: 2px dashed rgba(255,255,255,0.15); border-radius: 160px; display: flex; flex-direction: column; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.15); padding: 20px 0; box-shadow: inset 0 0 40px rgba(0,0,0,0.3); }
       
       .gd-center-status-bar { background: rgba(0, 0, 0, 0.7); padding: 6px 20px; border-radius: 15px; border: 1px solid rgba(255, 255, 255, 0.15); font-size: 13px; font-weight: bold; color: #cbd5e1; box-shadow: 0 2px 8px rgba(0,0,0,0.2); transition: all 0.3s ease; z-index: 10; }
       .gd-center-status-bar.my-turn { border-color: #22c55e; color: #22c55e; background: rgba(4, 30, 12, 0.85); animation: gd-text-pulse 1s infinite alternate; }
       .gd-center-status-bar.ai-turn { border-color: #eab308; color: #eab308; background: rgba(30, 25, 4, 0.85); }
       
-      /* 💡 核心强化：中央出牌展示区样式 */
       .gd-trick { display: flex; flex-direction: column; justify-content: center; align-items: center; width: 100%; flex: 1; min-height: 160px; position: relative; }
-      .gd-trick-cards-wrap { display: flex; justify-content: center; align-items: center; width: 100%; min-height: 122px; margin-top: 8px; }
+      .gd-trick-cards-wrap { display: flex; justify-content: center; align-items: center; width: 100%; min-height: 130px; margin-top: 8px; }
       .gd-trick-empty { font-size: 14px; color: rgba(255,255,255,0.25); font-weight: bold; letter-spacing: 1px; }
       
-      /* 💡 新增：出牌人专属的高亮常驻身份标签 */
       .gd-trick-owner { background: linear-gradient(90deg, rgba(234,179,8,0) 0%, rgba(234,179,8,0.25) 50%, rgba(234,179,8,0) 100%); color: #ffd700; font-size: 14px; font-weight: bold; padding: 3px 24px; text-shadow: 0 1px 4px rgba(0,0,0,0.8); border-top: 1px solid rgba(234,179,8,0.2); border-bottom: 1px solid rgba(234,179,8,0.2); width: 100%; text-align: center; animation: gd-fade-in 0.25s ease-out; }
       
-      .gd-hand { display: flex; align-items: flex-end; justify-content: center; min-height: 130px; width: auto; max-width: 96vw; pointer-events: auto; margin-top: 6px; padding: 4px; }
+      .gd-hand { display: flex; align-items: flex-end; justify-content: center; min-height: 140px; width: auto; max-width: 96vw; pointer-events: auto; margin-top: 6px; padding: 4px; }
       
-      .gd-card { width: ${CARD_W}px; height: 122px; position: relative; background: #ffffff; border-radius: 8px; box-shadow: -4px 4px 8px rgba(0,0,0,0.35), inset 0 -4px 8px rgba(0,0,0,0.05); margin-left: -54px; transition: transform 0.15s cubic-bezier(0.2, 0.8, 0.2, 1); color: #000; border: 1px solid #c5c5c5; overflow: hidden; cursor: pointer; }
+      /* 💡 核心调整：图片扑克容器外观定义 */
+      .gd-card { width: ${CARD_W}px; height: 128px; position: relative; margin-left: -58px; transition: transform 0.15s cubic-bezier(0.2, 0.8, 0.2, 1); border-radius: 6px; cursor: pointer; display: flex; justify-content: center; align-items: center; }
       .gd-card:first-child { margin-left: 0 !important; }
-      .gd-trick .gd-card { margin-left: -44px; box-shadow: -5px 5px 12px rgba(0,0,0,0.4); pointer-events: none; }
+      .gd-card img { width: 100%; height: 100%; object-fit: contain; pointer-events: none; filter: drop-shadow(-2px 3px 4px rgba(0,0,0,0.3)); }
+      
+      .gd-trick .gd-card { margin-left: -48px; pointer-events: none; }
       .gd-trick .gd-card:first-child { margin-left: 0 !important; }
       
-      .gd-card.sel { transform: translateY(-26px) !important; border: 2px solid #eab308 !important; box-shadow: 0 8px 16px rgba(234,179,8,0.4); }
+      .gd-card.sel { transform: translateY(-26px) !important; }
+      .gd-card.sel img { filter: drop-shadow(0px 8px 12px rgba(234,179,8,0.7)) contrast(1.05); }
       .gd-card:hover { z-index: 9999 !important; transform: translateY(-12px); }
       
-      .gd-wild-card { border: 2px dashed #ef4444 !important; background: #fff8f8 !important; box-shadow: 0 0 10px rgba(239,68,68,0.4); }
-      .gd-rank-card { border: 2px solid #eab308 !important; background: #fefce8 !important; }
-      
-      .gd-card.red { color: #dc2626; }
-      .gd-card.black { color: #1e293b; }
-      
-      .gd-card .corner { position: absolute; font-size: 17px; line-height: 1.0; padding: 5px; display: flex; flex-direction: column; align-items: center; font-weight: 800; font-family: 'Georgia', sans-serif; }
-      .gd-card .tl { top: 2px; left: 2px; }
-      .gd-card .br { bottom: 2px; right: 2px; transform: rotate(180deg); }
-      .gd-card .center { position: absolute; top: 52%; left: 50%; transform: translate(-50%,-50%); font-size: 30px; opacity: 0.95; }
+      /* 💡 针对掼蛋特殊牌型（主牌、红桃配）赋予华丽的外发光特效，不破坏图片内部 */
+      .gd-wild-card img { filter: drop-shadow(0 0 8px #ef4444) !important; animation: gd-wild-glow 1s infinite alternate; }
+      .gd-rank-card img { filter: drop-shadow(0 0 6px #eab308) !important; }
       
       .gd-toast { position: fixed; top: 15%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.85); border: 1px solid #ff9f00; color: #fff; padding: 12px 32px; border-radius: 20px; font-size: 15px; font-weight: bold; z-index: 10005; opacity: 0; transition: opacity 0.2s ease; pointer-events: none; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
       
@@ -198,6 +193,7 @@
       @keyframes gd-turn-glow { 0% { box-shadow: 0 0 12px #ff9f00; border-color: #ff9f00; } 100% { box-shadow: 0 0 28px #fffa65, inset 0 0 6px rgba(255,250,101,0.4); border-color: #fffa65; } }
       @keyframes gd-text-pulse { 0% { box-shadow: 0 0 4px rgba(34,197,94,0.4); } 100% { box-shadow: 0 0 12px rgba(34,197,94,0.8); } }
       @keyframes gd-fade-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
+      @keyframes gd-wild-glow { 0% { filter: drop-shadow(0 0 4px #ef4444); } 100% { filter: drop-shadow(0 0 12px #ff4444) brightness(1.1); } }
     `;
     document.head.appendChild(s);
     state.styleNode = s;
@@ -373,6 +369,7 @@
     return next.type === prev.type && next.size === prev.size && next.weight > prev.weight;
   }
 
+  // 💡 核心升级：采用 CodyHouse / Open-source Vector 在线标准 CDN 图片库映射机制
   function formatCard(card) {
     const curRankStr = getCurrentRankStr();
     const isWild = card.rank === curRankStr && card.suit === 'H';
@@ -382,11 +379,22 @@
     if (isWild) extraClass = 'gd-wild-card';
     else if (isNormalRank) extraClass = 'gd-rank-card';
 
+    // 映射图片命名规则
+    let filename = '';
+    if (card.kind === 'joker') {
+      filename = card.label === '大王' ? 'joker-red' : 'joker-black';
+    } else {
+      const suitMap = { 'S': 'spades', 'H': 'hearts', 'C': 'clubs', 'D': 'diamonds' };
+      const rankStr = card.rank === '10' ? '10' : card.rank.toLowerCase();
+      filename = `${suitMap[card.suit]}-${rankStr}`;
+    }
+
+    // 选用主流快速的开源扑克组件 CDN 直链
+    const imgUrl = `https://raw.githubusercontent.com/thegoodbeta/poker-cards/master/img/${filename}.png`;
+
     return `
-      <div class="gd-card ${card.color} ${extraClass}" data-card-id="${card.id}">
-        <span class="corner tl"><span class="r">${rankLabel(card)}</span><span class="s">${card.symbol}</span></span>
-        <span class="center">${isWild ? '⭐' : card.symbol}</span>
-        <span class="corner br"><span class="r">${rankLabel(card)}</span><span class="s">${card.symbol}</span></span>
+      <div class="gd-card ${extraClass}" data-card-id="${card.id}">
+        <img src="${imgUrl}" alt="${rankLabel(card)}" onerror="this.style.opacity='0.5'" />
       </div>`;
   }
 
@@ -444,7 +452,6 @@
     const hand = root.querySelector('[data-gd-hand]');
     const actionBar = root.querySelector('[data-gd-action-bar]');
 
-    // 💡 核心调整：不仅让出牌常驻，还在牌组正上方动态注入【出牌人】姓名提示
     if (trick) {
       if (state.lastPlayedTrick) {
         const pName = state.players[state.lastPlayedTrick.seat]?.name || '未知';
