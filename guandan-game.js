@@ -369,6 +369,15 @@
 
   // 💡 【终极修改】：完全解耦网络，使用完全可靠的本地绝对或相对路径
   function formatCard(card) {
+    // 💡 1. 【新增核心判断】：如果这张牌是背面状态，直接读取本地的牌背背景图
+    if (card.isBack || card.hidden) {
+      // 浏览器会自动根据屏幕分辨率选择 back.png 或利用 CSS 处理，这里我们首选标准 back.png
+      return `
+        <div class="gd-card gd-card-back" data-card-id="${card.id || ''}">
+          <img src="./images/cards/back.png" alt="牌背" onerror="this.src='./images/cards/back@2x.png'" />
+        </div>`;
+    }
+
     const curRankStr = getCurrentRankStr();
     const isWild = card.rank === curRankStr && card.suit === 'H';
     const isNormalRank = card.rank === curRankStr && card.suit !== 'H';
@@ -377,21 +386,20 @@
     if (isWild) extraClass = 'gd-wild-card';
     else if (isNormalRank) extraClass = 'gd-rank-card';
 
-    // 1. 映射花色为小写全称
+    // 映射花色为小写全称
     let suitName = '';
     if (card.suit === 'S') suitName = 'spades';
     if (card.suit === 'H') suitName = 'hearts';
     if (card.suit === 'C') suitName = 'clubs';
     if (card.suit === 'D') suitName = 'diamonds';
 
-    // 2. 💡【核心修复】：将大写字母精确转换为国外资产包里的英文全称
+    // 将大写字母精确转换为国外资产包里的英文全称
     let rankName = card.rank.toLowerCase();
     if (rankName === 'a') rankName = 'ace';
     if (rankName === 'j') rankName = 'jack';
     if (rankName === 'q') rankName = 'queen';
     if (rankName === 'k') rankName = 'king';
 
-    // 3. 完美拼接路径
     let imgUrl = '';
     if (card.kind === 'joker') {
       imgUrl = `./images/cards/joker-${card.label === '大王' ? 'red' : 'black'}.png`;
