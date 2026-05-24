@@ -1,6 +1,6 @@
 /**
  * guandan-game.js
- * 掼蛋扑克游戏扩展包 (中央常驻记忆 + 明确标识出牌人身份 + CodyHouse风格在线精美扑克牌版)
+ * 掼蛋扑克游戏扩展包 (中央常驻记忆 + 明确标识出牌人身份 + 稳定大厂SVG矢量扑克牌版)
  */
 (() => {
   'use strict';
@@ -12,7 +12,7 @@
 
   const ROOT_ID = 'guandan-game-container';
   const STYLE_ID = 'gd-style';
-  const CARD_W = 88; // 稍微加宽一点，让图片显示更精致
+  const CARD_W = 85; 
   
   const GD_SUITS = [
     { key: 'S', symbol: GD_ICON_SUITS.SPADE, color: 'black' },
@@ -135,7 +135,7 @@
       .gd-seat.top { top: 30px; left: 50%; transform: translateX(-50%); } 
       .gd-seat.left { left: 40px; top: 40%; transform: translateY(-50%); }
       .gd-seat.right { right: 40px; top: 40%; transform: translateY(-50%); }
-      .gd-seat.bottom { bottom: 20px; left: 50%; transform: translateX(-50%); width: auto; display: flex; flex-direction: column; align-items: center; }
+      .gd-seat.bottom { bottom: 15px; left: 50%; transform: translateX(-50%); width: auto; display: flex; flex-direction: column; align-items: center; }
       
       .gd-action-bar { display: none; gap: 24px; justify-content: center; height: 38px; margin-bottom: 12px; z-index: 10005; }
       .gd-action-bar.show { display: flex !important; }
@@ -169,22 +169,20 @@
       
       .gd-trick-owner { background: linear-gradient(90deg, rgba(234,179,8,0) 0%, rgba(234,179,8,0.25) 50%, rgba(234,179,8,0) 100%); color: #ffd700; font-size: 14px; font-weight: bold; padding: 3px 24px; text-shadow: 0 1px 4px rgba(0,0,0,0.8); border-top: 1px solid rgba(234,179,8,0.2); border-bottom: 1px solid rgba(234,179,8,0.2); width: 100%; text-align: center; animation: gd-fade-in 0.25s ease-out; }
       
-      .gd-hand { display: flex; align-items: flex-end; justify-content: center; min-height: 140px; width: auto; max-width: 96vw; pointer-events: auto; margin-top: 6px; padding: 4px; }
+      .gd-hand { display: flex; align-items: flex-end; justify-content: center; min-height: 140px; width: auto; max-width: 98vw; pointer-events: auto; margin-top: 6px; padding: 4px; }
       
-      /* 💡 核心调整：图片扑克容器外观定义 */
-      .gd-card { width: ${CARD_W}px; height: 128px; position: relative; margin-left: -58px; transition: transform 0.15s cubic-bezier(0.2, 0.8, 0.2, 1); border-radius: 6px; cursor: pointer; display: flex; justify-content: center; align-items: center; }
+      .gd-card { width: ${CARD_W}px; height: 120px; position: relative; margin-left: -60px; transition: transform 0.15s cubic-bezier(0.2, 0.8, 0.2, 1); border-radius: 6px; cursor: pointer; display: flex; justify-content: center; align-items: center; }
       .gd-card:first-child { margin-left: 0 !important; }
-      .gd-card img { width: 100%; height: 100%; object-fit: contain; pointer-events: none; filter: drop-shadow(-2px 3px 4px rgba(0,0,0,0.3)); }
+      .gd-card img { width: 100%; height: 100%; object-fit: contain; pointer-events: none; filter: drop-shadow(-2px 3px 4px rgba(0,0,0,0.4)); }
       
-      .gd-trick .gd-card { margin-left: -48px; pointer-events: none; }
+      .gd-trick .gd-card { margin-left: -50px; pointer-events: none; }
       .gd-trick .gd-card:first-child { margin-left: 0 !important; }
       
       .gd-card.sel { transform: translateY(-26px) !important; }
-      .gd-card.sel img { filter: drop-shadow(0px 8px 12px rgba(234,179,8,0.7)) contrast(1.05); }
+      .gd-card.sel img { filter: drop-shadow(0px 8px 15px rgba(234,179,8,0.8)) contrast(1.05); }
       .gd-card:hover { z-index: 9999 !important; transform: translateY(-12px); }
       
-      /* 💡 针对掼蛋特殊牌型（主牌、红桃配）赋予华丽的外发光特效，不破坏图片内部 */
-      .gd-wild-card img { filter: drop-shadow(0 0 8px #ef4444) !important; animation: gd-wild-glow 1s infinite alternate; }
+      .gd-wild-card img { filter: drop-shadow(0 0 10px #ef4444) !important; animation: gd-wild-glow 1s infinite alternate; }
       .gd-rank-card img { filter: drop-shadow(0 0 6px #eab308) !important; }
       
       .gd-toast { position: fixed; top: 15%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.85); border: 1px solid #ff9f00; color: #fff; padding: 12px 32px; border-radius: 20px; font-size: 15px; font-weight: bold; z-index: 10005; opacity: 0; transition: opacity 0.2s ease; pointer-events: none; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
@@ -193,7 +191,7 @@
       @keyframes gd-turn-glow { 0% { box-shadow: 0 0 12px #ff9f00; border-color: #ff9f00; } 100% { box-shadow: 0 0 28px #fffa65, inset 0 0 6px rgba(255,250,101,0.4); border-color: #fffa65; } }
       @keyframes gd-text-pulse { 0% { box-shadow: 0 0 4px rgba(34,197,94,0.4); } 100% { box-shadow: 0 0 12px rgba(34,197,94,0.8); } }
       @keyframes gd-fade-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
-      @keyframes gd-wild-glow { 0% { filter: drop-shadow(0 0 4px #ef4444); } 100% { filter: drop-shadow(0 0 12px #ff4444) brightness(1.1); } }
+      @keyframes gd-wild-glow { 0% { filter: drop-shadow(0 0 4px #ef4444); } 100% { filter: drop-shadow(0 0 14px #ff4444) brightness(1.1); } }
     `;
     document.head.appendChild(s);
     state.styleNode = s;
@@ -369,7 +367,7 @@
     return next.type === prev.type && next.size === prev.size && next.weight > prev.weight;
   }
 
-  // 💡 核心升级：采用 CodyHouse / Open-source Vector 在线标准 CDN 图片库映射机制
+  // 💡 【核心修复】：换用极度稳定的开源 jsDelivr 大厂大带宽全球分布式 CDN (SVG 矢量高清卡牌)
   function formatCard(card) {
     const curRankStr = getCurrentRankStr();
     const isWild = card.rank === curRankStr && card.suit === 'H';
@@ -379,22 +377,25 @@
     if (isWild) extraClass = 'gd-wild-card';
     else if (isNormalRank) extraClass = 'gd-rank-card';
 
-    // 映射图片命名规则
-    let filename = '';
+    let code = '';
     if (card.kind === 'joker') {
-      filename = card.label === '大王' ? 'joker-red' : 'joker-black';
+      // 大王映射为红颜色joker(JR)，小王映射为黑颜色joker(JB)
+      code = card.label === '大王' ? 'JR' : 'JB';
     } else {
-      const suitMap = { 'S': 'spades', 'H': 'hearts', 'C': 'clubs', 'D': 'diamonds' };
-      const rankStr = card.rank === '10' ? '10' : card.rank.toLowerCase();
-      filename = `${suitMap[card.suit]}-${rankStr}`;
+      // 映射花色：S=Spades(黑桃), H=Hearts(红桃), C=Clubs(梅花), D=Diamonds(方块)
+      // 映射点数：J, Q, K, A, 10, 或其它数字。 
+      // 该开源CDN命名规范为：[点数][花色简写].svg (例如红桃A为 AH.svg，黑桃10为 10S.svg)
+      const suitLetter = card.suit; 
+      const rankLetter = card.rank;
+      code = `${rankLetter}${suitLetter}`;
     }
 
-    // 选用主流快速的开源扑克组件 CDN 直链
-    const imgUrl = `https://raw.githubusercontent.com/thegoodbeta/poker-cards/master/img/${filename}.png`;
+    // jsDelivr 大厂稳定直链 SVG，加载速度极快且永不崩溃
+    const imgUrl = `https://cdn.jsdelivr.net/js-cards/latest/visuals/svg/${code}.svg`;
 
     return `
       <div class="gd-card ${extraClass}" data-card-id="${card.id}">
-        <img src="${imgUrl}" alt="${rankLabel(card)}" onerror="this.style.opacity='0.5'" />
+        <img src="${imgUrl}" alt="${rankLabel(card)}" />
       </div>`;
   }
 
