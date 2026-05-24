@@ -1,6 +1,6 @@
 /**
  * guandan-game.js
- * 掼蛋扑克游戏扩展包 (终极防御：全面解决 DOM 找不到节点导致的 null 报错版)
+ * 掼蛋扑克游戏扩展包 (异步渲染加固：确保手牌与操作按钮100%渲染成功版)
  */
 (() => {
   'use strict';
@@ -119,9 +119,10 @@
       .gd-seat.top { top: 30px; left: 50%; transform: translateX(-50%); } 
       .gd-seat.left { left: 40px; top: 40%; transform: translateY(-50%); }
       .gd-seat.right { right: 40px; top: 40%; transform: translateY(-50%); }
-      .gd-seat.bottom { bottom: 180px; left: 50%; transform: translateX(-50%); }
+      .gd-seat.bottom { bottom: 160px; left: 50%; transform: translateX(-50%); width: auto; height: auto; }
       
-      .gd-action-bar { display: none; gap: 20px; justify-content: center; width: auto; margin-bottom: 12px; height: 45px; z-index: 1005; }
+      .gd-action-container { position: fixed; bottom: 155px; left: 50%; transform: translateX(-50%); z-index: 10005; pointer-events: auto; }
+      .gd-action-bar { display: none; gap: 20px; justify-content: center; height: 45px; }
       .gd-action-bar.show { display: flex !important; }
       .gd-action-bar button { border: none; padding: 8px 30px; border-radius: 20px; font-weight: 900; font-size: 16px; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
       .gd-btn-play { background: linear-gradient(180deg, #fff3bf 0%, #fab005 100%); color: #111; }
@@ -138,9 +139,9 @@
       .gd-trick { display: flex; justify-content: center; align-items: center; width: 100%; min-height: 120px; }
       .gd-trick-empty { font-size: 15px; color: rgba(255,255,255,0.2); font-weight: bold; }
       
-      .gd-hand { display: flex; align-items: flex-end; justify-content: center; min-height: 140px; width: 95vw; position: fixed; bottom: 15px; left: 50%; transform: translateX(-50%); z-index: 1000; }
+      .gd-hand { display: flex; align-items: flex-end; justify-content: center; min-height: 140px; width: 95vw; position: fixed; bottom: 15px; left: 50%; transform: translateX(-50%); z-index: 10000; pointer-events: auto; }
       
-      .gd-card { width: ${CARD_W}px; height: 118px; position: relative; background: #ffffff; border-radius: 8px; box-shadow: -3px 3px 6px rgba(0,0,0,0.3); margin-left: -50px; transition: transform 0.1s ease; color: #000; border: 1px solid #bbb; overflow: hidden; }
+      .gd-card { width: ${CARD_W}px; height: 118px; position: relative; background: #ffffff; border-radius: 8px; box-shadow: -3px 3px 6px rgba(0,0,0,0.3); margin-left: -50px; transition: transform 0.1s ease; color: #000; border: 1px solid #bbb; overflow: hidden; cursor: pointer; }
       .gd-card:first-child { margin-left: 0 !important; }
       .gd-trick .gd-card { margin-left: -45px; box-shadow: -4px 4px 10px rgba(0,0,0,0.4); }
       .gd-trick .gd-card:first-child { margin-left: 0 !important; }
@@ -160,6 +161,35 @@
     `;
     document.head.appendChild(s);
     state.styleNode = s;
+  }
+
+  // 🌟 核心升级：将按钮区和手牌区提升至独立全局容器，避开复杂的座位嵌套
+  function createShell() {
+    const root = document.createElement('div');
+    root.id = ROOT_ID;
+    root.innerHTML = `
+      <div class="gd-header">
+        <div class="gd-header-info">当前主级: 打 <span data-gd-rank>${state.currentRank}</span> | 桌上牌型: <span data-gd-move>—</span></div>
+        <button class="gd-exit-btn" data-gd-exit>退出沙箱</button>
+      </div>
+      <div class="gd-arena">
+        <div class="gd-seat top" data-gd-seat="2"></div>
+        <div class="gd-seat left" data-gd-seat="3"></div>
+        <div class="gd-seat right" data-gd-seat="1"></div>
+        <div class="gd-center-table"><div class="gd-trick" data-gd-trick></div></div>
+        <div class="gd-seat bottom" data-gd-seat="0"></div>
+      </div>
+      <div class="gd-action-container">
+        <div class="gd-action-bar" data-gd-action-bar>
+          <button class="gd-btn-play" data-gd-play>出 牌</button>
+          <button class="gd-btn-pass" data-gd-pass>过 牌</button>
+          <button class="gd-btn-sort" data-gd-sort>整 理</button>
+        </div>
+      </div>
+      <div class="gd-hand" data-gd-hand></div>
+      <div class="gd-toast" data-gd-toast></div>
+    `;
+    return root;
   }
 
   function makeDeck() {
@@ -272,33 +302,6 @@
       </div>`;
   }
 
-  function createShell() {
-    const root = document.createElement('div');
-    root.id = ROOT_ID;
-    root.innerHTML = `
-      <div class="gd-header">
-        <div class="gd-header-info">当前主级: 打 <span data-gd-rank>${state.currentRank}</span> | 桌上牌型: <span data-gd-move>—</span></div>
-        <button class="gd-exit-btn" data-gd-exit>退出沙箱</button>
-      </div>
-      <div class="gd-arena">
-        <div class="gd-seat top" data-gd-seat="2"></div>
-        <div class="gd-seat left" data-gd-seat="3"></div>
-        <div class="gd-seat right" data-gd-seat="1"></div>
-        <div class="gd-center-table"><div class="gd-trick" data-gd-trick></div></div>
-        <div class="gd-seat bottom" data-gd-seat="0">
-          <div class="gd-action-bar" data-gd-action-bar>
-            <button class="gd-btn-play" data-gd-play>出 牌</button>
-            <button class="gd-btn-pass" data-gd-pass>过 牌</button>
-            <button class="gd-btn-sort" data-gd-sort>整 理</button>
-          </div>
-          <div class="gd-hand" data-gd-hand></div>
-        </div>
-      </div>
-      <div class="gd-toast" data-gd-toast></div>
-    `;
-    return root;
-  }
-
   function renderSeats() {
     if (!state.root) return;
     SEATS.forEach((seat, idx) => {
@@ -316,7 +319,6 @@
     });
   }
 
-  // 🌟 终极防御：全面进行空指针安全拦截，绝不发生 innerHTML of null 崩溃
   function renderTable() {
     const root = document.getElementById(ROOT_ID) || state.root;
     if (!root) return; 
@@ -508,22 +510,26 @@
     state.root = newShell; 
 
     state.players = SEATS.map((seat) => ({ ...seat, hand: [] }));
-    startNewRound();
-    bindHandInteraction();
     
-    const playBtn = newShell.querySelector('[data-gd-play]');
-    const passBtn = newShell.querySelector('[data-gd-pass]');
-    const sortBtn = newShell.querySelector('[data-gd-sort]');
-    const exitBtn = newShell.querySelector('[data-gd-exit]');
+    // 🌟 解决异步的关键：等待浏览器将DOM层渲染完后的下一帧，再进行发牌和绑定
+    setTimeout(() => {
+      startNewRound();
+      bindHandInteraction();
+      
+      const playBtn = newShell.querySelector('[data-gd-play]');
+      const passBtn = newShell.querySelector('[data-gd-pass]');
+      const sortBtn = newShell.querySelector('[data-gd-sort]');
+      const exitBtn = newShell.querySelector('[data-gd-exit]');
 
-    if (playBtn) on(playBtn, 'click', () => { playGDSound('click'); humanPlay(); });
-    if (passBtn) on(passBtn, 'click', () => { playGDSound('click'); if(state.trick) passTurn(0); });
-    if (sortBtn) on(sortBtn, 'click', () => { 
-      playGDSound('click'); state.players[0].hand = sortCards(state.players[0].hand); renderTable(); 
-    });
-    if (exitBtn) on(exitBtn, 'click', () => { playGDSound('click'); destroy(); });
+      if (playBtn) on(playBtn, 'click', () => { playGDSound('click'); humanPlay(); });
+      if (passBtn) on(passBtn, 'click', () => { playGDSound('click'); if(state.trick) passTurn(0); });
+      if (sortBtn) on(sortBtn, 'click', () => { 
+        playGDSound('click'); state.players[0].hand = sortCards(state.players[0].hand); renderTable(); 
+      });
+      if (exitBtn) on(exitBtn, 'click', () => { playGDSound('click'); destroy(); });
 
-    state.timer = setInterval(triggerAIMove, 200);
+      state.timer = setInterval(triggerAIMove, 200);
+    }, 50);
   }
   
   function bindLaunchButton() {
