@@ -1,6 +1,6 @@
 /**
  * guandan-game.js
- * 掼蛋扑克游戏扩展包 (豪华视觉美化 + 右键出牌 + 正宗掼蛋规则版)
+ * 掼蛋扑克游戏扩展包 (控制台上下置换 + 四方高光按钮 + 原站出牌提醒版)
  */
 (() => {
   'use strict';
@@ -12,7 +12,7 @@
 
   const ROOT_ID = 'guandan-game-container';
   const STYLE_ID = 'gd-style';
-  const CARD_W = 84; // 稍微拉宽卡面，更显大气
+  const CARD_W = 84; 
   
   const GD_SUITS = [
     { key: 'S', symbol: GD_ICON_SUITS.SPADE, color: 'black' },
@@ -21,7 +21,6 @@
     { key: 'D', symbol: GD_ICON_SUITS.DIAMOND, color: 'red' },
   ];
   
-  // 严格执行初始从2开始打的正确级数顺序
   const RANKS = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
   const BASE_RANK_VALUE = Object.fromEntries(RANKS.map((r, i) => [r, i + 2]));
 
@@ -34,7 +33,7 @@
 
   const state = {
     gameMode: 'SINGLE_PLAYER',
-    currentRankIndex: 0, // 默认打 2
+    currentRankIndex: 0, 
     currentTurn: 0,
     selected: new Set(),
     players: [],
@@ -64,7 +63,7 @@
     if (card.kind === 'joker') return card.value;
     const curRankStr = getCurrentRankStr();
     if (card.rank === curRankStr) {
-      return card.suit === 'H' ? 15.5 : 14.5; // 红心级牌万能配牌
+      return card.suit === 'H' ? 15.5 : 14.5; 
     }
     return BASE_RANK_VALUE[card.rank];
   }
@@ -137,23 +136,24 @@
       .gd-seat.right { right: 40px; top: 40%; transform: translateY(-50%); }
       .gd-seat.bottom { bottom: 20px; left: 50%; transform: translateX(-50%); width: auto; display: flex; flex-direction: column; align-items: center; }
       
-      /* ⏱ 时钟面板还原：精致绿光黑底 */
-      .gd-clock-panel { display: none; background: #000000; padding: 6px 16px; border-radius: 20px; border: 2px solid #22c55e; margin-bottom: 12px; font-size: 15px; font-weight: bold; align-items: center; gap: 8px; box-shadow: 0 0 10px rgba(34,197,94,0.5); color: #22c55e; }
-      .gd-clock-panel.show { display: flex; }
-      .gd-clock-icon { color: #22c55e; animation: gd-pulse 1s infinite; font-size: 16px; }
-      
-      /* 🔘 完美还原：高光微扁平质感的独立控制台按钮 */
-      .gd-action-bar { display: none; gap: 16px; justify-content: center; height: 38px; margin-bottom: 14px; z-index: 10005; }
+      /* 🔘 完美优化：悬浮在时钟上方的【四方、扁平高光、加大间隔】按钮 */
+      .gd-action-bar { display: none; gap: 24px; justify-content: center; height: 38px; margin-bottom: 12px; z-index: 10005; }
       .gd-action-bar.show { display: flex !important; }
-      .gd-action-bar button { border: 1px solid rgba(255,255,255,0.2); padding: 0 28px; border-radius: 19px; font-weight: 900; font-size: 15px; cursor: pointer; box-shadow: 0 4px 8px rgba(0,0,0,0.4); text-shadow: 0 1px 2px rgba(0,0,0,0.6); transition: transform 0.1s; }
-      .gd-action-bar button:active { transform: scale(0.95); }
-      .gd-btn-play { background: linear-gradient(180deg, #4ade80 0%, #16a34a 100%); color: white; }
+      .gd-action-bar button { border: 1px solid rgba(255,255,255,0.25); padding: 0 32px; border-radius: 4px; font-weight: 900; font-size: 15px; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.3), inset 0 12px 12px rgba(255,255,255,0.25); text-shadow: 0 1px 2px rgba(0,0,0,0.6); transition: all 0.1s; }
+      .gd-action-bar button:active { transform: translateY(1px); box-shadow: 0 2px 4px rgba(0,0,0,0.4); }
+      .gd-btn-play { background: linear-gradient(180deg, #34d399 0%, #059669 100%); color: white; }
       .gd-btn-pass { background: linear-gradient(180deg, #94a3b8 0%, #475569 100%); color: white; }
-      .gd-btn-sort { background: linear-gradient(180deg, #06b6d4 0%, #0891b2 100%); color: white; }
-      .gd-action-bar button:disabled { background: linear-gradient(180deg, #475569 0%, #334155 100%) !important; color: #94a3b8 !important; cursor: not-allowed; box-shadow: none; text-shadow: none; opacity: 0.6; }
+      .gd-btn-sort { background: linear-gradient(180deg, #22d3ee 0%, #0891b2 100%); color: white; }
+      .gd-action-bar button:disabled { background: linear-gradient(180deg, #475569 0%, #334155 100%) !important; color: #94a3b8 !important; cursor: not-allowed; box-shadow: none; text-shadow: none; opacity: 0.55; inset: none; }
       
-      .gd-player-info { background: rgba(5,20,10,0.85); padding: 8px 18px; border-radius: 12px; text-align: center; min-width: 130px; border: 1px solid rgba(255,255,255,0.15); box-shadow: 0 4px 10px rgba(0,0,0,0.4); }
-      .gd-player-info.active { border-color: #FFD700; box-shadow: 0 0 15px rgba(255, 215, 0, 0.3); }
+      /* ⏱ 时钟面板：完美被按钮悬浮压在下方 */
+      .gd-clock-panel { display: none; background: #000000; padding: 5px 16px; border-radius: 20px; border: 2px solid #22c55e; margin-bottom: 14px; font-size: 14px; font-weight: bold; align-items: center; gap: 6px; box-shadow: 0 0 12px rgba(34,197,94,0.6); color: #22c55e; }
+      .gd-clock-panel.show { display: flex; }
+      .gd-clock-icon { color: #22c55e; animation: gd-pulse 1s infinite; font-size: 15px; }
+      
+      /* 👤 恢复并加强：当前出牌玩家的框体发光提醒功能 */
+      .gd-player-info { background: rgba(5,20,10,0.85); padding: 8px 18px; border-radius: 12px; text-align: center; min-width: 130px; border: 1px solid rgba(255,255,255,0.15); box-shadow: 0 4px 10px rgba(0,0,0,0.4); transition: all 0.2s ease-in-out; }
+      .gd-player-info.active { border-color: #ff9f00; background: rgba(30,60,35,0.95); box-shadow: 0 0 25px #ff9f00, inset 0 0 10px rgba(255,159,0,0.5); animation: gd-turn-glow 1.4s ease-in-out infinite alternate; }
       .gd-player-name { font-weight: bold; font-size: 14px; color: #fff; }
       .gd-player-detail { font-size: 12px; color: #FFD700; margin-top: 2px; }
       
@@ -161,28 +161,22 @@
       .gd-trick { display: flex; justify-content: center; align-items: center; width: 100%; min-height: 125px; }
       .gd-trick-empty { font-size: 14px; color: rgba(255,255,255,0.2); font-weight: bold; }
       
-      /* 🂠 手牌排版优化：微立体卡面与精美错位 */
       .gd-hand { display: flex; align-items: flex-end; justify-content: center; min-height: 130px; width: auto; max-width: 96vw; pointer-events: auto; margin-top: 6px; padding: 4px; }
       
-      /* ✨ 参照高级扑克界面深度美化的卡片样式 */
       .gd-card { width: ${CARD_W}px; height: 122px; position: relative; background: #ffffff; border-radius: 8px; box-shadow: -4px 4px 8px rgba(0,0,0,0.35), inset 0 -4px 8px rgba(0,0,0,0.05); margin-left: -54px; transition: transform 0.15s cubic-bezier(0.2, 0.8, 0.2, 1); color: #000; border: 1px solid #c5c5c5; overflow: hidden; cursor: pointer; }
       .gd-card:first-child { margin-left: 0 !important; }
       .gd-trick .gd-card { margin-left: -48px; box-shadow: -4px 4px 10px rgba(0,0,0,0.4); }
       .gd-trick .gd-card:first-child { margin-left: 0 !important; }
       
-      /* 选中向上弹出 */
       .gd-card.sel { transform: translateY(-26px) !important; border: 2px solid #eab308 !important; box-shadow: 0 8px 16px rgba(234,179,8,0.4); }
       .gd-card:hover { z-index: 9999 !important; transform: translateY(-12px); }
       
-      /* 🔥 逢王配（红心级牌）与普通级牌流光框设计 */
       .gd-wild-card { border: 2px dashed #ef4444 !important; background: #fff8f8 !important; box-shadow: 0 0 10px rgba(239,68,68,0.4); }
       .gd-rank-card { border: 2px solid #eab308 !important; background: #fefce8 !important; }
       
-      /* 花色颜色区分 */
       .gd-card.red { color: #dc2626; }
       .gd-card.black { color: #1e293b; }
       
-      /* 扑克内衬排版 */
       .gd-card .corner { position: absolute; font-size: 17px; line-height: 1.0; padding: 5px; display: flex; flex-direction: column; align-items: center; font-weight: 800; font-family: 'Georgia', sans-serif; }
       .gd-card .tl { top: 2px; left: 2px; }
       .gd-card .br { bottom: 2px; right: 2px; transform: rotate(180deg); }
@@ -191,6 +185,8 @@
       .gd-toast { position: fixed; top: 15%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.85); border: 1px solid #ff9f00; color: #fff; padding: 12px 32px; border-radius: 20px; font-size: 15px; font-weight: bold; z-index: 10005; opacity: 0; transition: opacity 0.2s ease; pointer-events: none; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
       
       @keyframes gd-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+      /* 💡 提醒呼吸动画 */
+      @keyframes gd-turn-glow { 0% { box-shadow: 0 0 10px #ff9f00; } 100% { box-shadow: 0 0 25px #fffa65, inset 0 0 4px rgba(255,250,101,0.4); } }
     `;
     document.head.appendChild(s);
     state.styleNode = s;
@@ -211,14 +207,14 @@
         <div class="gd-center-table"><div class="gd-trick" data-gd-trick></div></div>
         
         <div class="gd-seat bottom">
-          <div class="gd-clock-panel" data-gd-clock-panel>
-            <span class="gd-clock-icon">⏱</span>
-            <span data-gd-clock-time>20s</span>
-          </div>
           <div class="gd-action-bar" data-gd-action-bar>
             <button class="gd-btn-play" data-gd-play>出 牌</button>
             <button class="gd-btn-pass" data-gd-pass>过 牌</button>
             <button class="gd-btn-sort" data-gd-sort>整 理</button>
+          </div>
+          <div class="gd-clock-panel" data-gd-clock-panel>
+            <span class="gd-clock-icon">⏱</span>
+            <span data-gd-clock-time>20s</span>
           </div>
           <div class="gd-player-info" data-gd-seat="0" style="margin-bottom:6px;"></div>
           <div class="gd-hand" data-gd-hand></div>
@@ -581,13 +577,11 @@
     playCards(0, cards);
   }
 
-  // 🤝 核心恢复：支持手牌单选以及【右键快捷自动出牌】
   function bindHandInteraction() {
     const container = document.getElementById(ROOT_ID);
     const hand = container?.querySelector('[data-gd-hand]');
     if (!hand) return;
 
-    // 左键：选择/取消选择牌
     on(hand, 'click', (e) => {
       const card = e.target.closest('.gd-card');
       if (!card || state.currentTurn !== 0) return;
@@ -597,12 +591,10 @@
       renderTable();
     });
 
-    // 右键：拦截系统菜单，自动击出当前选中的手牌组合
     on(hand, 'contextmenu', (e) => {
-      e.preventDefault(); // 阻止默认右键菜单
+      e.preventDefault(); 
       if (state.currentTurn !== 0) return;
       
-      // 如果右键点在某个没选中的牌上，自动先把它选中
       const card = e.target.closest('.gd-card');
       if (card) {
         const id = card.getAttribute('data-card-id');
@@ -611,8 +603,6 @@
           renderTable();
         }
       }
-      
-      // 执行出牌命令
       humanPlay();
     });
   }
@@ -637,7 +627,7 @@
     const selection = document.getElementById('game-selection');
     if (selection) selection.style.display = 'none';
 
-    state.currentRankIndex = 0; // 锁定初始打 2 规则
+    state.currentRankIndex = 0; 
     finishOrder = [];
 
     const newShell = createShell();
