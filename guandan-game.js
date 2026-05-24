@@ -1,6 +1,6 @@
 /**
  * guandan-game.js
- * 掼蛋扑克游戏扩展包 (控制台上下置换 + 四方高光按钮 + 修复跑光后死循环与报错版)
+ * 掼蛋扑克游戏扩展包 (控制台上下置换 + 四方高光按钮 + 完美恢复原站出牌玩家发光提醒版)
  */
 (() => {
   'use strict';
@@ -149,10 +149,13 @@
       .gd-clock-panel.show { display: flex; }
       .gd-clock-icon { color: #22c55e; animation: gd-pulse 1s infinite; font-size: 15px; }
       
-      .gd-player-info { background: rgba(5,20,10,0.85); padding: 8px 18px; border-radius: 12px; text-align: center; min-width: 130px; border: 1px solid rgba(255,255,255,0.15); box-shadow: 0 4px 10px rgba(0,0,0,0.4); transition: all 0.2s ease-in-out; }
+      /* 👤 核心恢复：当前出牌玩家的框体发光提醒样式与呼吸动画 */
+      .gd-player-info { background: rgba(5,20,10,0.85); padding: 8px 18px; border-radius: 12px; text-align: center; min-width: 130px; border: 2px solid rgba(255,255,255,0.15); box-shadow: 0 4px 10px rgba(0,0,0,0.4); transition: all 0.2s ease-in-out; }
       .gd-player-info.active { border-color: #ff9f00; background: rgba(30,60,35,0.95); box-shadow: 0 0 25px #ff9f00, inset 0 0 10px rgba(255,159,0,0.5); animation: gd-turn-glow 1.4s ease-in-out infinite alternate; }
       .gd-player-name { font-weight: bold; font-size: 14px; color: #fff; }
+      .gd-player-info.active .gd-player-name { color: #fff; text-shadow: 0 0 8px #ff9f00; }
       .gd-player-detail { font-size: 12px; color: #FFD700; margin-top: 2px; }
+      .gd-player-info.active .gd-player-detail { color: #fffa65; font-weight: bold; }
       
       .gd-center-table { position: absolute; width: 520px; height: 230px; border: 2px dashed rgba(255,255,255,0.12); border-radius: 115px; display: flex; flex-direction: column; justify-content: center; align-items: center; background: rgba(0,0,0,0.1); }
       .gd-trick { display: flex; justify-content: center; align-items: center; width: 100%; min-height: 125px; }
@@ -182,7 +185,7 @@
       .gd-toast { position: fixed; top: 15%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.85); border: 1px solid #ff9f00; color: #fff; padding: 12px 32px; border-radius: 20px; font-size: 15px; font-weight: bold; z-index: 10005; opacity: 0; transition: opacity 0.2s ease; pointer-events: none; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
       
       @keyframes gd-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
-      @keyframes gd-turn-glow { 0% { box-shadow: 0 0 10px #ff9f00; } 100% { box-shadow: 0 0 25px #fffa65, inset 0 0 4px rgba(255,250,101,0.4); } }
+      @keyframes gd-turn-glow { 0% { box-shadow: 0 0 12px #ff9f00; border-color: #ff9f00; } 100% { box-shadow: 0 0 28px #fffa65, inset 0 0 6px rgba(255,250,101,0.4); border-color: #fffa65; } }
     `;
     document.head.appendChild(s);
     state.styleNode = s;
@@ -373,7 +376,6 @@
   function renderSeats() {
     if (!state.root) return;
     SEATS.forEach((seat, idx) => {
-      // 针对南家采用精准包裹层，防范 innerHTML 清空导致的控制栏崩溃
       const seatNode = (idx === 0) 
         ? state.root.querySelector('[data-gd-player-zone]')
         : state.root.querySelector(`[data-gd-seat="${idx}"]`);
@@ -381,6 +383,8 @@
       if (!seatNode) return;
       const p = state.players[idx];
       if (!p) return;
+      
+      // ✨ 极其精准的高光核心：只要当前转到谁，谁的 active 属性就立刻生效，激活外圈金光呼吸灯
       const isActive = state.currentTurn === idx && state.active;
       const cardCount = p.hand ? p.hand.length : 0;
       
@@ -451,7 +455,6 @@
     }
   }
 
-  // 核心修复算法：找到下一个应当有权出牌的玩家，彻底终结跑光导致的无限死循环
   function findNextTurn(current) {
     let next = current;
     for (let i = 0; i < 4; i++) {
@@ -483,10 +486,8 @@
     
     if (checkGameOver()) return true;
 
-    // 跑光传递逻辑：如果下一个要接牌的人出光了，继续向下传
     let nextTurn = findNextTurn(seat);
 
-    // 如果转了一圈又回到出牌人（或者出牌人的队友），且他们已经跑光，则清除桌面的接牌权，由剩下的未出光者重新任意出牌
     if (state.trick && (state.trick.seat === nextTurn || state.players[state.trick.seat].hand.length === 0)) {
       state.trick = null;
     }
@@ -502,11 +503,9 @@
     if (!state.active) return;
     let nextTurn = findNextTurn(seat);
     
-    // 如果全部人都不要或者全跑光了，导致接牌者回到了最大牌者的座位
     if (state.trick && state.trick.seat === nextTurn) {
       state.trick = null;
     }
-    // 边界漏洞补充：如果最大出牌人已经出光走了，别人全过牌了，把出牌权让给接牌人的下一个未出光者
     if (state.trick && state.players[state.trick.seat].hand.length === 0) {
       if (nextTurn === state.trick.seat) {
         state.trick = null;
@@ -520,12 +519,9 @@
     startCountdown();
   }
 
-  // 核心修复算法：全面重构掼蛋阵营和双下判定，防止游戏无法退出
   function checkGameOver() {
     const team0Alive = state.players[0].hand.length > 0 || state.players[2].hand.length > 0;
     const team1Alive = state.players[1].hand.length > 0 || state.players[3].hand.length > 0;
-
-    // 只要有一方阵营的所有人全部跑光，或者场上剩下的人数已经不足以组合（只剩 1 个人有牌）
     const aliveCount = state.players.filter(p => p.hand.length > 0).length;
 
     if (!team0Alive || !team1Alive || aliveCount <= 1) {
