@@ -1,7 +1,7 @@
 /**
- * guandan-game.js (Version 2.1 - 稳定触控全屏版)
+ * guandan-game.js (Version 3.0 - 移动端全屏触控完美版)
  * 掼蛋扑克游戏扩展包
- * 【修复：点击选牌失效、全屏自动隐藏地址栏、重构出牌区防遮挡布局】
+ * 【已修复：底层初始化 null 报错、操作按钮压牌遮挡、移动端全屏地址栏自动隐藏】
  */
 (() => {
   'use strict';
@@ -14,8 +14,8 @@
   const ROOT_ID = 'guandan-game-container';
   const STYLE_ID = 'gd-style';
   
-  // 基础卡牌尺寸，移动端由 CSS 动态等比缩放
-  const CARD_W = 85; 
+  // 基础卡牌尺寸，移动端由 CSS 动态响应式等比缩放
+  const CARD_W = 74; 
   
   const GD_SUITS = [
     { key: 'S', symbol: GD_ICON_SUITS.SPADE, color: 'black' },
@@ -130,9 +130,10 @@
         top: 0; left: 0; right: 0; bottom: 0;
         width: 100vw;
         height: 100vh;
-        height: 100dvh; /* 动态响应视口，防止因地址栏弹出导致变形 */
+        height: -webkit-fill-available;
+        height: 100dvh; /* 绝杀：锁死动态视口，防因地址栏弹出导致变形 */
         z-index: 9999; 
-        background: radial-gradient(circle at center, #124d24 0%, #051a0d 100%); 
+        background: radial-gradient(circle at center, #114721 0%, #04140a 100%); 
         color: #f5f7f4; 
         font-family: system-ui, -apple-system, sans-serif; 
         display: flex; 
@@ -144,117 +145,111 @@
       }
       #${ROOT_ID} * { box-sizing: border-box; margin: 0; padding: 0; }
       
-      .gd-header { position: absolute; top: 0; left: 0; right: 0; display: flex; justify-content: space-between; align-items: center; padding: 10px 16px; z-index: 1010; pointer-events: none; }
-      .gd-header-info { background: rgba(0,0,0,0.65); padding: 5px 14px; border-radius: 20px; border: 1px solid rgba(255,215,0,0.35); font-size: 12px; font-weight: bold; pointer-events: auto; box-shadow: 0 3px 10px rgba(0,0,0,0.4); backdrop-filter: blur(4px); }
+      .gd-header { position: absolute; top: 0; left: 0; right: 0; display: flex; justify-content: space-between; align-items: center; padding: 8px 14px; z-index: 1010; pointer-events: none; }
+      .gd-header-info { background: rgba(0,0,0,0.7); padding: 4px 12px; border-radius: 20px; border: 1px solid rgba(255,215,0,0.3); font-size: 11px; font-weight: bold; pointer-events: auto; backdrop-filter: blur(4px); }
       .gd-header-info span { color: #FFD700; font-weight: bold; margin: 0 3px; }
-      .gd-exit-btn { background: linear-gradient(180deg, #ff5252 0%, #c92a2a 100%); color: white; border: none; padding: 5px 12px; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 12px; pointer-events: auto; box-shadow: 0 3px 8px rgba(0,0,0,0.3); }
+      .gd-exit-btn { background: linear-gradient(180deg, #ff4d4d 0%, #c22525 100%); color: white; border: none; padding: 4px 10px; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 11px; pointer-events: auto; box-shadow: 0 2px 6px rgba(0,0,0,0.3); }
       
       .gd-arena { position: relative; flex: 1; display: flex; justify-content: center; align-items: center; width: 100%; height: 100%; padding: 0; }
       
       .gd-seat { position: absolute; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 50; pointer-events: none; }
-      .gd-seat.top { top: 40px; left: 50%; transform: translateX(-50%); } 
-      .gd-seat.left { left: 16px; top: 42%; transform: translateY(-50%); }
-      .gd-seat.right { right: 16px; top: 42%; transform: translateY(-50%); }
+      .gd-seat.top { top: 32px; left: 50%; transform: translateX(-50%); } 
+      .gd-seat.left { left: 12px; top: 40%; transform: translateY(-50%); }
+      .gd-seat.right { right: 12px; top: 40%; transform: translateY(-50%); }
       .gd-seat.bottom { bottom: 0; left: 0; right: 0; width: 100%; display: flex; flex-direction: column; align-items: center; z-index: 100; pointer-events: none; }
       
-      .gd-action-bar { display: none; gap: 16px; justify-content: center; height: 38px; margin-bottom: 6px; z-index: 105; pointer-events: auto; width: 100%; }
+      /* 操作按钮区重构：移至手牌上方独立空旷区域，永不遮挡出牌区 */
+      .gd-action-bar { display: none; gap: 14px; justify-content: center; height: 34px; margin-bottom: 4px; z-index: 105; pointer-events: auto; width: 100%; }
       .gd-action-bar.show { display: flex !important; }
-      .gd-action-bar button { border: 1px solid rgba(255,255,255,0.3); padding: 0 26px; border-radius: 20px; font-weight: bold; font-size: 14px; cursor: pointer; box-shadow: 0 4px 8px rgba(0,0,0,0.4); text-shadow: 0 1px 2px rgba(0,0,0,0.6); transition: transform 0.1s; -webkit-tap-highlight-color: transparent; }
+      .gd-action-bar button { border: 1px solid rgba(255,255,255,0.2); padding: 0 22px; border-radius: 18px; font-weight: bold; font-size: 13px; cursor: pointer; box-shadow: 0 3px 6px rgba(0,0,0,0.4); text-shadow: 0 1px 2px rgba(0,0,0,0.5); transition: transform 0.1s; -webkit-tap-highlight-color: transparent; }
       .gd-action-bar button:active { transform: scale(0.92); }
       .gd-btn-play { background: linear-gradient(180deg, #10b981 0%, #047857 100%); color: white; border-color: #34d399 !important; }
       .gd-btn-pass { background: linear-gradient(180deg, #64748b 0%, #334155 100%); color: white; }
       .gd-btn-sort { background: linear-gradient(180deg, #06b6d4 0%, #0369a1 100%); color: white; }
-      .gd-action-bar button:disabled { background: linear-gradient(180deg, #334155 0%, #1e293b 100%) !important; color: #64748b !important; cursor: not-allowed; box-shadow: none; text-shadow: none; opacity: 0.5; border-color: transparent !important; }
+      .gd-action-bar button:disabled { background: linear-gradient(180deg, #334155 0%, #1e293b 100%) !important; color: #64748b !important; cursor: not-allowed; box-shadow: none; text-shadow: none; opacity: 0.4; border-color: transparent !important; }
       
-      .gd-clock-panel { display: none; background: rgba(0,0,0,0.8); padding: 2px 12px; border-radius: 12px; border: 1px solid #10b981; margin-bottom: 6px; font-size: 12px; font-weight: bold; align-items: center; gap: 4px; color: #10b981; box-shadow: 0 0 10px rgba(16,185,129,0.3); z-index: 104; }
+      /* 倒计时面板：完全移出中央，挪到操作栏右边挂载 */
+      .gd-clock-panel { display: none; background: rgba(0,0,0,0.85); padding: 2px 10px; border-radius: 10px; border: 1px solid #10b981; margin-bottom: 4px; font-size: 11px; font-weight: bold; align-items: center; gap: 4px; color: #10b981; z-index: 104; }
       .gd-clock-panel.show { display: flex; }
-      .gd-clock-icon { color: #10b981; animation: gd-pulse 1s infinite; font-size: 12px; }
+      .gd-clock-icon { color: #10b981; animation: gd-pulse 1s infinite; }
       
-      .gd-player-info { background: rgba(0,10,5,0.7); padding: 4px 10px; border-radius: 8px; text-align: center; min-width: 85px; border: 1px solid rgba(255,255,255,0.12); box-shadow: 0 2px 6px rgba(0,0,0,0.3); }
-      .gd-player-info.active { border-color: #f59e0b; background: rgba(20,40,25,0.85); box-shadow: 0 0 10px #f59e0b; }
+      .gd-player-info { background: rgba(0,10,5,0.75); padding: 3px 8px; border-radius: 6px; text-align: center; min-width: 80px; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 2px 5px rgba(0,0,0,0.3); }
+      .gd-player-info.active { border-color: #f59e0b; background: rgba(15,35,20,0.9); box-shadow: 0 0 8px #f59e0b; }
       .gd-player-name { font-weight: bold; font-size: 11px; color: #fff; }
       .gd-player-detail { font-size: 10px; color: #f59e0b; margin-top: 1px; }
       
-      /* 出牌容器重构：完全独立图层，控高控位，永不跟底部手牌按钮重合 */
+      /* 出牌桌案重构：往屏幕上方提，高度控死，完全解耦 */
       .gd-center-table { 
         position: absolute; 
-        width: 72vw; 
-        height: 42vh; 
-        max-width: 640px; 
-        max-height: 220px; 
-        top: 24%;
+        width: 76vw; 
+        height: 38vh; 
+        max-width: 600px; 
+        max-height: 180px; 
+        top: 22%;
         border: 1px dashed rgba(255,215,0,0.15); 
-        border-radius: 30px; 
+        border-radius: 24px; 
         display: flex; 
         flex-direction: column; 
         justify-content: flex-start; 
         align-items: center; 
         background: rgba(0, 0, 0, 0.2); 
-        padding: 8px 0; 
-        box-shadow: inset 0 0 30px rgba(0,0,0,0.6); 
+        padding: 6px 0; 
         pointer-events: none;
         z-index: 40;
       }
       
-      .gd-center-status-bar { width: auto; max-width: 90%; background: rgba(0, 0, 0, 0.6); padding: 3px 16px; font-size: 11px; font-weight: bold; color: #94a3b8; text-align: center; border-radius: 12px; border: 1px solid rgba(255,255,255,0.06); letter-spacing: 0.5px; }
-      .gd-center-status-bar.my-turn { color: #34d399; animation: gd-text-pulse 1.2s infinite alternate; border-color: rgba(52,211,153,0.3); }
+      .gd-center-status-bar { width: auto; background: rgba(0, 0, 0, 0.6); padding: 2px 12px; font-size: 10px; font-weight: bold; color: #94a3b8; border-radius: 10px; border: 1px solid rgba(255,255,255,0.05); }
+      .gd-center-status-bar.my-turn { color: #34d399; animation: gd-text-pulse 1.2s infinite alternate; border-color: rgba(52,211,153,0.2); }
       
       .gd-trick { display: flex; flex-direction: column; justify-content: center; align-items: center; width: 100%; flex: 1; position: relative; }
-      .gd-trick-cards-wrap { display: flex; justify-content: center; align-items: center; width: 100%; max-height: 110px; padding: 4px 10px; overflow: visible; }
-      .gd-trick-empty { font-size: 12px; color: rgba(255,255,255,0.15); font-weight: bold; margin-top: 25px; letter-spacing: 1px; }
-      .gd-trick-owner { color: #f59e0b; font-size: 11px; font-weight: bold; padding: 2px 12px; text-shadow: 0 1px 3px rgba(0,0,0,0.9); width: 100%; text-align: center; position: absolute; top: 0; }
+      .gd-trick-cards-wrap { display: flex; justify-content: center; align-items: center; width: 100%; max-height: 90px; padding: 2px 8px; overflow: visible; }
+      .gd-trick-empty { font-size: 11px; color: rgba(255,255,255,0.15); font-weight: bold; margin-top: 15px; }
+      .gd-trick-owner { color: #f59e0b; font-size: 10px; font-weight: bold; width: 100%; text-align: center; position: absolute; top: 0; }
       
-      /* 手牌容器：保障触摸事件畅通无阻 */
-      .gd-hand { display: flex; align-items: flex-end; justify-content: center; min-height: 95px; width: 100%; max-width: 100vw; pointer-events: auto; padding: 2px 12px 6px 12px; z-index: 110; overflow: visible; }
+      /* 用户手牌区：保障事件通畅 */
+      .gd-hand { display: flex; align-items: flex-end; justify-content: center; min-height: 85px; width: 100%; max-width: 100vw; pointer-events: auto; padding: 0 10px 4px 10px; z-index: 110; overflow: visible; }
       
-      /* 用户手牌尺寸 */
-      .gd-card { width: ${CARD_W}px; height: 112px; position: relative; margin-left: -61px; transition: transform 0.15s cubic-bezier(0.18, 0.9, 0.22, 1); border-radius: 6px; cursor: pointer; transform-origin: bottom center; }
+      /* 精准控制手牌缩进，保障27张牌也能收纳在屏幕内不溢出 */
+      .gd-card { width: ${CARD_W}px; height: 100px; position: relative; margin-left: -54px; transition: transform 0.12s ease-out; border-radius: 5px; cursor: pointer; transform-origin: bottom center; }
       .gd-card:first-child { margin-left: 0 !important; }
-      .gd-card img { width: 100%; height: 100%; object-fit: fill; pointer-events: none; filter: drop-shadow(-2px 2px 3px rgba(0,0,0,0.35)); }
+      .gd-card img { width: 100%; height: 100%; object-fit: fill; pointer-events: none; filter: drop-shadow(-2px 2px 3px rgba(0,0,0,0.3)); }
       
-      /* 出牌区卡牌：极其重要的紧凑层叠，多张牌绝不溢出遮挡 */
-      .gd-trick .gd-card { margin-left: -36px; pointer-events: none; height: 74px; width: 53px; box-shadow: 0 2px 5px rgba(0,0,0,0.4) !important; }
+      /* 出牌展示区的缩小卡牌：防止层叠过宽压到两侧座位 */
+      .gd-trick .gd-card { margin-left: -38px; pointer-events: none; height: 72px; width: 52px; box-shadow: 0 2px 4px rgba(0,0,0,0.4) !important; }
       .gd-trick .gd-card:first-child { margin-left: 0 !important; }
       
-      /* 弹起选中高度 */
-      .gd-card.sel { transform: translateY(-18px) !important; }
-      .gd-card.sel img { filter: drop-shadow(0px 4px 8px rgba(245,158,11,0.85)) saturate(1.1); }
+      /* 精准轻触弹起高度 */
+      .gd-card.sel { transform: translateY(-16px) !important; }
+      .gd-card.sel img { filter: drop-shadow(0px 4px 6px rgba(245,158,11,0.8)); }
       
-      .gd-wild-card img { filter: drop-shadow(0 0 8px #ef4444) !important; }
-      .gd-rank-card img { filter: drop-shadow(0 0 5px #f59e0b) !important; }
+      .gd-wild-card img { filter: drop-shadow(0 0 6px #ef4444) !important; }
+      .gd-rank-card img { filter: drop-shadow(0 0 4px #f59e0b) !important; }
       
-      .gd-toast { position: fixed; top: 18%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.85); border: 1px solid #f59e0b; color: #fff; padding: 6px 18px; border-radius: 30px; font-size: 12px; font-weight: bold; z-index: 2000; opacity: 0; transition: opacity 0.2s ease; pointer-events: none; backdrop-filter: blur(4px); box-shadow: 0 4px 12px rgba(0,0,0,0.5); }
+      .gd-toast { position: fixed; top: 16%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.85); border: 1px solid #f59e0b; color: #fff; padding: 4px 14px; border-radius: 20px; font-size: 11px; font-weight: bold; z-index: 2000; opacity: 0; transition: opacity 0.2s; pointer-events: none; }
       
-      /* 强制横屏与引导覆层 */
+      /* 强制横屏与引导层 */
       @media screen and (orientation: portrait) {
         .gd-landscape-tips { display: flex !important; }
       }
       .gd-landscape-tips {
         display: none;
         position: fixed;
-        top: 0; left: 0; right: 0; bottom: 0;
-        width: 100vw; height: 100vh;
-        background: #04140a;
-        z-index: 100000;
-        flex-direction: column;
-        justify-content: center;
-        align-items: center;
-        color: #f59e0b;
-        text-align: center;
-        padding: 24px;
+        inset: 0; width: 100vw; height: 100vh;
+        background: #04140a; z-index: 100000;
+        flex-direction: column; justify-content: center; align-items: center; color: #f59e0b; text-align: center; padding: 20px;
       }
-      .gd-landscape-tips-icon { font-size: 44px; margin-bottom: 16px; animation: gd-rotate-phone 1.8s infinite ease-in-out; }
+      .gd-landscape-tips-icon { font-size: 40px; margin-bottom: 12px; animation: gd-rotate-phone 1.8s infinite ease-in-out; }
 
-      /* 极致低高度刘海屏精细适配 */
-      @media screen and (max-height: 480px) {
-        .gd-card { height: 86px; width: 62px; margin-left: -47px; }
-        .gd-card.sel { transform: translateY(-14px) !important; }
-        .gd-trick .gd-card { height: 58px; width: 42px; margin-left: -26px; }
-        .gd-center-table { top: 18%; height: 38vh; max-height: 165px; }
-        .gd-hand { min-height: 72px; padding-bottom: 2px; }
-        .gd-seat.top { top: 36px; }
-        .gd-action-bar { height: 34px; margin-bottom: 3px; }
-        .gd-action-bar button { font-size: 12px; padding: 0 20px; }
+      /* 针对小屏幕/极端矮高刘海屏机型进行微调 */
+      @media screen and (max-height: 460px) {
+        .gd-card { height: 78px; width: 56px; margin-left: -42px; }
+        .gd-card.sel { transform: translateY(-12px) !important; }
+        .gd-trick .gd-card { height: 56px; width: 40px; margin-left: -28px; }
+        .gd-center-table { top: 18%; height: 36vh; }
+        .gd-hand { min-height: 64px; }
+        .gd-seat.top { top: 30px; }
+        .gd-action-bar { height: 30px; margin-bottom: 2px; }
+        .gd-action-bar button { font-size: 11px; padding: 0 16px; }
       }
 
       @keyframes gd-rotate-phone {
@@ -263,7 +258,7 @@
         100% { transform: rotate(0deg); }
       }
       @keyframes gd-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
-      @keyframes gd-text-pulse { 0% { text-shadow: 0 0 2px rgba(52,211,153,0.3); } 100% { text-shadow: 0 0 8px rgba(52,211,153,0.8); } }
+      @keyframes gd-text-pulse { 0% { text-shadow: 0 0 2px rgba(52,211,153,0.2); } 100% { text-shadow: 0 0 6px rgba(52,211,153,0.7); } }
     `;
     document.head.appendChild(s);
     state.styleNode = s;
@@ -275,9 +270,9 @@
     root.innerHTML = `
       <div class="gd-landscape-tips" id="gd-landscape-tips">
         <div class="gd-landscape-tips-icon">🔄</div>
-        <h3 style="font-size:18px;">请旋转手机至横屏模式</h3>
-        <p style="color: #94a3b8; font-size:13px; margin-top:8px;">推荐开启系统自动旋转，横屏即可享受全屏对局</p>
-        <button id="gd-fullscreen-trigger" style="margin-top: 18px; padding: 8px 22px; background: #10b981; border:none; color:white; font-weight:bold; border-radius:20px; font-size:13px; box-shadow: 0 4px 10px rgba(0,0,0,0.3); pointer-events:auto;">进入全屏对局</button>
+        <h3 style="font-size:16px;">请旋转手机至横屏模式</h3>
+        <p style="color: #94a3b8; font-size:12px; margin-top:6px;">推荐开启系统自动旋转，横屏即可享受全屏对局</p>
+        <button id="gd-fullscreen-trigger" style="margin-top: 15px; padding: 6px 18px; background: #10b981; border:none; color:white; font-weight:bold; border-radius:15px; font-size:12px; box-shadow: 0 3px 8px rgba(0,0,0,0.3); pointer-events:auto;">进入全屏对局</button>
       </div>
 
       <div class="gd-header">
@@ -418,7 +413,7 @@
     if (n === 1) return { type: '单张', weight: values[0], size: 1 };
     if (n === 2 && (allSame || wildCount === 1)) return { type: '对子', weight: values[0], size: 2 };
     if (n === 3 && (allSame || wildCount >= 1)) return { type: '三张', weight: values[0], size: 3 };
-    if (n >= 4 && (allSame || (counts.length <= 2 && wildCount >= 1))) return { type: '炸弹', weight: values[0 * 100] + n, size: n };
+    if (n >= 4 && (allSame || (counts.length <= 2 && wildCount >= 1))) return { type: '炸弹', weight: values[0] + n, size: n };
     if (n === 5 && rankSeq(values) && sameSuit(cards)) return { type: '同花顺', weight: values[0], size: 5 };
     if (n === 4 && cards.every((c) => c.kind === 'joker')) return { type: '天王炸', weight: 9999, size: 4 };
     if (n >= 5 && rankSeq(values) && values.every((v) => v < 16)) return { type: '顺子', weight: values[0], size: n };
@@ -477,16 +472,15 @@
     return `
       <div class="gd-card ${extraClass}" data-card-id="${card.id}" style="
         background: #ffffff; 
-        border: 1px solid rgba(0,0,0,0.12); 
-        border-radius: 5px; 
-        box-shadow: 0 2px 5px rgba(0,0,0,0.25);
+        border: 1px solid rgba(0,0,0,0.1); 
+        border-radius: 4px; 
         display: flex;
         justify-content: center;
         align-items: center;
         box-sizing: border-box;
         overflow: hidden;
       ">
-        <img src="${imgUrl}" alt="${rankLabel(card)}" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2280%22 height=%22110%22><rect width=%22100%%22 height=%22100%%22 fill=%22white%22 stroke=%22%23ccc%22 stroke-width=%222%22/><text x=%2250%%22 y=%2250%%22 font-size=%2215%22 font-weight=%22bold%22 fill=%22%23333%22 text-anchor=%22middle%22 dominant-baseline=%22middle%22>${rankLabel(card)}</text></svg>'" />
+        <img src="${imgUrl}" alt="${rankLabel(card)}" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2280%22 height=%22110%22><rect width=%22100%%22 height=%22100%%22 fill=%22white%22 stroke=%22%23ccc%22 stroke-width=%222%22/><text x=%2250%%22 y=%2250%%22 font-size=%2214%22 font-weight=%22bold%22 fill=%22%23333%22 text-anchor=%22middle%22 dominant-baseline=%22middle%22>${rankLabel(card)}</text></svg>'" />
       </div>`;
   }
 
@@ -506,8 +500,8 @@
       
       let rankString = '';
       if (p.rankOutOrder === 1) rankString = '🥇头游';
-      else if (p.rankOutOrder === 2) rankString = '🥈二游';
-      else if (p.rankOutOrder === 3) rankString = '🥉三游';
+      else if (p.rankOutOrder === 2) rankString = '二游';
+      else if (p.rankOutOrder === 3) rankString = '三游';
       else rankString = `剩 ${cardCount} 张`;
 
       seatNode.innerHTML = `
@@ -524,7 +518,7 @@
         centerStatus.className = 'gd-center-status-bar';
         if (state.currentTurn === 0) {
           centerStatus.classList.add('my-turn');
-          centerStatus.textContent = `到你出牌 (可点选或向上滑快速出牌)`;
+          centerStatus.textContent = `到你出牌 (可滑牌快速击出)`;
         } else {
           centerStatus.classList.add('ai-turn');
           centerStatus.textContent = `等待 [ ${activePlayer.name} ]...`;
@@ -551,7 +545,7 @@
         
         trick.innerHTML = `
           <div class="gd-trick-owner">✦ ${pName} 出牌 ✦</div>
-          <div class="gd-trick-cards-wrap" style="margin-top:14px;">${cardsHTML}</div>
+          <div class="gd-trick-cards-wrap" style="margin-top:10px;">${cardsHTML}</div>
         `;
         if (move) move.textContent = `${pName}：${state.lastPlayedTrick.type}`;
       } else {
@@ -752,7 +746,7 @@
   }
 
   // 核心：处理并执行标准沉浸式全屏，隐藏地址栏
-  function execute沉浸式全屏(element) {
+  function executeFullscreen(element) {
     if (!element) return;
     try {
       if (element.requestFullscreen) { element.requestFullscreen(); }
@@ -760,10 +754,10 @@
       else if (element.mozRequestFullScreen) { element.mozRequestFullScreen(); }
       else if (element.msRequestFullscreen) { element.msRequestFullscreen(); }
       
-      // 辅助机制：轻微滚动页面，触发浏览器的隐藏导航栏行为
-      setTimeout(() => { window.scrollTo(0, 1); }, 100);
+      // 辅助机制：轻微滚动，强力迫使iOS/安卓自动收起导航栏
+      setTimeout(() => { window.scrollTo(0, 1); }, 120);
     } catch (e) {
-      console.warn('全屏触发受限或不支持:', e);
+      console.warn('全屏触发受限:', e);
     }
   }
 
@@ -776,11 +770,11 @@
     if (fsBtn) {
       on(fsBtn, 'click', (e) => {
         e.stopPropagation();
-        execute沉浸式全屏(container);
+        executeFullscreen(container);
       });
     }
 
-    // 核心重构：无冲突移动端触控系统
+    // 独立全功能触控，完美分离手势，绝不吃掉点击
     on(hand, 'touchstart', (e) => {
       const touch = e.touches[0];
       state.touchStart.x = touch.clientX;
@@ -794,14 +788,14 @@
       const deltaY = touch.clientY - state.touchStart.y;
       const duration = Date.now() - state.touchStart.time;
 
-      // 1. 识别向上滑动手势（划牌快速出牌）
-      if (deltaY < -40 && Math.abs(deltaX) < 50 && duration < 300) {
+      // 1. 划牌快速出牌手势
+      if (deltaY < -35 && Math.abs(deltaX) < 45 && duration < 260) {
         humanPlay();
         return;
       }
 
-      // 2. 识别轻触事件（精准选牌）
-      if (Math.abs(deltaY) < 8 && Math.abs(deltaX) < 8) {
+      // 2. 精准轻触点选/取消选牌
+      if (Math.abs(deltaY) < 6 && Math.abs(deltaX) < 6) {
         const cardDOM = e.target.closest('.gd-card');
         if (!cardDOM || state.currentTurn !== 0 || !state.active) return;
         
@@ -816,9 +810,8 @@
       }
     });
 
-    // 保留PC鼠标点击支持
     on(hand, 'click', (e) => {
-      if (e.pointerType === 'touch') return; // 阻止移动端重复响应
+      if (e.pointerType === 'touch') return; 
       const cardDOM = e.target.closest('.gd-card');
       if (!cardDOM || state.currentTurn !== 0 || !state.active) return;
       const id = cardDOM.getAttribute('data-card-id');
@@ -837,47 +830,6 @@
       }
       humanPlay();
     });
-  }
-
-  function enterFullscreen(element) {
-    // 确保传入了需要全屏的 DOM 节点（如游戏大容器）
-    const el = element || document.documentElement;
-
-    try {
-      if (el.requestFullscreen) {
-        el.requestFullscreen();
-      } else if (el.webkitRequestFullscreen) { 
-        // 兼容 iOS Safari、旧版 Chrome 及微信
-        el.webkitRequestFullscreen();
-      } else if (el.mozRequestFullScreen) { 
-        // 兼容火狐
-        el.mozRequestFullScreen();
-      } else if (el.msRequestFullscreen) { 
-        // 兼容 IE/Edge
-        el.msRequestFullscreen();
-      }
-      
-      // 辅助机制：轻微滚动页面，强力唤醒部分老旧安卓浏览器的隐藏隐藏地址栏机制
-      setTimeout(() => {
-        window.scrollTo(0, 1);
-      }, 100);
-      
-    } catch (error) {
-      console.warn("当前设备或浏览器流不支持标准全屏 API:", error);
-    }
-  }
-
-  // 【正确的使用姿势】：绑定到用户的点击事件上
-  document.getElementById('go-guandan-btn').addEventListener('click', function() {
-    enterFullscreen(document.getElementById('game-container'));
-  });
-
-  function exitFullscreen() {
-    if (document.exitFullscreen) {
-      document.exitFullscreen().catch(()=>{});
-    } else if (document.webkitExitFullscreen) {
-      document.webkitExitFullscreen().catch(()=>{});
-    }
   }
 
   function destroy() {
@@ -911,8 +863,8 @@
 
     state.players = SEATS.map((seat) => ({ ...seat, hand: [], rankOutOrder: null }));
     
-    // 按钮按下行为触发全屏
-    execute沉浸式全屏(newShell);
+    // 调起环境全屏
+    executeFullscreen(newShell);
 
     setTimeout(() => {
       startNewRound();
@@ -931,20 +883,33 @@
       if (exitBtn) on(exitBtn, 'click', () => { playGDSound('click'); destroy(); });
 
       state.timer = setInterval(triggerAIMove, 200);
-    }, 100);
+    }, 80);
   }
   
-  function bindLaunchButton() {
+  // 防御性安全事件绑定：解决大厅找不到按钮崩溃卡死的问题
+  function secureBindLaunch() {
+    // 方案 1：如果大厅直接存在该按钮，直接挂载
     const btn = document.getElementById('go-guandan-btn');
-    if (!btn) return;
-    btn.onclick = (e) => { e.preventDefault(); init(); };
+    if (btn) {
+      btn.onclick = (e) => { e.preventDefault(); init(); };
+    }
+    
+    // 方案 2：使用全局冒泡委托监听，完美适应任何动态渲染的 UI
+    document.addEventListener('click', (e) => {
+      const target = e.target.closest('#go-guandan-btn');
+      if (target) {
+        e.preventDefault();
+        init();
+      }
+    });
   }
 
-  Object.assign(GD, { init, destroy, startNewRound, playGDSound, injectResponsiveStyles, triggerAIMove });
+  // 导出接口供外部游戏大厅自由调配
+  Object.assign(GD, { init, destroy, startNewRound });
 
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', bindLaunchButton, { once: true });
+    document.addEventListener('DOMContentLoaded', secureBindLaunch, { once: true });
   } else {
-    bindLaunchButton();
+    secureBindLaunch();
   }
 })();

@@ -496,27 +496,6 @@
       .topbar-actions { width: 100%; }
       .topbar-actions .btn { flex: 1 1 0; }
     }
-
-    /* 游戏或应用主容器 */
-    #game-container {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100vw;
-      
-      /* 极致兼容方案：先写传统 100vh，再写高级 dvh 覆盖 */
-      height: 100vh;
-      height: -webkit-fill-available; /* 关键：解决 iOS Safari 底部白边 */
-      height: 100dvh;                 /* 完美适配动态视口 */
-      
-      overflow: hidden;               /* 严格禁止上下滚动，断绝地址栏出来的后路 */
-      background: #000;               /* 全屏背景防闪烁 */
-      
-      /* 阻止手机端长按弹出系统菜单 */
-      -webkit-touch-callout: none;
-      user-select: none;
-      -webkit-user-select: none;
-    }
   </style>
 </head>
 <body>
