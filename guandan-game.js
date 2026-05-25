@@ -1,7 +1,7 @@
 /**
- * guandan-game.js
- * 掼蛋扑克游戏扩展包 (中央常驻记忆 + 明确标识出牌人身份 + 完美本地部署高清图片版)
- * 【移动端横屏/全屏/划牌/全功能优化版】
+ * guandan-game.js (Version 2.0)
+ * 掼蛋扑克游戏扩展包 - 移动端全屏沉浸沉浸版
+ * 【已优化：全屏隐藏地址栏、出牌区防遮挡重构、高端视觉协调、双端滑牌完美适配】
  */
 (() => {
   'use strict';
@@ -14,7 +14,7 @@
   const ROOT_ID = 'guandan-game-container';
   const STYLE_ID = 'gd-style';
   
-  // 基础卡牌尺寸，在移动端通过 CSS 进行等比缩放
+  // 基础卡牌尺寸，移动端由 CSS 动态响应式缩放
   const CARD_W = 85; 
   
   const GD_SUITS = [
@@ -53,7 +53,7 @@
     aiDelay: 0,
     countdown: 20,
     clockTimer: null,
-    touchStart: { x: 0, y: 0 } // 新增：用于记录滑动出牌手势
+    touchStart: { x: 0, y: 0 }
   };
 
   GD.state = state;
@@ -127,9 +127,12 @@
     s.textContent = `
       #${ROOT_ID} { 
         position: fixed; 
-        inset: 0; 
+        top: 0; left: 0; right: 0; bottom: 0;
+        width: 100vw;
+        height: 100vh;
+        height: -webkit-fill-available;
         z-index: 9999; 
-        background: radial-gradient(circle at center, #1a5e2b 0%, #061a0d 100%); 
+        background: radial-gradient(circle at center, #114621 0%, #051b0c 100%); 
         color: #f5f7f4; 
         font-family: system-ui, -apple-system, sans-serif; 
         display: flex; 
@@ -137,101 +140,120 @@
         overflow: hidden; 
         user-select: none;
         -webkit-user-select: none;
-        touch-action: manipulation;
+        touch-action: none;
       }
       #${ROOT_ID} * { box-sizing: border-box; margin: 0; padding: 0; }
       
-      .gd-header { position: absolute; top: 0; left: 0; right: 0; display: flex; justify-content: space-between; align-items: center; padding: 10px 16px; z-index: 9999; pointer-events: none; }
-      .gd-header-info { background: rgba(0,0,0,0.8); padding: 6px 16px; border-radius: 20px; border: 1px solid rgba(255,215,0,0.5); font-size: 13px; font-weight: bold; pointer-events: auto; box-shadow: 0 4px 12px rgba(0,0,0,0.5); }
-      .gd-header-info span { color: #FFD700; font-weight: bold; margin: 0 4px; }
-      .gd-exit-btn { background: linear-gradient(180deg, #ff5252 0%, #c92a2a 100%); color: white; border: none; padding: 6px 14px; border-radius: 10px; font-weight: bold; cursor: pointer; font-size: 13px; pointer-events: auto; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
+      .gd-header { position: absolute; top: 0; left: 0; right: 0; display: flex; justify-content: space-between; align-items: center; padding: 8px 16px; z-index: 10010; pointer-events: none; }
+      .gd-header-info { background: rgba(0,0,0,0.65); padding: 5px 14px; border-radius: 20px; border: 1px solid rgba(255,215,0,0.4); font-size: 12px; font-weight: bold; pointer-events: auto; box-shadow: 0 3px 10px rgba(0,0,0,0.4); backdrop-filter: blur(4px); }
+      .gd-header-info span { color: #FFD700; font-weight: bold; margin: 0 3px; }
+      .gd-exit-btn { background: linear-gradient(180deg, #ff5252 0%, #c92a2a 100%); color: white; border: none; padding: 5px 12px; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 12px; pointer-events: auto; box-shadow: 0 3px 8px rgba(0,0,0,0.3); }
       
-      .gd-arena { position: relative; flex: 1; display: flex; justify-content: center; align-items: center; width: 100%; height: 100%; padding: 40px 0; }
+      .gd-arena { position: relative; flex: 1; display: flex; justify-content: center; align-items: center; width: 100%; height: 100%; padding: 0; }
       
-      .gd-seat { position: absolute; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 50; }
-      .gd-seat.top { top: 10px; left: 50%; transform: translateX(-50%); } 
-      .gd-seat.left { left: 15px; top: 45%; transform: translateY(-50%); }
-      .gd-seat.right { right: 15px; top: 45%; transform: translateY(-50%); }
-      .gd-seat.bottom { bottom: 10px; left: 50%; transform: translateX(-50%); width: auto; display: flex; flex-direction: column; align-items: center; }
+      .gd-seat { position: absolute; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 50; pointer-events: none; }
+      .gd-seat.top { top: 45px; left: 50%; transform: translateX(-50%); } 
+      .gd-seat.left { left: 16px; top: 40%; transform: translateY(-50%); }
+      .gd-seat.right { right: 16px; top: 40%; transform: translateY(-50%); }
+      .gd-seat.bottom { bottom: 0; left: 0; right: 0; width: 100%; display: flex; flex-direction: column; align-items: center; z-index: 60; }
       
-      .gd-action-bar { display: none; gap: 16px; justify-content: center; height: 36px; margin-bottom: 8px; z-index: 10005; }
+      .gd-action-bar { display: none; gap: 14px; justify-content: center; height: 38px; margin-bottom: 4px; z-index: 10005; pointer-events: auto; width: 100%; }
       .gd-action-bar.show { display: flex !important; }
-      .gd-action-bar button { border: 1px solid rgba(255,255,255,0.25); padding: 0 20px; border-radius: 6px; font-weight: 900; font-size: 14px; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.3), inset 0 12px 12px rgba(255,255,255,0.25); text-shadow: 0 1px 2px rgba(0,0,0,0.6); transition: all 0.1s; -webkit-tap-highlight-color: transparent; }
-      .gd-action-bar button:active { transform: translateY(1px); box-shadow: 0 2px 4px rgba(0,0,0,0.4); }
-      .gd-btn-play { background: linear-gradient(180deg, #34d399 0%, #059669 100%); color: white; }
-      .gd-btn-pass { background: linear-gradient(180deg, #94a3b8 0%, #475569 100%); color: white; }
-      .gd-btn-sort { background: linear-gradient(180deg, #22d3ee 0%, #0891b2 100%); color: white; }
-      .gd-action-bar button:disabled { background: linear-gradient(180deg, #475569 0%, #334155 100%) !important; color: #94a3b8 !important; cursor: not-allowed; box-shadow: none; text-shadow: none; opacity: 0.55; }
+      .gd-action-bar button { border: 1px solid rgba(255,255,255,0.3); padding: 0 24px; border-radius: 20px; font-weight: bold; font-size: 14px; cursor: pointer; box-shadow: 0 4px 8px rgba(0,0,0,0.4); text-shadow: 0 1px 2px rgba(0,0,0,0.6); transition: all 0.1s; -webkit-tap-highlight-color: transparent; }
+      .gd-action-bar button:active { transform: scale(0.95); opacity: 0.9; }
+      .gd-btn-play { background: linear-gradient(180deg, #10b981 0%, #047857 100%); color: white; border-color: #34d399 !important; }
+      .gd-btn-pass { background: linear-gradient(180deg, #64748b 0%, #334155 100%); color: white; }
+      .gd-btn-sort { background: linear-gradient(180deg, #06b6d4 0%, #0369a1 100%); color: white; }
+      .gd-action-bar button:disabled { background: linear-gradient(180deg, #334155 0%, #1e293b 100%) !important; color: #64748b !important; cursor: not-allowed; box-shadow: none; text-shadow: none; opacity: 0.5; border-color: transparent !important; }
       
-      .gd-clock-panel { display: none; background: #000000; padding: 3px 12px; border-radius: 20px; border: 2px solid #22c55e; margin-bottom: 8px; font-size: 13px; font-weight: bold; align-items: center; gap: 4px; box-shadow: 0 0 12px rgba(34,197,94,0.6); color: #22c55e; }
+      .gd-clock-panel { display: none; background: rgba(0,0,0,0.75); padding: 2px 10px; border-radius: 12px; border: 1px solid #10b981; margin-bottom: 4px; font-size: 12px; font-weight: bold; align-items: center; gap: 4px; color: #10b981; }
       .gd-clock-panel.show { display: flex; }
-      .gd-clock-icon { color: #22c55e; animation: gd-pulse 1s infinite; font-size: 14px; }
+      .gd-clock-icon { color: #10b981; animation: gd-pulse 1s infinite; font-size: 12px; }
       
-      .gd-player-info { background: rgba(5,20,10,0.85); padding: 4px 12px; border-radius: 10px; text-align: center; min-width: 100px; border: 1px solid rgba(255,255,255,0.15); box-shadow: 0 4px 10px rgba(0,0,0,0.4); }
-      .gd-player-info.active { border-color: #ff9f00; background: rgba(30,60,35,0.95); box-shadow: 0 0 15px #ff9f00, inset 0 0 6px rgba(255,159,0,0.5); animation: gd-turn-glow 1.4s ease-in-out infinite alternate; }
-      .gd-player-name { font-weight: bold; font-size: 12px; color: #fff; }
-      .gd-player-detail { font-size: 11px; color: #FFD700; margin-top: 1px; }
+      .gd-player-info { background: rgba(0,10,5,0.75); padding: 4px 10px; border-radius: 8px; text-align: center; min-width: 85px; border: 1px solid rgba(255,255,255,0.12); box-shadow: 0 2px 6px rgba(0,0,0,0.3); }
+      .gd-player-info.active { border-color: #f59e0b; background: rgba(20,35,25,0.9); box-shadow: 0 0 12px #f59e0b; }
+      .gd-player-name { font-weight: bold; font-size: 11px; color: #fff; }
+      .gd-player-detail { font-size: 10px; color: #f59e0b; margin-top: 1px; }
       
-      .gd-center-table { position: absolute; width: 65vw; height: 45vh; max-width: 600px; max-height: 280px; border: 2px dashed rgba(255,255,255,0.15); border-radius: 100px; display: flex; flex-direction: column; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.15); padding: 12px 0; box-shadow: inset 0 0 40px rgba(0,0,0,0.3); }
+      /* 出牌区独立容器优化：严格控高，彻底防止内容向下侵占手牌 */
+      .gd-center-table { 
+        position: absolute; 
+        width: 70vw; 
+        height: 42vh; 
+        max-width: 620px; 
+        max-height: 240px; 
+        top: 22%;
+        border: 1px solid rgba(255,215,0,0.15); 
+        border-radius: 30px; 
+        display: flex; 
+        flex-direction: column; 
+        justify-content: flex-start; 
+        align-items: center; 
+        background: rgba(0, 0, 0, 0.2); 
+        padding: 6px 0; 
+        box-shadow: inset 0 0 30px rgba(0,0,0,0.5); 
+        pointer-events: none;
+        z-index: 40;
+      }
       
-      .gd-center-status-bar { background: rgba(0, 0, 0, 0.7); padding: 4px 16px; border-radius: 15px; border: 1px solid rgba(255, 255, 255, 0.15); font-size: 12px; font-weight: bold; color: #cbd5e1; box-shadow: 0 2px 8px rgba(0,0,0,0.2); text-align: center; }
-      .gd-center-status-bar.my-turn { border-color: #22c55e; color: #22c55e; background: rgba(4, 30, 12, 0.85); animation: gd-text-pulse 1s infinite alternate; }
+      .gd-center-status-bar { width: auto; max-width: 90%; background: linear-gradient(90deg, rgba(16,185,129,0) 0%, rgba(0,0,0,0.75) 15%, rgba(0,0,0,0.75) 85%, rgba(16,185,129,0) 100%); padding: 3px 18px; font-size: 11px; font-weight: bold; color: #94a3b8; text-align: center; border-bottom: 1px solid rgba(255,255,255,0.05); letter-spacing: 0.5px; }
+      .gd-center-status-bar.my-turn { color: #34d399; animation: gd-text-pulse 1.2s infinite alternate; }
       
-      .gd-trick { display: flex; flex-direction: column; justify-content: center; align-items: center; width: 100%; flex: 1; min-height: 100px; position: relative; }
-      .gd-trick-cards-wrap { display: flex; justify-content: center; align-items: center; width: 100%; min-height: 90px; margin-top: 4px; }
-      .gd-trick-empty { font-size: 13px; color: rgba(255,255,255,0.25); font-weight: bold; }
-      .gd-trick-owner { background: linear-gradient(90deg, rgba(234,179,8,0) 0%, rgba(234,179,8,0.25) 50%, rgba(234,179,8,0) 100%); color: #ffd700; font-size: 12px; font-weight: bold; padding: 2px 12px; text-shadow: 0 1px 4px rgba(0,0,0,0.8); width: 100%; text-align: center; }
+      /* 出牌展示区域重构 */
+      .gd-trick { display: flex; flex-direction: column; justify-content: center; align-items: center; width: 100%; flex: 1; position: relative; margin-top: 4px; }
+      .gd-trick-cards-wrap { display: flex; justify-content: center; align-items: center; width: 100%; max-height: 120px; padding: 2px 10px; }
+      .gd-trick-empty { font-size: 12px; color: rgba(255,255,255,0.18); font-weight: bold; margin-top: 20px; letter-spacing: 1px; }
+      .gd-trick-owner { color: #f59e0b; font-size: 11px; font-weight: bold; padding: 2px 12px; text-shadow: 0 1px 3px rgba(0,0,0,0.9); width: 100%; text-align: center; position: absolute; top: -2px; }
       
-      .gd-hand { display: flex; align-items: flex-end; justify-content: center; min-height: 100px; width: auto; max-width: 98vw; pointer-events: auto; padding: 2px; }
+      .gd-hand { display: flex; align-items: flex-end; justify-content: center; min-height: 90px; width: 100%; max-width: 100vw; pointer-events: auto; padding: 2px 10px 6px 10px; z-index: 100; overflow: visible; }
       
-      /* 响应式卡牌縮放 */
-      .gd-card { width: ${CARD_W}px; height: 110px; position: relative; margin-left: -58px; transition: transform 0.15s ease; border-radius: 6px; cursor: pointer; }
+      /* 基础卡牌缩放 */
+      .gd-card { width: ${CARD_W}px; height: 112px; position: relative; margin-left: -60px; transition: transform 0.15s cubic-bezier(0.2, 0.8, 0.2, 1); border-radius: 6px; cursor: pointer; transform-origin: bottom center; }
       .gd-card:first-child { margin-left: 0 !important; }
-      .gd-card img { width: 100%; height: 100%; object-fit: contain; pointer-events: none; filter: drop-shadow(-2px 3px 4px rgba(0,0,0,0.4)); }
+      .gd-card img { width: 100%; height: 100%; object-fit: fill; pointer-events: none; filter: drop-shadow(-2px 2px 3px rgba(0,0,0,0.35)); }
       
-      .gd-trick .gd-card { margin-left: -52px; pointer-events: none; height: 85px; width: 60px; }
+      /* 出牌区卡牌进行等比微调缩小，并大幅收紧间距，防止多张牌撑爆溢出 */
+      .gd-trick .gd-card { margin-left: -32px; pointer-events: none; height: 76px; width: 54px; box-shadow: 0 2px 6px rgba(0,0,0,0.4) !important; }
       .gd-trick .gd-card:first-child { margin-left: 0 !important; }
       
-      .gd-card.sel { transform: translateY(-20px) !important; }
-      .gd-card.sel img { filter: drop-shadow(0px 6px 10px rgba(234,179,8,0.8)); }
+      /* 选牌悬起高度优化 */
+      .gd-card.sel { transform: translateY(-16px) !important; }
+      .gd-card.sel img { filter: drop-shadow(0px 4px 8px rgba(245,158,11,0.8)) saturate(1.1); }
       
-      .gd-wild-card img { filter: drop-shadow(0 0 10px #ef4444) !important; }
-      .gd-rank-card img { filter: drop-shadow(0 0 6px #eab308) !important; }
+      .gd-wild-card img { filter: drop-shadow(0 0 8px #ef4444) !important; }
+      .gd-rank-card img { filter: drop-shadow(0 0 5px #f59e0b) !important; }
       
-      .gd-toast { position: fixed; top: 20%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.9); border: 1px solid #ff9f00; color: #fff; padding: 10px 24px; border-radius: 20px; font-size: 14px; font-weight: bold; z-index: 10010; opacity: 0; transition: opacity 0.2s ease; pointer-events: none; }
+      .gd-toast { position: fixed; top: 18%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.85); border: 1px solid #f59e0b; color: #fff; padding: 8px 20px; border-radius: 30px; font-size: 13px; font-weight: bold; z-index: 10020; opacity: 0; transition: opacity 0.2s ease; pointer-events: none; backdrop-filter: blur(5px); box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
       
-      /* 手机端竖屏时的强制横屏提示与旋转覆层 */
+      /* 移动端全屏锁屏提示层：兼顾所有现代移动浏览器规范 */
       @media screen and (orientation: portrait) {
-        .gd-landscape-tips {
-          display: flex !important;
-        }
+        .gd-landscape-tips { display: flex !important; }
       }
-
       .gd-landscape-tips {
         display: none;
         position: fixed;
-        inset: 0;
-        background: #061a0d;
+        top: 0; left: 0; right: 0; bottom: 0;
+        width: 100vw; height: 100vh;
+        background: #04140a;
         z-index: 100000;
         flex-direction: column;
         justify-content: center;
         align-items: center;
-        color: #ff9f00;
+        color: #f59e0b;
         text-align: center;
-        padding: 30px;
+        padding: 24px;
       }
-      .gd-landscape-tips-icon {
-        font-size: 48px;
-        margin-bottom: 20px;
-        animation: gd-rotate-phone 2s infinite ease-in-out;
-      }
+      .gd-landscape-tips-icon { font-size: 44px; margin-bottom: 16px; animation: gd-rotate-phone 1.8s infinite ease-in-out; }
 
-      /* 小屏幕尺寸下微调卡牌大小 */
-      @media screen and (max-height: 500px) {
-        .gd-card { height: 85px; width: 62px; margin-left: -44px; }
-        .gd-trick .gd-card { height: 68px; width: 48px; margin-left: -36px; }
-        .gd-hand { min-height: 80px; }
-        .gd-arena { padding: 25px 0; }
+      /* 小屏幕或低高度手机精细适配：极致利用高度 */
+      @media screen and (max-height: 480px) {
+        .gd-card { height: 86px; width: 62px; margin-left: -46px; }
+        .gd-card.sel { transform: translateY(-12px) !important; }
+        .gd-trick .gd-card { height: 58px; width: 42px; margin-left: -24px; }
+        .gd-center-table { top: 16%; height: 38vh; max-height: 180px; }
+        .gd-hand { min-height: 70px; padding-bottom: 2px; }
+        .gd-seat.top { top: 38px; }
+        .gd-header { padding: 4px 12px; }
       }
 
       @keyframes gd-rotate-phone {
@@ -239,9 +261,8 @@
         50% { transform: rotate(-90deg); }
         100% { transform: rotate(0deg); }
       }
-      @keyframes gd-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
-      @keyframes gd-turn-glow { 0% { box-shadow: 0 0 8px #ff9f00; } 100% { box-shadow: 0 0 20px #fffa65; } }
-      @keyframes gd-text-pulse { 0% { box-shadow: 0 0 4px rgba(34,197,94,0.4); } 100% { box-shadow: 0 0 12px rgba(34,197,94,0.8); } }
+      @keyframes gd-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+      @keyframes gd-text-pulse { 0% { text-shadow: 0 0 2px rgba(52,211,153,0.3); } 100% { text-shadow: 0 0 8px rgba(52,211,153,0.8); } }
     `;
     document.head.appendChild(s);
     state.styleNode = s;
@@ -253,9 +274,9 @@
     root.innerHTML = `
       <div class="gd-landscape-tips" id="gd-landscape-tips">
         <div class="gd-landscape-tips-icon">🔄</div>
-        <h2>请旋转手机至横屏模式</h2>
-        <p style="color: #cbd5e1; font-size:14px; margin-top:10px;">为了获得最佳掼蛋对局体验，请关闭手机锁定，横过来玩哦~</p>
-        <button id="gd-fullscreen-trigger" style="margin-top: 20px; padding: 10px 20px; background: #22c55e; border:none; color:white; font-weight:bold; border-radius:8px;">进入全屏对局</button>
+        <h3 style="font-size:18px;">请旋转手机至横屏模式</h3>
+        <p style="color: #94a3b8; font-size:13px; margin-top:8px;">推荐开启系统自动旋转，横过来即可自动隐藏地址栏进入对局</p>
+        <button id="gd-fullscreen-trigger" style="margin-top: 18px; padding: 8px 22px; background: #10b981; border:none; color:white; font-weight:bold; border-radius:20px; font-size:13px; box-shadow: 0 4px 10px rgba(0,0,0,0.3);">强制全屏开启对局</button>
       </div>
 
       <div class="gd-header">
@@ -274,15 +295,15 @@
         
         <div class="gd-seat bottom" data-gd-seat="0">
           <div class="gd-action-bar" data-gd-action-bar>
-            <button class="gd-btn-play" data-gd-play>出 牌</button>
             <button class="gd-btn-pass" data-gd-pass>过 牌</button>
-            <button class="gd-btn-sort" data-gd-sort>整 理</button>
+            <button class="gd-btn-play" data-gd-play>出 牌</button>
+            <button class="gd-btn-sort" data-gd-sort>理 牌</button>
           </div>
           <div class="gd-clock-panel" data-gd-clock-panel>
             <span class="gd-clock-icon">⏱</span>
             <span data-gd-clock-time>20s</span>
           </div>
-          <div class="gd-player-wrap" data-gd-player-zone style="margin-bottom:4px;"></div>
+          <div class="gd-player-wrap" data-gd-player-zone style="margin-bottom:2px; display:none;"></div>
           <div class="gd-hand" data-gd-hand></div>
         </div>
       </div>
@@ -455,16 +476,16 @@
     return `
       <div class="gd-card ${extraClass}" data-card-id="${card.id}" style="
         background: #ffffff; 
-        border: 2px solid rgba(0,0,0,0.15); 
-        border-radius: 8px; 
-        box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        border: 1px solid rgba(0,0,0,0.15); 
+        border-radius: 5px; 
+        box-shadow: 0 3px 6px rgba(0,0,0,0.25);
         display: flex;
         justify-content: center;
         align-items: center;
         box-sizing: border-box;
         overflow: hidden;
       ">
-        <img src="${imgUrl}" alt="${rankLabel(card)}" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2280%22 height=%22110%22><rect width=%22100%%22 height=%22100%%22 fill=%22white%22 stroke=%22red%22 stroke-width=%224%22/><text x=%2250%%22 y=%2250%%22 font-size=%2216%22 font-weight=%22bold%22 fill=%22black%22 text-anchor=%22middle%22 dominant-baseline=%22middle%22>${rankLabel(card)}</text></svg>'" />
+        <img src="${imgUrl}" alt="${rankLabel(card)}" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2280%22 height=%22110%22><rect width=%22100%%22 height=%22100%%22 fill=%22white%22 stroke=%22%23ccc%22 stroke-width=%222%22/><text x=%2250%%22 y=%2250%%22 font-size=%2215%22 font-weight=%22bold%22 fill=%22%23333%22 text-anchor=%22middle%22 dominant-baseline=%22middle%22>${rankLabel(card)}</text></svg>'" />
       </div>`;
   }
 
@@ -483,15 +504,15 @@
       const cardCount = p.hand ? p.hand.length : 0;
       
       let rankString = '';
-      if (p.rankOutOrder === 1) rankString = ' 🥇 头游';
-      else if (p.rankOutOrder === 2) rankString = ' 🥈 二游';
-      else if (p.rankOutOrder === 3) rankString = ' 🥉 三游';
+      if (p.rankOutOrder === 1) rankString = '🥇头游';
+      else if (p.rankOutOrder === 2) rankString = '🥈二游';
+      else if (p.rankOutOrder === 3) rankString = '🥉三游';
       else rankString = `剩 ${cardCount} 张`;
 
       seatNode.innerHTML = `
         <div class="gd-player-info ${isActive ? 'active' : ''}">
           <div class="gd-player-name">${p.name}</div>
-          <div class="gd-player-detail">🂠 ${rankString}</div>
+          <div class="gd-player-detail">${rankString}</div>
         </div>`;
     });
 
@@ -502,10 +523,10 @@
         centerStatus.className = 'gd-center-status-bar';
         if (state.currentTurn === 0) {
           centerStatus.classList.add('my-turn');
-          centerStatus.textContent = `轮到你出牌 (或选牌后向上滑动击出)`;
+          centerStatus.textContent = `请出牌 (划牌选牌后向上滑动可直接击出)`;
         } else {
           centerStatus.classList.add('ai-turn');
-          centerStatus.textContent = `正在等待 [ ${activePlayer.name} ]...`;
+          centerStatus.textContent = `等待 [ ${activePlayer.name} ] 出牌...`;
         }
       }
     }
@@ -528,12 +549,12 @@
         const cardsHTML = state.lastPlayedTrick.cards.map(formatCard).join('');
         
         trick.innerHTML = `
-          <div class="gd-trick-owner">🔸 ${pName} 打出 🔸</div>
-          <div class="gd-trick-cards-wrap">${cardsHTML}</div>
+          <div class="gd-trick-owner">✦ ${pName} 打出 ✦</div>
+          <div class="gd-trick-cards-wrap" style="margin-top:16px;">${cardsHTML}</div>
         `;
-        if (move) move.textContent = `${pName}：${state.lastPlayedTrick.type} · ${state.lastPlayedTrick.cards.length}张`;
+        if (move) move.textContent = `${pName}：${state.lastPlayedTrick.type}`;
       } else {
-        trick.innerHTML = `<span class="gd-trick-empty">桌上干净，等待首发...</span>`;
+        trick.innerHTML = `<span class="gd-trick-empty">暂无出牌，等待首发</span>`;
         if (move) move.textContent = '—';
       }
     }
@@ -598,7 +619,7 @@
         finishOrder.push(seat);
         player.rankOutOrder = finishOrder.length;
       }
-      showToast(`👏 恭喜 ${player.name} 出光牌！`);
+      showToast(`👏 ${player.name} 已跑光手牌！`);
     }
     
     if (checkGameOver()) return true;
@@ -729,11 +750,19 @@
     playCards(0, cards);
   }
 
-  // 请求进入全屏模式
-  function requestFullscreen(element) {
-    if (element.requestFullscreen) { element.requestFullscreen(); }
-    else if (element.webkitRequestFullscreen) { element.webkitRequestFullscreen(); }
-    else if (element.msRequestFullscreen) { element.msRequestFullscreen(); }
+  // 完美全屏沉浸并尝试隐藏地址栏
+  function trigger沉浸式全屏(element) {
+    if (!element) return;
+    try {
+      if (element.requestFullscreen) { element.requestFullscreen(); }
+      else if (element.webkitRequestFullscreen) { element.webkitRequestFullscreen(); }
+      else if (element.msRequestFullscreen) { element.msRequestFullscreen(); }
+      
+      // 触发 H5 自动滚动隐藏状态栏机制
+      window.scrollTo(0, 1);
+    } catch (err) {
+      console.log('Fullscreen blocked or unsupported:', err);
+    }
   }
 
   function bindHandInteraction() {
@@ -742,14 +771,13 @@
     const fsBtn = container?.querySelector('#gd-fullscreen-trigger');
     if (!hand) return;
 
-    // 全屏按钮绑定
     if (fsBtn) {
       on(fsBtn, 'click', () => {
-        requestFullscreen(container);
+        trigger沉浸式全屏(container);
       });
     }
 
-    // 处理手势交互（支持点击与移动端滑动出牌）
+    // 滑动选牌与快速划手势出牌控制
     on(hand, 'touchstart', (e) => {
       const touch = e.touches[0];
       state.touchStart.x = touch.clientX;
@@ -761,13 +789,13 @@
       const deltaX = touch.clientX - state.touchStart.x;
       const deltaY = touch.clientY - state.touchStart.y;
 
-      // 向上滑动超过 50px 触发快捷出牌
-      if (deltaY < -50 && Math.abs(deltaX) < 40) {
+      // 向上滑动距离超过 40px 直接触发快捷一键出牌
+      if (deltaY < -40 && Math.abs(deltaX) < 50) {
         humanPlay();
         return;
       }
 
-      // 如果不是滑动，而是单纯轻触卡牌
+      // 轻触卡牌事件
       if (Math.abs(deltaY) < 10 && Math.abs(deltaX) < 10) {
         const card = e.target.closest('.gd-card');
         if (!card || state.currentTurn !== 0 || !state.active) return;
@@ -778,9 +806,7 @@
       }
     });
 
-    // 依然保留PC端的点击事件，保证双端完美运行
     on(hand, 'click', (e) => {
-      // 防止移动端端产生 click 和 touchend 重复触发
       if (e.pointerType === 'touch') return; 
       const card = e.target.closest('.gd-card');
       if (!card || state.currentTurn !== 0 || !state.active) return;
@@ -804,6 +830,12 @@
       }
       humanPlay();
     });
+    
+    // 全局防滚动阻断，规避某些手机浏览器上下拉导致地址栏反复重现的橡皮筋毛病
+    on(container, 'touchmove', (e) => {
+      if (e.touches.length > 1) return; 
+      e.preventDefault();
+    }, { passive: false });
   }
 
   function destroy() {
@@ -815,7 +847,6 @@
     const selection = document.getElementById('game-selection');
     if (selection) selection.style.display = 'flex';
     
-    // 退出全屏
     if (document.exitFullscreen) { document.exitFullscreen().catch(()=>{}); }
     else if (document.webkitExitFullscreen) { document.webkitExitFullscreen().catch(()=>{}); }
   }
@@ -838,8 +869,8 @@
 
     state.players = SEATS.map((seat) => ({ ...seat, hand: [], rankOutOrder: null }));
     
-    // 自动尝试全屏
-    requestFullscreen(newShell);
+    // 初始化时立刻申请进入沉浸全屏
+    trigger沉浸式全屏(newShell);
 
     setTimeout(() => {
       startNewRound();
@@ -858,7 +889,7 @@
       if (exitBtn) on(exitBtn, 'click', () => { playGDSound('click'); destroy(); });
 
       state.timer = setInterval(triggerAIMove, 200);
-    }, 50);
+    }, 100);
   }
   
   function bindLaunchButton() {
