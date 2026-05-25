@@ -7,7 +7,7 @@
   'use strict';
 
   const GD_ICON_SUITS = { SPADE: '♠', HEART: '♥', CLUB: '♣', DIAMOND: '♦' };
-  
+  const CARD_W = 74;
   const GD = (window.GD = window.GD || {});
   GD.__loaded = true;
 
