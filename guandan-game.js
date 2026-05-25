@@ -1,6 +1,7 @@
 /**
  * guandan-game.js
  * 掼蛋扑克游戏扩展包 (中央常驻记忆 + 明确标识出牌人身份 + 完美本地部署高清图片版)
+ * 【移动端横屏/全屏/划牌/全功能优化版】
  */
 (() => {
   'use strict';
@@ -12,6 +13,8 @@
 
   const ROOT_ID = 'guandan-game-container';
   const STYLE_ID = 'gd-style';
+  
+  // 基础卡牌尺寸，在移动端通过 CSS 进行等比缩放
   const CARD_W = 85; 
   
   const GD_SUITS = [
@@ -49,7 +52,8 @@
     listeners: [],
     aiDelay: 0,
     countdown: 20,
-    clockTimer: null
+    clockTimer: null,
+    touchStart: { x: 0, y: 0 } // 新增：用于记录滑动出牌手势
   };
 
   GD.state = state;
@@ -121,77 +125,123 @@
     s = document.createElement('style');
     s.id = STYLE_ID;
     s.textContent = `
-      #${ROOT_ID} { position: fixed; inset: 0; z-index: 9999; background: radial-gradient(circle at center, #1a5e2b 0%, #061a0d 100%); color: #f5f7f4; font-family: system-ui, -apple-system, sans-serif; display: flex; flex-direction: column; overflow: hidden; user-select: none; }
+      #${ROOT_ID} { 
+        position: fixed; 
+        inset: 0; 
+        z-index: 9999; 
+        background: radial-gradient(circle at center, #1a5e2b 0%, #061a0d 100%); 
+        color: #f5f7f4; 
+        font-family: system-ui, -apple-system, sans-serif; 
+        display: flex; 
+        flex-direction: column; 
+        overflow: hidden; 
+        user-select: none;
+        -webkit-user-select: none;
+        touch-action: manipulation;
+      }
       #${ROOT_ID} * { box-sizing: border-box; margin: 0; padding: 0; }
       
-      .gd-header { position: absolute; top: 0; left: 0; right: 0; display: flex; justify-content: space-between; align-items: center; padding: 16px 24px; z-index: 9999; pointer-events: none; }
-      .gd-header-info { background: rgba(0,0,0,0.8); padding: 10px 24px; border-radius: 20px; border: 1px solid rgba(255,215,0,0.5); font-size: 15px; font-weight: bold; pointer-events: auto; box-shadow: 0 4px 12px rgba(0,0,0,0.5); }
+      .gd-header { position: absolute; top: 0; left: 0; right: 0; display: flex; justify-content: space-between; align-items: center; padding: 10px 16px; z-index: 9999; pointer-events: none; }
+      .gd-header-info { background: rgba(0,0,0,0.8); padding: 6px 16px; border-radius: 20px; border: 1px solid rgba(255,215,0,0.5); font-size: 13px; font-weight: bold; pointer-events: auto; box-shadow: 0 4px 12px rgba(0,0,0,0.5); }
       .gd-header-info span { color: #FFD700; font-weight: bold; margin: 0 4px; }
-      .gd-exit-btn { background: linear-gradient(180deg, #ff5252 0%, #c92a2a 100%); color: white; border: none; padding: 10px 22px; border-radius: 10px; font-weight: bold; cursor: pointer; font-size: 14px; pointer-events: auto; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
+      .gd-exit-btn { background: linear-gradient(180deg, #ff5252 0%, #c92a2a 100%); color: white; border: none; padding: 6px 14px; border-radius: 10px; font-weight: bold; cursor: pointer; font-size: 13px; pointer-events: auto; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
       
-      .gd-arena { position: relative; flex: 1; display: flex; justify-content: center; align-items: center; width: 100%; height: 100%; }
+      .gd-arena { position: relative; flex: 1; display: flex; justify-content: center; align-items: center; width: 100%; height: 100%; padding: 40px 0; }
       
       .gd-seat { position: absolute; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 50; }
-      .gd-seat.top { top: 30px; left: 50%; transform: translateX(-50%); } 
-      .gd-seat.left { left: 40px; top: 40%; transform: translateY(-50%); }
-      .gd-seat.right { right: 40px; top: 40%; transform: translateY(-50%); }
-      .gd-seat.bottom { bottom: 15px; left: 50%; transform: translateX(-50%); width: auto; display: flex; flex-direction: column; align-items: center; }
+      .gd-seat.top { top: 10px; left: 50%; transform: translateX(-50%); } 
+      .gd-seat.left { left: 15px; top: 45%; transform: translateY(-50%); }
+      .gd-seat.right { right: 15px; top: 45%; transform: translateY(-50%); }
+      .gd-seat.bottom { bottom: 10px; left: 50%; transform: translateX(-50%); width: auto; display: flex; flex-direction: column; align-items: center; }
       
-      .gd-action-bar { display: none; gap: 24px; justify-content: center; height: 38px; margin-bottom: 12px; z-index: 10005; }
+      .gd-action-bar { display: none; gap: 16px; justify-content: center; height: 36px; margin-bottom: 8px; z-index: 10005; }
       .gd-action-bar.show { display: flex !important; }
-      .gd-action-bar button { border: 1px solid rgba(255,255,255,0.25); padding: 0 32px; border-radius: 4px; font-weight: 900; font-size: 15px; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.3), inset 0 12px 12px rgba(255,255,255,0.25); text-shadow: 0 1px 2px rgba(0,0,0,0.6); transition: all 0.1s; }
+      .gd-action-bar button { border: 1px solid rgba(255,255,255,0.25); padding: 0 20px; border-radius: 6px; font-weight: 900; font-size: 14px; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.3), inset 0 12px 12px rgba(255,255,255,0.25); text-shadow: 0 1px 2px rgba(0,0,0,0.6); transition: all 0.1s; -webkit-tap-highlight-color: transparent; }
       .gd-action-bar button:active { transform: translateY(1px); box-shadow: 0 2px 4px rgba(0,0,0,0.4); }
       .gd-btn-play { background: linear-gradient(180deg, #34d399 0%, #059669 100%); color: white; }
       .gd-btn-pass { background: linear-gradient(180deg, #94a3b8 0%, #475569 100%); color: white; }
       .gd-btn-sort { background: linear-gradient(180deg, #22d3ee 0%, #0891b2 100%); color: white; }
-      .gd-action-bar button:disabled { background: linear-gradient(180deg, #475569 0%, #334155 100%) !important; color: #94a3b8 !important; cursor: not-allowed; box-shadow: none; text-shadow: none; opacity: 0.55; inset: none; }
+      .gd-action-bar button:disabled { background: linear-gradient(180deg, #475569 0%, #334155 100%) !important; color: #94a3b8 !important; cursor: not-allowed; box-shadow: none; text-shadow: none; opacity: 0.55; }
       
-      .gd-clock-panel { display: none; background: #000000; padding: 5px 16px; border-radius: 20px; border: 2px solid #22c55e; margin-bottom: 14px; font-size: 14px; font-weight: bold; align-items: center; gap: 6px; box-shadow: 0 0 12px rgba(34,197,94,0.6); color: #22c55e; }
+      .gd-clock-panel { display: none; background: #000000; padding: 3px 12px; border-radius: 20px; border: 2px solid #22c55e; margin-bottom: 8px; font-size: 13px; font-weight: bold; align-items: center; gap: 4px; box-shadow: 0 0 12px rgba(34,197,94,0.6); color: #22c55e; }
       .gd-clock-panel.show { display: flex; }
-      .gd-clock-icon { color: #22c55e; animation: gd-pulse 1s infinite; font-size: 15px; }
+      .gd-clock-icon { color: #22c55e; animation: gd-pulse 1s infinite; font-size: 14px; }
       
-      .gd-player-info { background: rgba(5,20,10,0.85); padding: 8px 18px; border-radius: 12px; text-align: center; min-width: 130px; border: 2px solid rgba(255,255,255,0.15); box-shadow: 0 4px 10px rgba(0,0,0,0.4); transition: all 0.2s ease-in-out; }
-      .gd-player-info.active { border-color: #ff9f00; background: rgba(30,60,35,0.95); box-shadow: 0 0 25px #ff9f00, inset 0 0 10px rgba(255,159,0,0.5); animation: gd-turn-glow 1.4s ease-in-out infinite alternate; }
-      .gd-player-name { font-weight: bold; font-size: 14px; color: #fff; }
-      .gd-player-info.active .gd-player-name { color: #fff; text-shadow: 0 0 8px #ff9f00; }
-      .gd-player-detail { font-size: 12px; color: #FFD700; margin-top: 2px; }
-      .gd-player-info.active .gd-player-detail { color: #fffa65; font-weight: bold; }
+      .gd-player-info { background: rgba(5,20,10,0.85); padding: 4px 12px; border-radius: 10px; text-align: center; min-width: 100px; border: 1px solid rgba(255,255,255,0.15); box-shadow: 0 4px 10px rgba(0,0,0,0.4); }
+      .gd-player-info.active { border-color: #ff9f00; background: rgba(30,60,35,0.95); box-shadow: 0 0 15px #ff9f00, inset 0 0 6px rgba(255,159,0,0.5); animation: gd-turn-glow 1.4s ease-in-out infinite alternate; }
+      .gd-player-name { font-weight: bold; font-size: 12px; color: #fff; }
+      .gd-player-detail { font-size: 11px; color: #FFD700; margin-top: 1px; }
       
-      .gd-center-table { position: absolute; width: 660px; height: 350px; border: 2px dashed rgba(255,255,255,0.15); border-radius: 160px; display: flex; flex-direction: column; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.15); padding: 20px 0; box-shadow: inset 0 0 40px rgba(0,0,0,0.3); }
+      .gd-center-table { position: absolute; width: 65vw; height: 45vh; max-width: 600px; max-height: 280px; border: 2px dashed rgba(255,255,255,0.15); border-radius: 100px; display: flex; flex-direction: column; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.15); padding: 12px 0; box-shadow: inset 0 0 40px rgba(0,0,0,0.3); }
       
-      .gd-center-status-bar { background: rgba(0, 0, 0, 0.7); padding: 6px 20px; border-radius: 15px; border: 1px solid rgba(255, 255, 255, 0.15); font-size: 13px; font-weight: bold; color: #cbd5e1; box-shadow: 0 2px 8px rgba(0,0,0,0.2); transition: all 0.3s ease; z-index: 10; }
+      .gd-center-status-bar { background: rgba(0, 0, 0, 0.7); padding: 4px 16px; border-radius: 15px; border: 1px solid rgba(255, 255, 255, 0.15); font-size: 12px; font-weight: bold; color: #cbd5e1; box-shadow: 0 2px 8px rgba(0,0,0,0.2); text-align: center; }
       .gd-center-status-bar.my-turn { border-color: #22c55e; color: #22c55e; background: rgba(4, 30, 12, 0.85); animation: gd-text-pulse 1s infinite alternate; }
-      .gd-center-status-bar.ai-turn { border-color: #eab308; color: #eab308; background: rgba(30, 25, 4, 0.85); }
       
-      .gd-trick { display: flex; flex-direction: column; justify-content: center; align-items: center; width: 100%; flex: 1; min-height: 160px; position: relative; }
-      .gd-trick-cards-wrap { display: flex; justify-content: center; align-items: center; width: 100%; min-height: 130px; margin-top: 8px; }
-      .gd-trick-empty { font-size: 14px; color: rgba(255,255,255,0.25); font-weight: bold; letter-spacing: 1px; }
+      .gd-trick { display: flex; flex-direction: column; justify-content: center; align-items: center; width: 100%; flex: 1; min-height: 100px; position: relative; }
+      .gd-trick-cards-wrap { display: flex; justify-content: center; align-items: center; width: 100%; min-height: 90px; margin-top: 4px; }
+      .gd-trick-empty { font-size: 13px; color: rgba(255,255,255,0.25); font-weight: bold; }
+      .gd-trick-owner { background: linear-gradient(90deg, rgba(234,179,8,0) 0%, rgba(234,179,8,0.25) 50%, rgba(234,179,8,0) 100%); color: #ffd700; font-size: 12px; font-weight: bold; padding: 2px 12px; text-shadow: 0 1px 4px rgba(0,0,0,0.8); width: 100%; text-align: center; }
       
-      .gd-trick-owner { background: linear-gradient(90deg, rgba(234,179,8,0) 0%, rgba(234,179,8,0.25) 50%, rgba(234,179,8,0) 100%); color: #ffd700; font-size: 14px; font-weight: bold; padding: 3px 24px; text-shadow: 0 1px 4px rgba(0,0,0,0.8); border-top: 1px solid rgba(234,179,8,0.2); border-bottom: 1px solid rgba(234,179,8,0.2); width: 100%; text-align: center; animation: gd-fade-in 0.25s ease-out; }
+      .gd-hand { display: flex; align-items: flex-end; justify-content: center; min-height: 100px; width: auto; max-width: 98vw; pointer-events: auto; padding: 2px; }
       
-      .gd-hand { display: flex; align-items: flex-end; justify-content: center; min-height: 140px; width: auto; max-width: 96vw; pointer-events: auto; margin-top: 6px; padding: 4px; }
-      
-      .gd-card { width: ${CARD_W}px; height: 120px; position: relative; margin-left: -60px; transition: transform 0.15s cubic-bezier(0.2, 0.8, 0.2, 1); border-radius: 6px; cursor: pointer; display: flex; justify-content: center; align-items: center; }
+      /* 响应式卡牌縮放 */
+      .gd-card { width: ${CARD_W}px; height: 110px; position: relative; margin-left: -58px; transition: transform 0.15s ease; border-radius: 6px; cursor: pointer; }
       .gd-card:first-child { margin-left: 0 !important; }
       .gd-card img { width: 100%; height: 100%; object-fit: contain; pointer-events: none; filter: drop-shadow(-2px 3px 4px rgba(0,0,0,0.4)); }
       
-      .gd-trick .gd-card { margin-left: -50px; pointer-events: none; }
+      .gd-trick .gd-card { margin-left: -52px; pointer-events: none; height: 85px; width: 60px; }
       .gd-trick .gd-card:first-child { margin-left: 0 !important; }
       
-      .gd-card.sel { transform: translateY(-26px) !important; }
-      .gd-card.sel img { filter: drop-shadow(0px 8px 15px rgba(234,179,8,0.8)) contrast(1.05); }
-      .gd-card:hover { z-index: 9999 !important; transform: translateY(-12px); }
+      .gd-card.sel { transform: translateY(-20px) !important; }
+      .gd-card.sel img { filter: drop-shadow(0px 6px 10px rgba(234,179,8,0.8)); }
       
-      .gd-wild-card img { filter: drop-shadow(0 0 10px #ef4444) !important; animation: gd-wild-glow 1s infinite alternate; }
+      .gd-wild-card img { filter: drop-shadow(0 0 10px #ef4444) !important; }
       .gd-rank-card img { filter: drop-shadow(0 0 6px #eab308) !important; }
       
-      .gd-toast { position: fixed; top: 15%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.85); border: 1px solid #ff9f00; color: #fff; padding: 12px 32px; border-radius: 20px; font-size: 15px; font-weight: bold; z-index: 10005; opacity: 0; transition: opacity 0.2s ease; pointer-events: none; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
+      .gd-toast { position: fixed; top: 20%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.9); border: 1px solid #ff9f00; color: #fff; padding: 10px 24px; border-radius: 20px; font-size: 14px; font-weight: bold; z-index: 10010; opacity: 0; transition: opacity 0.2s ease; pointer-events: none; }
       
+      /* 手机端竖屏时的强制横屏提示与旋转覆层 */
+      @media screen and (orientation: portrait) {
+        .gd-landscape-tips {
+          display: flex !important;
+        }
+      }
+
+      .gd-landscape-tips {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: #061a0d;
+        z-index: 100000;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        color: #ff9f00;
+        text-align: center;
+        padding: 30px;
+      }
+      .gd-landscape-tips-icon {
+        font-size: 48px;
+        margin-bottom: 20px;
+        animation: gd-rotate-phone 2s infinite ease-in-out;
+      }
+
+      /* 小屏幕尺寸下微调卡牌大小 */
+      @media screen and (max-height: 500px) {
+        .gd-card { height: 85px; width: 62px; margin-left: -44px; }
+        .gd-trick .gd-card { height: 68px; width: 48px; margin-left: -36px; }
+        .gd-hand { min-height: 80px; }
+        .gd-arena { padding: 25px 0; }
+      }
+
+      @keyframes gd-rotate-phone {
+        0% { transform: rotate(0deg); }
+        50% { transform: rotate(-90deg); }
+        100% { transform: rotate(0deg); }
+      }
       @keyframes gd-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
-      @keyframes gd-turn-glow { 0% { box-shadow: 0 0 12px #ff9f00; border-color: #ff9f00; } 100% { box-shadow: 0 0 28px #fffa65, inset 0 0 6px rgba(255,250,101,0.4); border-color: #fffa65; } }
+      @keyframes gd-turn-glow { 0% { box-shadow: 0 0 8px #ff9f00; } 100% { box-shadow: 0 0 20px #fffa65; } }
       @keyframes gd-text-pulse { 0% { box-shadow: 0 0 4px rgba(34,197,94,0.4); } 100% { box-shadow: 0 0 12px rgba(34,197,94,0.8); } }
-      @keyframes gd-fade-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
-      @keyframes gd-wild-glow { 0% { filter: drop-shadow(0 0 4px #ef4444); } 100% { filter: drop-shadow(0 0 14px #ff4444) brightness(1.1); } }
     `;
     document.head.appendChild(s);
     state.styleNode = s;
@@ -201,6 +251,13 @@
     const root = document.createElement('div');
     root.id = ROOT_ID;
     root.innerHTML = `
+      <div class="gd-landscape-tips" id="gd-landscape-tips">
+        <div class="gd-landscape-tips-icon">🔄</div>
+        <h2>请旋转手机至横屏模式</h2>
+        <p style="color: #cbd5e1; font-size:14px; margin-top:10px;">为了获得最佳掼蛋对局体验，请关闭手机锁定，横过来玩哦~</p>
+        <button id="gd-fullscreen-trigger" style="margin-top: 20px; padding: 10px 20px; background: #22c55e; border:none; color:white; font-weight:bold; border-radius:8px;">进入全屏对局</button>
+      </div>
+
       <div class="gd-header">
         <div class="gd-header-info">当前主级: 打 <span data-gd-rank>${getCurrentRankStr()}</span> | 桌上牌型: <span data-gd-move>—</span></div>
         <button class="gd-exit-btn" data-gd-exit>退出沙箱</button>
@@ -225,7 +282,7 @@
             <span class="gd-clock-icon">⏱</span>
             <span data-gd-clock-time>20s</span>
           </div>
-          <div class="gd-player-wrap" data-gd-player-zone style="margin-bottom:6px;"></div>
+          <div class="gd-player-wrap" data-gd-player-zone style="margin-bottom:4px;"></div>
           <div class="gd-hand" data-gd-hand></div>
         </div>
       </div>
@@ -367,7 +424,6 @@
     return next.type === prev.type && next.size === prev.size && next.weight > prev.weight;
   }
 
-  // 💡 【终极修改】：完全解耦网络，使用完全可靠的本地绝对或相对路径
   function formatCard(card) {
     const curRankStr = getCurrentRankStr();
     const isWild = card.rank === curRankStr && card.suit === 'H';
@@ -377,25 +433,18 @@
     if (isWild) extraClass = 'gd-wild-card';
     else if (isNormalRank) extraClass = 'gd-rank-card';
 
-    // 将花色缩写转换为资产包里对应的小写全称
     let suitName = '';
     if (card.suit === 'S') suitName = 'spades';
     if (card.suit === 'H') suitName = 'hearts';
     if (card.suit === 'C') suitName = 'clubs';
     if (card.suit === 'D') suitName = 'diamonds';
 
-    // 将点数转换为小写（主要应对 A, J, Q, K）
     let rankName = card.rank.toLowerCase();
-
-    // 💡 处理字母牌和 10 的特殊全称
     if (rankName === 'a') rankName = 'ace';
     if (rankName === 'j') rankName = 'jack';
     if (rankName === 'q') rankName = 'queen';
     if (rankName === 'k') rankName = 'king';
-    // 检查：如果 10 的文件名是 '10_of_spades'，则不需要特殊处理；如果是 'ten_of_spades'，则启用下行代码
-    // if (rankName === '10') rankName = 'ten'; 
 
-    // 完美拼接路径 (数字_of_花色全称.png)
     let imgUrl = '';
     if (card.kind === 'joker') {
       imgUrl = `./images/cards/joker-${card.label === '大王' ? 'red' : 'black'}.png`;
@@ -403,7 +452,6 @@
       imgUrl = `./images/cards/${rankName}_of_${suitName}.png`;
     }
 
-    // 💡【核心修改】：在 gd-card 容器上强制加上白色背景、圆角和阴影，解决镂空问题
     return `
       <div class="gd-card ${extraClass}" data-card-id="${card.id}" style="
         background: #ffffff; 
@@ -413,8 +461,6 @@
         display: flex;
         justify-content: center;
         align-items: center;
-        width: 85px; 
-        height: 120px;
         box-sizing: border-box;
         overflow: hidden;
       ">
@@ -437,10 +483,10 @@
       const cardCount = p.hand ? p.hand.length : 0;
       
       let rankString = '';
-      if (p.rankOutOrder === 1) rankString = ' 🥇 头游出光';
-      else if (p.rankOutOrder === 2) rankString = ' 🥈 二游出光';
-      else if (p.rankOutOrder === 3) rankString = ' 🥉 三游出光';
-      else rankString = `剩余 ${cardCount} 张`;
+      if (p.rankOutOrder === 1) rankString = ' 🥇 头游';
+      else if (p.rankOutOrder === 2) rankString = ' 🥈 二游';
+      else if (p.rankOutOrder === 3) rankString = ' 🥉 三游';
+      else rankString = `剩 ${cardCount} 张`;
 
       seatNode.innerHTML = `
         <div class="gd-player-info ${isActive ? 'active' : ''}">
@@ -456,10 +502,10 @@
         centerStatus.className = 'gd-center-status-bar';
         if (state.currentTurn === 0) {
           centerStatus.classList.add('my-turn');
-          centerStatus.textContent = `轮到你了，请选择出牌或过牌`;
+          centerStatus.textContent = `轮到你出牌 (或选牌后向上滑动击出)`;
         } else {
           centerStatus.classList.add('ai-turn');
-          centerStatus.textContent = `正在等待 [ ${activePlayer.name} ] 出牌...`;
+          centerStatus.textContent = `正在等待 [ ${activePlayer.name} ]...`;
         }
       }
     }
@@ -683,12 +729,59 @@
     playCards(0, cards);
   }
 
+  // 请求进入全屏模式
+  function requestFullscreen(element) {
+    if (element.requestFullscreen) { element.requestFullscreen(); }
+    else if (element.webkitRequestFullscreen) { element.webkitRequestFullscreen(); }
+    else if (element.msRequestFullscreen) { element.msRequestFullscreen(); }
+  }
+
   function bindHandInteraction() {
     const container = document.getElementById(ROOT_ID);
     const hand = container?.querySelector('[data-gd-hand]');
+    const fsBtn = container?.querySelector('#gd-fullscreen-trigger');
     if (!hand) return;
 
+    // 全屏按钮绑定
+    if (fsBtn) {
+      on(fsBtn, 'click', () => {
+        requestFullscreen(container);
+      });
+    }
+
+    // 处理手势交互（支持点击与移动端滑动出牌）
+    on(hand, 'touchstart', (e) => {
+      const touch = e.touches[0];
+      state.touchStart.x = touch.clientX;
+      state.touchStart.y = touch.clientY;
+    }, { passive: true });
+
+    on(hand, 'touchend', (e) => {
+      const touch = e.changedTouches[0];
+      const deltaX = touch.clientX - state.touchStart.x;
+      const deltaY = touch.clientY - state.touchStart.y;
+
+      // 向上滑动超过 50px 触发快捷出牌
+      if (deltaY < -50 && Math.abs(deltaX) < 40) {
+        humanPlay();
+        return;
+      }
+
+      // 如果不是滑动，而是单纯轻触卡牌
+      if (Math.abs(deltaY) < 10 && Math.abs(deltaX) < 10) {
+        const card = e.target.closest('.gd-card');
+        if (!card || state.currentTurn !== 0 || !state.active) return;
+        const id = card.getAttribute('data-card-id');
+        if (state.selected.has(id)) state.selected.delete(id); else state.selected.add(id);
+        playGDSound('click');
+        renderTable();
+      }
+    });
+
+    // 依然保留PC端的点击事件，保证双端完美运行
     on(hand, 'click', (e) => {
+      // 防止移动端端产生 click 和 touchend 重复触发
+      if (e.pointerType === 'touch') return; 
       const card = e.target.closest('.gd-card');
       if (!card || state.currentTurn !== 0 || !state.active) return;
       const id = card.getAttribute('data-card-id');
@@ -721,6 +814,10 @@
     if (state.styleNode) state.styleNode.remove();
     const selection = document.getElementById('game-selection');
     if (selection) selection.style.display = 'flex';
+    
+    // 退出全屏
+    if (document.exitFullscreen) { document.exitFullscreen().catch(()=>{}); }
+    else if (document.webkitExitFullscreen) { document.webkitExitFullscreen().catch(()=>{}); }
   }
 
   function init() {
@@ -741,6 +838,9 @@
 
     state.players = SEATS.map((seat) => ({ ...seat, hand: [], rankOutOrder: null }));
     
+    // 自动尝试全屏
+    requestFullscreen(newShell);
+
     setTimeout(() => {
       startNewRound();
       bindHandInteraction();
