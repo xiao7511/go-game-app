@@ -839,6 +839,47 @@
     });
   }
 
+  function enterFullscreen(element) {
+    // 确保传入了需要全屏的 DOM 节点（如游戏大容器）
+    const el = element || document.documentElement;
+
+    try {
+      if (el.requestFullscreen) {
+        el.requestFullscreen();
+      } else if (el.webkitRequestFullscreen) { 
+        // 兼容 iOS Safari、旧版 Chrome 及微信
+        el.webkitRequestFullscreen();
+      } else if (el.mozRequestFullScreen) { 
+        // 兼容火狐
+        el.mozRequestFullScreen();
+      } else if (el.msRequestFullscreen) { 
+        // 兼容 IE/Edge
+        el.msRequestFullscreen();
+      }
+      
+      // 辅助机制：轻微滚动页面，强力唤醒部分老旧安卓浏览器的隐藏隐藏地址栏机制
+      setTimeout(() => {
+        window.scrollTo(0, 1);
+      }, 100);
+      
+    } catch (error) {
+      console.warn("当前设备或浏览器流不支持标准全屏 API:", error);
+    }
+  }
+
+  // 【正确的使用姿势】：绑定到用户的点击事件上
+  document.getElementById('your-start-btn').addEventListener('click', function() {
+    enterFullscreen(document.getElementById('game-container'));
+  });
+
+  function exitFullscreen() {
+    if (document.exitFullscreen) {
+      document.exitFullscreen().catch(()=>{});
+    } else if (document.webkitExitFullscreen) {
+      document.webkitExitFullscreen().catch(()=>{});
+    }
+  }
+
   function destroy() {
     clearInterval(state.timer);
     clearInterval(state.clockTimer);
