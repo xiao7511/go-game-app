@@ -868,7 +868,7 @@
   }
 
   // 【正确的使用姿势】：绑定到用户的点击事件上
-  document.getElementById('your-start-btn').addEventListener('click', function() {
+  document.getElementById('go-guandan-btn').addEventListener('click', function() {
     enterFullscreen(document.getElementById('game-container'));
   });
 
