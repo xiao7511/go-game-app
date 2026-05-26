@@ -303,36 +303,38 @@
       /* 精巧手牌承载容器 */
       .gd-hand { display: flex; align-items: flex-end; justify-content: center; min-height: 110px; width: 100%; max-width: 100vw; pointer-events: auto; padding: 0 16px 8px 16px; z-index: 110; overflow: visible; }
       
-      /* ===== 【修改/优化：重构卡牌样式，增加高画质缩放渲染，显著提升手牌清晰度与重叠感】 ===== */
+     /* 卡牌基础样式：加入过渡动画和触控优化 */
       .gd-card { 
         width: ${CARD_W}px; 
         height: 105px; 
         position: relative; 
-        margin-left: -50px; 
+        margin-left: -45px; /* PC端适当减小重叠 */
         transition: transform 0.15s cubic-bezier(0.2, 0.8, 0.2, 1); 
         border-radius: 8px; 
         cursor: pointer; 
         transform-origin: bottom center;
-        box-shadow: -2px 2px 6px rgba(0,0,0,0.4), 0 0 1px rgba(0,0,0,0.5);
+        touch-action: none; /* 阻止浏览器默认滚动，全力保障手势 */
       }
       .gd-card:first-child { margin-left: 0 !important; }
+
+      /* 核心：防止扑克牌图片压缩变形 */
       .gd-card img { 
         width: 100%; 
         height: 100%; 
-        object-fit: fill; 
-        pointer-events: none; 
-        image-rendering: -webkit-optimize-contrast; /* 移动端开启抗锯齿高清硬件级对比度缩放 */
-        image-rendering: crisp-edges;
+        object-fit: contain; /* 保持完美比例缩放，绝不压缩变形 */
+        background: #fff;
         border-radius: 8px;
+        filter: drop-shadow(-2px 3px 4px rgba(0,0,0,0.3)); 
       }
       
       /* 桌案缩小卡牌 */
       .gd-trick .gd-card { margin-left: -36px; pointer-events: none; height: 76px; width: 54px; box-shadow: -1px 1px 4px rgba(0,0,0,0.4); }
       .gd-trick .gd-card:first-child { margin-left: 0 !important; }
       
-      /* 精准弹起高度与高亮 */
-      .gd-card.sel { transform: translateY(-26px) !important; }
+      /* 精准弹起高度（移动端和PC端分流） */
+      .gd-card.sel { transform: translateY(-25px) !important; }
       .gd-card.sel img { filter: drop-shadow(0px 4px 12px rgba(245,158,11,0.95)) contrast(1.05); }
+
       
       .gd-wild-card img { filter: drop-shadow(0 0 8px #ef4444) !important; }
       .gd-rank-card img { filter: drop-shadow(0 0 6px #ffd700) !important; }
@@ -361,16 +363,37 @@
         .gd-hand { min-height: 130px; }
       }
 
-      /* 移动端/矮矮刘海屏优化 */
+      /* ================= 移动端/矮刘海屏 深度适配优化 ================= */
       @media screen and (max-height: 460px) {
-        .gd-card { height: 82px; width: 58px; margin-left: -38px; }
+        /* 适当调大移动端卡牌的尺寸，确保视觉和点击面积 */
+        .gd-card { 
+          height: 84px; 
+          width: 60px; 
+          margin-left: -35px; /* 留出至少 25px 的手指点击热区 */
+        }
         .gd-card.sel { transform: translateY(-18px) !important; }
-        .gd-trick .gd-card { height: 58px; width: 42px; margin-left: -28px; }
-        .gd-center-table { top: 16%; height: 38vh; }
-        .gd-hand { min-height: 85px; padding-bottom: 2px; }
-        .gd-seat.top { top: 32px; }
-        .gd-action-bar { height: 32px; margin-bottom: 2px; }
-        .gd-action-bar button { font-size: 12px; padding: 0 18px; }
+        
+        /* 桌案上出掉的牌可以小一点 */
+        .gd-trick .gd-card { 
+          height: 60px; 
+          width: 43px; 
+          margin-left: -24px; 
+        }
+        
+        /* 手牌容器弹性扩展，允许在大牌量时横向滚动，不强行压缩卡牌 */
+        .gd-hand { 
+          min-height: 95px; 
+          padding-bottom: 4px; 
+          overflow-x: auto; /* 牌太多时允许丝滑横滚，绝不压缩单张牌 */
+          overflow-y: visible;
+          justify-content: flex-start; /* 移动端靠左对齐，方便横向滚动查看 */
+          padding-left: 24px;
+          padding-right: 24px;
+          -webkit-overflow-scrolling: touch;
+        }
+        
+        .gd-action-bar { height: 34px; margin-bottom: 4px; }
+        .gd-action-bar button { font-size: 13px; padding: 0 20px; border-radius: 17px; }
       }
 
       @keyframes gd-rotate-phone {
@@ -937,15 +960,15 @@
       state.touchStart.time = Date.now();
     }, { passive: true });
 
+    // 找到 bindHandInteraction 内的 on(hand, 'touchend', ...) 并替换为：
     on(hand, 'touchend', (e) => {
       const touch = e.changedTouches[0];
       const deltaX = touch.clientX - state.touchStart.x;
       const deltaY = touch.clientY - state.touchStart.y;
       const duration = Date.now() - state.touchStart.time;
 
-      // 优化移动端：上划灵敏出牌
-      if (deltaY < -28 && Math.abs(deltaX) < 55 && duration < 300) {
-        // 如果划过某个尚未选中的卡牌，防漏选直接自动纳入选择区
+      // 1. 优化移动端：上划灵敏出牌
+      if (deltaY < -25 && Math.abs(deltaX) < 60 && duration < 300) {
         const cardDOM = e.target.closest('.gd-card');
         if (cardDOM && state.currentTurn === 0 && state.active) {
           const id = cardDOM.getAttribute('data-card-id');
@@ -955,10 +978,13 @@
         return;
       }
 
-      // ===== 【修改/优化：放宽移动端多选卡牌点击判定阈值，解决无法灵敏选中多张牌的问题】 =====
-      if (Math.abs(deltaY) < 12 && Math.abs(deltaX) < 12) {
+      // 2. 精准轻触选中（将判定阈值从 6px 放宽至 15px，完美适应手指肉垫按压）
+      if (Math.abs(deltaY) < 15 && Math.abs(deltaX) < 15) {
         const cardDOM = e.target.closest('.gd-card');
         if (!cardDOM || state.currentTurn !== 0 || !state.active) return;
+        
+        // 阻止屏幕双击缩放引发的错位
+        e.preventDefault(); 
         
         const id = cardDOM.getAttribute('data-card-id');
         if (state.selected.has(id)) {
