@@ -1,13 +1,14 @@
 /**
- * guandan-game.js (Version 4.0 - 全端沉浸自适应高颜值版)
+ * guandan-game.js (Version 4.1 - 全端沉浸自适应高颜值优化版)
  * 掼蛋扑克游戏扩展包
- * 【升级重点：自适应唯美游戏大厅、PC右键出牌、移动端丝滑上划出牌、原生响应式界面布局】
+ * 【升级重点：修复CARD_W未定义报错、优化移动端连续多选卡牌灵敏度、横屏自适应全屏、手牌高清视觉重构】
  */
 (() => {
   'use strict';
 
+  // ===== 【修改：确保 CARD_W 在作用域最顶层安全声明，防止 ReferenceError 报错】 =====
+  const CARD_W = 74; 
   const GD_ICON_SUITS = { SPADE: '♠', HEART: '♥', CLUB: '♣', DIAMOND: '♦' };
-  const CARD_W = 74;
   const GD = (window.GD = window.GD || {});
   GD.__loaded = true;
 
@@ -302,18 +303,36 @@
       /* 精巧手牌承载容器 */
       .gd-hand { display: flex; align-items: flex-end; justify-content: center; min-height: 110px; width: 100%; max-width: 100vw; pointer-events: auto; padding: 0 16px 8px 16px; z-index: 110; overflow: visible; }
       
-      /* 卡牌样式与层叠间距 */
-      .gd-card { width: ${CARD_W}px; height: 105px; position: relative; margin-left: -53px; transition: transform 0.15s cubic-bezier(0.2, 0.8, 0.2, 1); border-radius: 6px; cursor: pointer; transform-origin: bottom center; }
+      /* ===== 【修改/优化：重构卡牌样式，增加高画质缩放渲染，显著提升手牌清晰度与重叠感】 ===== */
+      .gd-card { 
+        width: ${CARD_W}px; 
+        height: 105px; 
+        position: relative; 
+        margin-left: -50px; 
+        transition: transform 0.15s cubic-bezier(0.2, 0.8, 0.2, 1); 
+        border-radius: 8px; 
+        cursor: pointer; 
+        transform-origin: bottom center;
+        box-shadow: -2px 2px 6px rgba(0,0,0,0.4), 0 0 1px rgba(0,0,0,0.5);
+      }
       .gd-card:first-child { margin-left: 0 !important; }
-      .gd-card img { width: 100%; height: 100%; object-fit: fill; pointer-events: none; filter: drop-shadow(-2px 3px 4px rgba(0,0,0,0.35)); }
+      .gd-card img { 
+        width: 100%; 
+        height: 100%; 
+        object-fit: fill; 
+        pointer-events: none; 
+        image-rendering: -webkit-optimize-contrast; /* 移动端开启抗锯齿高清硬件级对比度缩放 */
+        image-rendering: crisp-edges;
+        border-radius: 8px;
+      }
       
       /* 桌案缩小卡牌 */
-      .gd-trick .gd-card { margin-left: -36px; pointer-events: none; height: 76px; width: 54px; }
+      .gd-trick .gd-card { margin-left: -36px; pointer-events: none; height: 76px; width: 54px; box-shadow: -1px 1px 4px rgba(0,0,0,0.4); }
       .gd-trick .gd-card:first-child { margin-left: 0 !important; }
       
       /* 精准弹起高度与高亮 */
-      .gd-card.sel { transform: translateY(-22px) !important; }
-      .gd-card.sel img { filter: drop-shadow(0px 5px 10px rgba(245,158,11,0.9)); }
+      .gd-card.sel { transform: translateY(-26px) !important; }
+      .gd-card.sel img { filter: drop-shadow(0px 4px 12px rgba(245,158,11,0.95)) contrast(1.05); }
       
       .gd-wild-card img { filter: drop-shadow(0 0 8px #ef4444) !important; }
       .gd-rank-card img { filter: drop-shadow(0 0 6px #ffd700) !important; }
@@ -335,8 +354,8 @@
 
       /* PC端大显示器细节微调 */
       @media screen and (min-width: 1024px) {
-        .gd-card { width: 85px; height: 120px; margin-left: -58px; }
-        .gd-card.sel { transform: translateY(-26px) !important; }
+        .gd-card { width: 85px; height: 120px; margin-left: -54px; }
+        .gd-card.sel { transform: translateY(-30px) !important; }
         .gd-trick .gd-card { height: 86px; width: 62px; margin-left: -42px; }
         .gd-center-table { max-width: 750px; max-height: 230px; top: 25%; }
         .gd-hand { min-height: 130px; }
@@ -344,11 +363,11 @@
 
       /* 移动端/矮矮刘海屏优化 */
       @media screen and (max-height: 460px) {
-        .gd-card { height: 76px; width: 54px; margin-left: -40px; }
-        .gd-card.sel { transform: translateY(-14px) !important; }
-        .gd-trick .gd-card { height: 56px; width: 40px; margin-left: -28px; }
+        .gd-card { height: 82px; width: 58px; margin-left: -38px; }
+        .gd-card.sel { transform: translateY(-18px) !important; }
+        .gd-trick .gd-card { height: 58px; width: 42px; margin-left: -28px; }
         .gd-center-table { top: 16%; height: 38vh; }
-        .gd-hand { min-height: 80px; padding-bottom: 2px; }
+        .gd-hand { min-height: 85px; padding-bottom: 2px; }
         .gd-seat.top { top: 32px; }
         .gd-action-bar { height: 32px; margin-bottom: 2px; }
         .gd-action-bar button { font-size: 12px; padding: 0 18px; }
@@ -936,8 +955,8 @@
         return;
       }
 
-      // 轻触精准选中/取消
-      if (Math.abs(deltaY) < 6 && Math.abs(deltaX) < 6) {
+      // ===== 【修改/优化：放宽移动端多选卡牌点击判定阈值，解决无法灵敏选中多张牌的问题】 =====
+      if (Math.abs(deltaY) < 12 && Math.abs(deltaX) < 12) {
         const cardDOM = e.target.closest('.gd-card');
         if (!cardDOM || state.currentTurn !== 0 || !state.active) return;
         
@@ -977,6 +996,19 @@
       renderTable();
       humanPlay(); // 触发右键直接自动出牌
     });
+
+    // ===== 【修改/优化：新增横屏方向自动监测与自适应全屏机制】 =====
+    const handleOrientationChange = () => {
+      const isLandscape = window.innerWidth > window.innerHeight || (screen.orientation && screen.orientation.type.includes('landscape'));
+      if (isLandscape && state.active) {
+        // 当用户旋转手机进入横屏时，立刻静默尝试触发自适应全屏
+        executeFullscreen(container);
+      }
+    };
+    on(window, 'resize', handleOrientationChange);
+    if (screen.orientation) {
+      on(screen.orientation, 'change', handleOrientationChange);
+    }
   }
 
   function destroy() {
@@ -1015,6 +1047,7 @@
 
     state.players = SEATS.map((seat) => ({ ...seat, hand: [], rankOutOrder: null }));
     
+    // ===== 【修改/优化：进入对局时首次强力尝试执行全屏适配】 =====
     executeFullscreen(newShell);
 
     setTimeout(() => {
@@ -1032,6 +1065,14 @@
         playGDSound('click'); state.players[0].hand = sortCards(state.players[0].hand); renderTable(); 
       });
       if (exitBtn) on(exitBtn, 'click', () => { playGDSound('click'); destroy(); });
+
+      // ===== 【修改/优化：在玩家进行任何面板点击和交互时进行全屏补刀拦截，绕过浏览器手势限制规则】 =====
+      on(newShell, 'click', () => {
+        const isLandscape = window.innerWidth > window.innerHeight;
+        if (isLandscape && !document.fullscreenElement && !document.webkitFullscreenElement) {
+          executeFullscreen(newShell);
+        }
+      }, { capture: true });
 
       state.timer = setInterval(triggerAIMove, 200);
     }, 80);
