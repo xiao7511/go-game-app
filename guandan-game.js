@@ -134,7 +134,7 @@
       }
       #${LOBBY_ID} * , #${ROOT_ID} * { box-sizing: border-box; margin: 0; padding: 0; }
 
-      /* 游戏大厅美化 */
+      /* 游戏大厅 */
       #${LOBBY_ID} {
         position: fixed;
         inset: 0;
@@ -187,40 +187,11 @@
         padding: 15px;
         transition: transform 0.2s, border-color 0.2s;
       }
-      .gd-lobby-player-card:hover {
-        transform: translateY(-5px);
-        border-color: #ffd700;
-      }
-      .gd-lobby-avatar {
-        font-size: 36px;
-        margin-bottom: 10px;
-      }
-      .gd-lobby-pname {
-        font-weight: bold;
-        font-size: 16px;
-        color: #e2e8f0;
-      }
-      .gd-lobby-pstatus {
-        font-size: 12px;
-        color: #34d399;
-        margin-top: 5px;
-        background: rgba(52, 211, 153, 0.1);
-        padding: 2px 8px;
-        border-radius: 10px;
-        display: inline-block;
-      }
-      .gd-lobby-start-btn {
-        background: linear-gradient(135deg, #ffd700 0%, #f59e0b 100%);
-        color: #04140a;
-        font-size: 18px;
-        font-weight: bold;
-        padding: 14px 50px;
-        border: none;
-        border-radius: 30px;
-        cursor: pointer;
-        box-shadow: 0 6px 20px rgba(245,158,11,0.4);
-        transition: transform 0.1s, box-shadow 0.2s;
-      }
+      .gd-lobby-player-card:hover { transform: translateY(-5px); border-color: #ffd700; }
+      .gd-lobby-avatar { font-size: 36px; margin-bottom: 10px; }
+      .gd-lobby-pname { font-weight: bold; font-size: 16px; color: #e2e8f0; }
+      .gd-lobby-pstatus { font-size: 12px; color: #34d399; margin-top: 5px; background: rgba(52, 211, 153, 0.1); padding: 2px 8px; border-radius: 10px; display: inline-block; }
+      .gd-lobby-start-btn { background: linear-gradient(135deg, #ffd700 0%, #f59e0b 100%); color: #04140a; font-size: 18px; font-weight: bold; padding: 14px 50px; border: none; border-radius: 30px; cursor: pointer; box-shadow: 0 6px 20px rgba(245,158,11,0.4); transition: transform 0.1s, box-shadow 0.2s; }
       .gd-lobby-start-btn:active { transform: scale(0.96); }
       .gd-lobby-start-btn:hover { box-shadow: 0 8px 25px rgba(245,158,11,0.6); }
 
@@ -248,209 +219,158 @@
       
       /* 座位基本框架 */
       .gd-seat { position: absolute; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 50; pointer-events: none; }
-      .gd-seat.top { top: 25px; left: 50%; transform: translateX(-50%); flex-direction: column-reverse; } 
-      .gd-seat.left { left: 20px; top: 38%; transform: translateY(-50%); }
-      .gd-seat.right { right: 20px; top: 38%; transform: translateY(-50%); }
+      .gd-seat.top { top: 20px; left: 50%; transform: translateX(-50%); flex-direction: column-reverse; } 
+      .gd-seat.left { left: 15px; top: 35%; transform: translateY(-50%); }
+      .gd-seat.right { right: 15px; top: 35%; transform: translateY(-50%); }
       .gd-seat.bottom { bottom: 0; left: 0; right: 0; width: 100%; display: flex; flex-direction: column; align-items: center; z-index: 100; }
       
-      /* ================= 其它 AI 玩家精美独立牌背堆叠系统（拒绝灰色） ================= */
-      .gd-opp-hand-wrapper {
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        margin-top: 8px;
-        padding: 4px;
-        overflow: visible;
-        pointer-events: none;
-      }
+      /* 其他 AI 玩家手牌编织背纹堆叠系统 */
+      .gd-opp-hand-wrapper { display: flex; justify-content: center; align-items: center; margin-top: 6px; padding: 2px; overflow: visible; pointer-events: none; }
       .gd-opp-card-back {
-        width: 18px;
-        height: 26px;
+        width: 14px; height: 20px;
         flex-shrink: 0;
-        margin-left: -13px; /* 高度堆叠 */
-        border: 1px solid #ffd700; /* 高端金色边框 */
-        border-radius: 3px;
-        box-shadow: -1px 2px 4px rgba(0, 0, 0, 0.5);
+        margin-left: -10px;
+        border: 1px solid #ffd700;
+        border-radius: 2px;
+        box-shadow: -1px 1px 3px rgba(0, 0, 0, 0.4);
         position: relative;
-        /* 经典高质感红色编织扑克纹路背景，规避纯色导致的暗沉发灰 */
-        background: radial-gradient(rgba(239, 68, 68, 0.2) 15%, transparent 16%),
-                    radial-gradient(rgba(239, 68, 68, 0.2) 15%, transparent 16%),
-                    #b91c1c;
-        background-size: 4px 4px;
-        background-position: 0 0, 2px 2px;
+        background: radial-gradient(rgba(239, 68, 68, 0.2) 15%, transparent 16%), radial-gradient(rgba(239, 68, 68, 0.2) 15%, transparent 16%), #b91c1c;
+        background-size: 3px 3px;
+        background-position: 0 0, 1.5px 1.5px;
       }
       .gd-opp-card-back:first-child { margin-left: 0 !important; }
-      
-      /* 对家、左右两家独立限宽与层叠控制，防止横向过长溢出屏幕 */
-      .gd-seat.left .gd-opp-hand-wrapper, .gd-seat.right .gd-opp-hand-wrapper {
-        max-width: 110px;
-        flex-wrap: wrap; /* 牌太多时自动折行，保证27张绝对能安全渲染出来 */
-        justify-content: center;
-      }
-      .gd-seat.left .gd-opp-card-back, .gd-seat.right .gd-opp-card-back {
-        margin-left: -14px;
-        margin-top: -4px;
-      }
-      .gd-seat.top .gd-opp-hand-wrapper {
-        max-width: 220px;
-        flex-wrap: wrap;
-        justify-content: center;
-      }
+      .gd-seat.left .gd-opp-hand-wrapper, .gd-seat.right .gd-opp-hand-wrapper { max-width: 90px; flex-wrap: wrap; justify-content: center; }
+      .gd-seat.left .gd-opp-card-back, .gd-seat.right .gd-opp-card-back { margin-left: -11px; margin-top: -3px; }
+      .gd-seat.top .gd-opp-hand-wrapper { max-width: 180px; flex-wrap: wrap; justify-content: center; }
 
       /* 操作面板 */
-      .gd-action-bar { display: none; gap: 16px; justify-content: center; height: 38px; margin-bottom: 6px; z-index: 105; pointer-events: auto; width: 100%; }
+      .gd-action-bar { display: none; gap: 16px; justify-content: center; height: 36px; margin-bottom: 4px; z-index: 105; pointer-events: auto; width: 100%; }
       .gd-action-bar.show { display: flex !important; }
-      .gd-action-bar button { border: 1px solid rgba(255,255,255,0.15); padding: 0 26px; border-radius: 20px; font-weight: bold; font-size: 14px; cursor: pointer; box-shadow: 0 4px 8px rgba(0,0,0,0.4); text-shadow: 0 1px 2px rgba(0,0,0,0.6); transition: transform 0.1s; -webkit-tap-highlight-color: transparent; }
+      .gd-action-bar button { border: 1px solid rgba(255,255,255,0.15); padding: 0 24px; border-radius: 20px; font-weight: bold; font-size: 13px; cursor: pointer; box-shadow: 0 4px 8px rgba(0,0,0,0.4); text-shadow: 0 1px 2px rgba(0,0,0,0.6); transition: transform 0.1s; -webkit-tap-highlight-color: transparent; }
       .gd-action-bar button:active { transform: scale(0.92); }
       .gd-btn-play { background: linear-gradient(180deg, #10b981 0%, #059669 100%); color: white; border-color: #34d399 !important; }
       .gd-btn-pass { background: linear-gradient(180deg, #64748b 0%, #475569 100%); color: white; }
       .gd-btn-sort { background: linear-gradient(180deg, #06b6d4 0%, #0db8d6 100%); color: white; }
       .gd-action-bar button:disabled { background: linear-gradient(180deg, #475569 0%, #1e293b 100%) !important; color: #94a3b8 !important; cursor: not-allowed; box-shadow: none; opacity: 0.35; border-color: transparent !important; }
       
-      .gd-clock-panel { display: none; background: rgba(0,0,0,0.85); padding: 3px 12px; border-radius: 12px; border: 1px solid #10b981; margin-bottom: 6px; font-size: 12px; font-weight: bold; align-items: center; gap: 4px; color: #10b981; z-index: 104; }
+      .gd-clock-panel { display: none; background: rgba(0,0,0,0.85); padding: 3px 12px; border-radius: 12px; border: 1px solid #10b981; margin-bottom: 4px; font-size: 12px; font-weight: bold; align-items: center; gap: 4px; color: #10b981; z-index: 104; }
       .gd-clock-panel.show { display: flex; }
-      .gd-clock-icon { color: #10b981; animation: gd-pulse 1s infinite; }
       
-      .gd-player-info { background: rgba(0,12,6,0.85); padding: 5px 14px; border-radius: 8px; text-align: center; min-width: 95px; border: 1px solid rgba(255,255,255,0.15); box-shadow: 0 3px 6px rgba(0,0,0,0.3); }
+      .gd-player-info { background: rgba(0,12,6,0.85); padding: 4px 10px; border-radius: 6px; text-align: center; min-width: 85px; border: 1px solid rgba(255,255,255,0.15); box-shadow: 0 3px 6px rgba(0,0,0,0.3); }
       .gd-player-info.active { border-color: #f59e0b; background: rgba(18,44,24,0.95); box-shadow: 0 0 12px #f59e0b; }
-      .gd-player-name { font-weight: bold; font-size: 13px; color: #fff; }
-      .gd-player-detail { font-size: 11px; color: #f59e0b; margin-top: 2px; font-weight: bold; }
+      .gd-player-name { font-weight: bold; font-size: 12px; color: #fff; }
+      .gd-player-detail { font-size: 11px; color: #f59e0b; margin-top: 1px; font-weight: bold; }
       
-      /* 出牌桌案中心区域 */
+      /* ================= 核心修复：出牌桌案中心区域（坚决防止放大与裁切） ================= */
       .gd-center-table { 
         position: absolute; 
-        width: 80vw; 
-        height: 36vh; 
-        max-width: 650px; 
-        max-height: 200px; 
-        top: 22%;
+        width: 85vw; 
+        height: 30vh; 
+        max-width: 600px; 
+        max-height: 160px; 
+        top: 25%;
         border: 1px dashed rgba(255,215,0,0.2); 
-        border-radius: 24px; 
+        border-radius: 20px; 
         display: flex; 
         flex-direction: column; 
         justify-content: flex-start; 
         align-items: center; 
         background: rgba(0, 0, 0, 0.25); 
-        padding: 8px 0; 
+        padding: 6px 0; 
         pointer-events: none;
         z-index: 40;
+        overflow: visible; /* 绝不切断出牌 */
       }
       
-      .gd-center-status-bar { width: auto; background: rgba(0, 0, 0, 0.65); padding: 3px 14px; font-size: 11px; font-weight: bold; color: #94a3b8; border-radius: 12px; border: 1px solid rgba(255,255,255,0.05); }
-      .gd-center-status-bar.my-turn { color: #34d399; animation: gd-text-pulse 1.2s infinite alternate; border-color: rgba(52,211,153,0.3); }
+      .gd-center-status-bar { width: auto; background: rgba(0, 0, 0, 0.65); padding: 2px 12px; font-size: 11px; font-weight: bold; color: #94a3b8; border-radius: 12px; border: 1px solid rgba(255,255,255,0.05); }
+      .gd-center-status-bar.my-turn { color: #34d399; animation: gd-text-pulse 1.2s infinite alternate; }
       
-      .gd-trick { display: flex; flex-direction: column; justify-content: center; align-items: center; width: 100%; flex: 1; position: relative; }
-      .gd-trick-cards-wrap { display: flex; justify-content: center; align-items: center; width: 100%; max-height: 100px; padding: 2px 8px; overflow: visible; }
-      .gd-trick-empty { font-size: 12px; color: rgba(255,255,255,0.2); font-weight: bold; margin-top: 20px; }
-      .gd-trick-owner { color: #f59e0b; font-size: 11px; font-weight: bold; width: 100%; text-align: center; position: absolute; top: 0; }
+      .gd-trick { display: flex; flex-direction: column; justify-content: center; align-items: center; width: 100%; flex: 1; position: relative; overflow: visible; }
+      .gd-trick-cards-wrap { display: flex; justify-content: center; align-items: center; width: 100%; max-height: 80px; padding: 2px; overflow: visible; }
+      .gd-trick-empty { font-size: 12px; color: rgba(255,255,255,0.15); font-weight: bold; margin-top: 15px; }
+      .gd-trick-owner { color: #f59e0b; font-size: 11px; font-weight: bold; width: 100%; text-align: center; position: absolute; top: -4px; }
       
-      /* ================= 自己手牌包裹容器：解决高度裁剪与27张全部正常显示的绝对法则 ================= */
+      /* 中心出牌卡牌：彻底脱离手牌控制，锁定精致小巧尺寸 */
+      .gd-trick .gd-card { 
+        width: 44px !important; 
+        height: 62px !important; 
+        margin-left: -26px !important; 
+        flex-shrink: 0 !important;
+        transform: none !important;
+        cursor: default;
+        position: relative;
+      }
+      .gd-trick .gd-card:first-child { margin-left: 0 !important; }
+      .gd-trick .gd-card img { width: 100% !important; height: 100% !important; object-fit: contain !important; filter: drop-shadow(-1px 2px 3px rgba(0,0,0,0.4)) !important; }
+
+      /* ================= 当前玩家手牌区域：绝对一屏全显、禁止滚动条 ================= */
       .gd-hand { 
         display: flex; 
         align-items: flex-end; 
-        justify-content: safe center;
-        justify-content: center;
-        /* 极其重要：提高到150px！为移动端卡牌自身高度 + 弹起位移 + 阴影留出绝对充足的纵向呼吸空间，彻底根治裁剪 */
-        min-height: 145px; 
-        height: 145px;
+        justify-content: center; /* 始终保持居中对齐 */
+        min-height: 140px; 
+        height: 140px;
         width: 100%; 
         max-width: 100vw; 
         pointer-events: auto; 
-        padding: 20px 24px 10px 24px; /* 顶部留足 padding 允许卡牌向上弹出不越界 */
+        padding: 20px 10px 8px 10px; /* 顶部留足空间供弹起 */
         z-index: 110; 
-        overflow-x: auto; /* 允许丝滑横滚查看 */
-        overflow-y: visible; /* 顶部不允许切断 */
-        -webkit-overflow-scrolling: touch;
+        overflow-x: hidden; /* 彻底禁止横向滚动条 */
+        overflow-y: visible; /* 允许卡牌向上无遮挡弹起 */
       }
       
-      /* 自己卡牌的核心锁定比例结构 */
+      /* 核心自适应堆叠：利用极大的负边距让27张牌在一屏内自动层叠收缩 */
       .gd-hand .gd-card { 
-        width: ${CARD_W}px; 
-        height: 105px; 
-        aspect-ratio: 74 / 105; 
-        flex-shrink: 0; /* 坚决防止开局27张牌时因空间不足被 Flex 压缩变形 */
+        width: 64px; 
+        height: 90px; 
+        flex-shrink: 1; /* 核心：允许在单屏容纳不下时极限挤压收缩 */
         position: relative; 
-        margin-left: -52px; /* 完美层叠比 */
+        margin-left: -48px; /* 开局27张时会自动压紧，越往后出牌，牌面会自动平铺变宽 */
         transition: transform 0.15s cubic-bezier(0.2, 0.8, 0.2, 1); 
-        border-radius: 6px; 
+        border-radius: 4px; 
         cursor: pointer; 
         transform-origin: bottom center; 
         touch-action: none;
       }
       .gd-hand .gd-card:first-child { margin-left: 0 !important; }
-      .gd-hand .gd-card img { width: 100%; height: 100%; object-fit: contain; background: #fff; border-radius: 6px; filter: drop-shadow(-2px 3px 4px rgba(0,0,0,0.35)); pointer-events: none; }
+      .gd-hand .gd-card img { width: 100%; height: 100%; object-fit: contain; background: #fff; border-radius: 4px; filter: drop-shadow(-2px 3px 4px rgba(0,0,0,0.3)); pointer-events: none; }
       
-      /* 精准限定出牌桌案内的卡牌尺寸：与玩家手牌彻底解耦 */
-      .gd-trick .gd-card { 
-        margin-left: -32px !important; 
-        pointer-events: none; 
-        height: 76px !important; 
-        width: 54px !important; 
-        aspect-ratio: 54 / 76;
-        flex-shrink: 0;
-      }
-      .gd-trick .gd-card:first-child { margin-left: 0 !important; }
+      /* 手牌高亮与弹起 */
+      .gd-hand .gd-card.sel { transform: translateY(-24px) !important; }
+      .gd-hand .gd-card.sel img { filter: drop-shadow(0px 4px 10px rgba(245,158,11,0.9)); }
       
-      /* 精准弹起高度与高亮 */
-      .gd-hand .gd-card.sel { transform: translateY(-26px) !important; } /* 安全范围内极限弹起 */
-      .gd-hand .gd-card.sel img { filter: drop-shadow(0px 5px 12px rgba(245,158,11,0.95)); }
-      
-      .gd-wild-card img { filter: drop-shadow(0 0 8px #ef4444) !important; }
-      .gd-rank-card img { filter: drop-shadow(0 0 6px #ffd700) !important; }
+      .gd-wild-card img { filter: drop-shadow(0 0 6px #ef4444) !important; }
+      .gd-rank-card img { filter: drop-shadow(0 0 5px #ffd700) !important; }
       
       .gd-toast { position: fixed; top: 18%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.9); border: 1px solid #f59e0b; color: #fff; padding: 6px 18px; border-radius: 20px; font-size: 12px; font-weight: bold; z-index: 2000; opacity: 0; transition: opacity 0.2s; pointer-events: none; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
       
       /* 强制横屏适配引导 */
-      @media screen and (orientation: portrait) {
-        .gd-landscape-tips { display: flex !important; }
-      }
-      .gd-landscape-tips {
-        display: none;
-        position: fixed;
-        inset: 0; width: 100vw; height: 100vh;
-        background: #06140b; z-index: 100000;
-        flex-direction: column; justify-content: center; align-items: center; color: #ffd700; text-align: center; padding: 20px;
-      }
+      @media screen and (orientation: portrait) { .gd-landscape-tips { display: flex !important; } }
+      .gd-landscape-tips { display: none; position: fixed; inset: 0; width: 100vw; height: 100vh; background: #06140b; z-index: 100000; flex-direction: column; justify-content: center; align-items: center; color: #ffd700; text-align: center; padding: 20px; }
       .gd-landscape-tips-icon { font-size: 45px; margin-bottom: 16px; animation: gd-rotate-phone 2s infinite ease-in-out; }
 
-      /* ================= PC端大显示器高级自适应调节 ================= */
+      /* ================= PC端独立优化配置 ================= */
       @media screen and (min-width: 1024px) {
-        .gd-hand { min-height: 165px; height: 165px; padding-top: 25px; }
-        .gd-hand .gd-card { width: 85px; height: 120px; aspect-ratio: 85 / 120; margin-left: -55px; }
-        .gd-hand .gd-card.sel { transform: translateY(-28px) !important; }
-        .gd-trick .gd-card { height: 86px !important; width: 62px !important; aspect-ratio: 62 / 86; margin-left: -38px !important; }
-        .gd-center-table { max-width: 750px; max-height: 230px; top: 24%; }
+        .gd-hand { min-height: 160px; height: 160px; padding-top: 25px; }
+        .gd-hand .gd-card { width: 80px; height: 112px; margin-left: -58px; }
+        .gd-hand .gd-card.sel { transform: translateY(-26px) !important; }
+        .gd-trick .gd-card { width: 52px !important; height: 73px !important; margin-left: -32px !important; }
+        .gd-center-table { max-width: 680px; max-height: 180px; top: 25%; }
       }
 
-      /* ================= 移动端/小刘海屏 黄金比例深度优化 ================= */
+      /* ================= 移动端小屏幕极限全显优化 ================= */
       @media screen and (max-height: 460px) {
-        /* 高度调至 125px，对于 82px 的卡牌留出了 43px 的弹起缓冲带，完美根治纵向裁剪 */
-        .gd-hand { 
-          min-height: 125px; 
-          height: 125px;
-          padding-top: 22px;
-          padding-bottom: 2px; 
-          margin: 0 auto;
-        }
-        .gd-hand .gd-card { 
-          height: 82px; 
-          width: 58px; 
-          aspect-ratio: 58 / 82;
-          margin-left: -38px; /* 开局27张牌时可以露出完美的黄金触控面，且能顺畅横向滑屏 */
-        }
-        .gd-hand .gd-card.sel { transform: translateY(-18px) !important; }
-        
-        .gd-center-table { top: 15%; height: 40vh; }
-        .gd-seat.top { top: 12px; }
+        .gd-hand { min-height: 115px; height: 115px; padding-top: 20px; padding-bottom: 2px; }
+        /* 移动端横屏下，将初始宽度压缩至 50px，配合 flex-shrink 彻底实现 27 张牌在一屏内塞下 */
+        .gd-hand .gd-card { height: 72px; width: 50px; margin-left: -38px; }
+        .gd-hand .gd-card.sel { transform: translateY(-16px) !important; }
+        .gd-center-table { top: 16%; height: 36vh; }
+        .gd-seat.top { top: 10px; }
         .gd-action-bar { height: 32px; margin-bottom: 2px; }
-        .gd-action-bar button { font-size: 12px; padding: 0 18px; }
+        .gd-action-bar button { font-size: 11px; padding: 0 16px; }
       }
 
-      @keyframes gd-rotate-phone {
-        0% { transform: rotate(0deg); }
-        50% { transform: rotate(-90deg); }
-        100% { transform: rotate(0deg); }
-      }
+      @keyframes gd-rotate-phone { 0% { transform: rotate(0deg); } 50% { transform: rotate(-90deg); } 100% { transform: rotate(0deg); } }
       @keyframes gd-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
       @keyframes gd-text-pulse { 0% { text-shadow: 0 0 2px rgba(52,211,153,0.3); } 100% { text-shadow: 0 0 8px rgba(52,211,153,0.8); } }
     `;
@@ -734,7 +654,6 @@
       else if (p.rankOutOrder === 3) rankString = '三游';
       else rankString = `剩 ${cardCount} 张`;
 
-      // 动态构建其他玩家的高颜值红色编织背纹牌堆HTML（彻底解决发灰和漏显示问题）
       let backsHTML = '';
       if (idx !== 0 && cardCount > 0 && state.active) {
         backsHTML = '<div class="gd-opp-hand-wrapper">';
