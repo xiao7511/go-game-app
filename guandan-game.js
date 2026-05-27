@@ -1,12 +1,12 @@
 /**
- * guandan-game.js (Version 4.2 - 终极修复全屏全显稳定版)
+ * guandan-game.js (Version 5.0 - 大厅美化与交互跃升旗舰版)
  * 掼蛋扑克游戏扩展包
- * 【修复重点：彻底根除CARD_W未定义报错、完美首发27张牌、手牌绝对一屏全显防滚动条、中心出牌黄金比例优化】
+ * 【功能全面升级：蓝白重叠牌背、移动端手牌比例修复、多模态智能理牌、全新模式选择舱】
  */
 (() => {
   'use strict';
 
-  // ===== 【核心修复：确保全局变量作用域在顶层完全可见，防止任何 ReferenceError 报错】 =====
+  // ===== 全局静态常量与配置 =====
   const CARD_W = 74; 
   const GD_ICON_SUITS = { SPADE: '♠', HEART: '♥', CLUB: '♣', DIAMOND: '♦' };
   const GD = (window.GD = window.GD || {});
@@ -26,15 +26,21 @@
   const RANKS = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
   const BASE_RANK_VALUE = Object.fromEntries(RANKS.map((r, i) => [r, i + 2]));
 
+  // 【优化：获取动态登录用户昵称】
+  function getUserNickname() {
+    return window.USER_NICKNAME || localStorage.getItem('username') || localStorage.getItem('nickname') || '南家 (你)';
+  }
+
   const SEATS = [
-    { id: 0, name: '南家 (你)', short: 'South', team: 0, pos: 'bottom' },
-    { id: 1, name: '东家', short: 'East', team: 1, pos: 'right' },
-    { id: 2, name: '北家 (对家)', short: 'North', team: 0, pos: 'top' },
-    { id: 3, name: '西家', short: 'West', team: 1, pos: 'left' },
+    { id: 0, name: getUserNickname(), short: 'South', team: 0, pos: 'bottom' },
+    { id: 1, name: '东家 (AI)', short: 'East', team: 1, pos: 'right' },
+    { id: 2, name: '北家 (对家AI)', short: 'North', team: 0, pos: 'top' },
+    { id: 3, name: '西家 (AI)', short: 'West', team: 1, pos: 'left' },
   ];
 
   const state = {
-    gameMode: 'SINGLE_PLAYER',
+    gameMode: 'SINGLE_PLAYER', // SINGLE_PLAYER 或 NET_BATTLE
+    selectedGame: 'guandan',   // 当前在大厅选中的游戏
     currentRankIndex: 0, 
     currentTurn: 0,
     selected: new Set(),
@@ -53,7 +59,8 @@
     aiDelay: 0,
     countdown: 20,
     clockTimer: null,
-    touchStart: { x: 0, y: 0, time: 0 }
+    touchStart: { x: 0, y: 0, time: 0 },
+    sortMode: 0 // 0:常规大小, 1:同花优先, 2:炸弹张数优先 (需求7)
   };
 
   GD.state = state;
@@ -73,13 +80,34 @@
     return BASE_RANK_VALUE[card.rank];
   }
 
+  // ===== 【需求7：智能多维度理牌排列逻辑】 =====
   function sortCards(cards) {
-    if (!cards) return [];
-    return cards.slice().sort((a, b) => {
+    if (!cards || cards.length === 0) return [];
+    
+    // 基础大小排序母版
+    const baseSorted = cards.slice().sort((a, b) => {
       const valA = getCardValue(a);
       const valB = getCardValue(b);
       return valA - valB || a.suit.localeCompare(b.suit);
     });
+
+    if (state.sortMode === 1) {
+      // 维度1：同花/同花顺优先聚拢排序
+      return baseSorted.sort((a, b) => a.suit.localeCompare(b.suit) || getCardValue(a) - getCardValue(b));
+    } else if (state.sortMode === 2) {
+      // 维度2：炸弹/张数高频组合优先排在前面
+      const counts = {};
+      cards.forEach(c => { const v = getCardValue(c); counts[v] = (counts[v] || 0) + 1; });
+      return cards.slice().sort((a, b) => {
+        const countA = counts[getCardValue(a)] || 0;
+        const countB = counts[getCardValue(b)] || 0;
+        if (countA !== countB) return countB - countA; // 张数多的排前面
+        return getCardValue(a) - getCardValue(b);
+      });
+    }
+    
+    // 维度0：标准经典大小排序
+    return baseSorted;
   }
   
   const rankLabel = (c) => c.kind === 'joker' ? c.label : c.rank;
@@ -118,6 +146,7 @@
     }
   }
 
+  // ===== 【需求1, 2, 6：响应式精调与蓝白重叠样式注入】 =====
   function injectResponsiveStyles() {
     let s = document.getElementById(STYLE_ID);
     if (s) s.remove();
@@ -125,20 +154,19 @@
     s = document.createElement('style');
     s.id = STYLE_ID;
     s.textContent = `
-      /* ================= 全局重置与大厅样式 ================= */
+      /* ================= 全局重置与全新大厅航站舱 ================= */
       #${LOBBY_ID}, #${ROOT_ID} {
-        font-family: 'Helvetica Neue', Helvetica, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', Arial, sans-serif;
+        font-family: 'Helvetica Neue', Helvetica, 'PingFang SC', sans-serif;
         user-select: none;
         -webkit-user-select: none;
         box-sizing: border-box;
       }
       #${LOBBY_ID} * , #${ROOT_ID} * { box-sizing: border-box; margin: 0; padding: 0; }
 
-      /* 游戏大厅 */
       #${LOBBY_ID} {
         position: fixed;
         inset: 0;
-        background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+        background: radial-gradient(circle at center, #111e2e 0%, #060b14 100%);
         display: flex;
         flex-direction: column;
         align-items: center;
@@ -148,52 +176,98 @@
         z-index: 9998;
         overflow-y: auto;
       }
-      .gd-lobby-window {
-        width: 90%;
-        max-width: 900px;
-        background: rgba(255, 255, 255, 0.08);
-        backdrop-filter: blur(20px);
-        -webkit-backdrop-filter: blur(20px);
-        border: 1px solid rgba(255, 255, 255, 0.15);
-        border-radius: 20px;
-        padding: 30px;
-        box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+      .gd-lobby-container-box {
+        width: 95%;
+        max-width: 1000px;
+        background: rgba(20, 35, 55, 0.6);
+        backdrop-filter: blur(30px);
+        -webkit-backdrop-filter: blur(30px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 24px;
+        padding: 40px;
+        box-shadow: 0 30px 70px rgba(0,0,0,0.8);
+      }
+      .gd-lobby-header-zone {
         text-align: center;
-      }
-      .gd-lobby-title {
-        font-size: 32px;
-        font-weight: 700;
-        letter-spacing: 2px;
-        background: linear-gradient(to right, #ffd700, #ffa500);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        margin-bottom: 10px;
-      }
-      .gd-lobby-subtitle {
-        font-size: 14px;
-        color: #a0aec0;
-        margin-bottom: 30px;
-      }
-      .gd-lobby-players-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-        gap: 20px;
         margin-bottom: 35px;
       }
-      .gd-lobby-player-card {
-        background: rgba(0, 0, 0, 0.3);
-        border: 1px solid rgba(255, 255, 255, 0.05);
-        border-radius: 12px;
-        padding: 15px;
-        transition: transform 0.2s, border-color 0.2s;
+      .gd-lobby-main-title {
+        font-size: 38px;
+        font-weight: 800;
+        background: linear-gradient(to right, #6ee7b7, #3b82f6);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        margin-bottom: 8px;
+        letter-spacing: 2px;
       }
-      .gd-lobby-player-card:hover { transform: translateY(-5px); border-color: #ffd700; }
-      .gd-lobby-avatar { font-size: 36px; margin-bottom: 10px; }
-      .gd-lobby-pname { font-weight: bold; font-size: 16px; color: #e2e8f0; }
-      .gd-lobby-pstatus { font-size: 12px; color: #34d399; margin-top: 5px; background: rgba(52, 211, 153, 0.1); padding: 2px 8px; border-radius: 10px; display: inline-block; }
-      .gd-lobby-start-btn { background: linear-gradient(135deg, #ffd700 0%, #f59e0b 100%); color: #04140a; font-size: 18px; font-weight: bold; padding: 14px 50px; border: none; border-radius: 30px; cursor: pointer; box-shadow: 0 6px 20px rgba(245,158,11,0.4); transition: transform 0.1s, box-shadow 0.2s; }
-      .gd-lobby-start-btn:active { transform: scale(0.96); }
-      .gd-lobby-start-btn:hover { box-shadow: 0 8px 25px rgba(245,158,11,0.6); }
+      .gd-lobby-welcome-tag {
+        font-size: 14px;
+        color: #94a3b8;
+      }
+      .gd-lobby-welcome-tag span {
+        color: #3b82f6;
+        font-weight: bold;
+      }
+
+      /* 【需求4：游戏选择区布局】 */
+      .gd-game-selection-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 20px;
+        margin-bottom: 40px;
+      }
+      .gd-game-select-card {
+        background: rgba(255, 255, 255, 0.03);
+        border: 2px solid rgba(255, 255, 255, 0.08);
+        border-radius: 16px;
+        padding: 25px 20px;
+        cursor: pointer;
+        text-align: center;
+        transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+      .gd-game-select-card:hover {
+        transform: translateY(-4px);
+        border-color: rgba(59, 130, 246, 0.5);
+        background: rgba(59, 130, 246, 0.05);
+      }
+      /* 【需求4：选中状态背景变为质感绿色】 */
+      .gd-game-select-card.active-selected {
+        background: linear-gradient(135deg, #047857 0%, #065f46 100%) !important;
+        border-color: #34d399 !important;
+        box-shadow: 0 10px 25px rgba(4, 120, 87, 0.4);
+      }
+      .gd-game-card-icon { font-size: 40px; margin-bottom: 12px; }
+      .gd-game-card-title { font-size: 18px; font-weight: bold; color: #fff; }
+      .gd-game-card-desc { font-size: 12px; color: #64748b; margin-top: 6px; }
+      .gd-game-select-card.active-selected .gd-game-card-desc { color: #a7f3d0; }
+
+      /* 大厅动作交互底栏 */
+      .gd-lobby-action-footer {
+        display: flex;
+        justify-content: center;
+        gap: 25px;
+        flex-wrap: wrap;
+      }
+      .gd-lobby-btn {
+        padding: 15px 45px;
+        font-size: 16px;
+        font-weight: bold;
+        border-radius: 30px;
+        border: none;
+        cursor: pointer;
+        transition: transform 0.1s, box-shadow 0.2s;
+      }
+      .gd-lobby-btn:active { transform: scale(0.97); }
+      .gd-btn-lobby-solo {
+        background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+        color: white;
+        box-shadow: 0 6px 20px rgba(29, 78, 216, 0.3);
+      }
+      .gd-btn-lobby-net {
+        background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+        color: white;
+        box-shadow: 0 6px 20px rgba(217, 119, 6, 0.3);
+      }
 
       /* ================= 核心对局桌案样式 ================= */
       #${ROOT_ID} { 
@@ -202,7 +276,7 @@
         width: 100vw; height: 100vh;
         height: -webkit-fill-available; height: 100dvh;
         z-index: 9999; 
-        background: radial-gradient(circle at center, #165229 0%, #071c0e 100%); 
+        background: radial-gradient(circle at center, #144d26 0%, #05170b 100%); 
         color: #f5f7f4; 
         display: flex; 
         flex-direction: column; 
@@ -211,94 +285,111 @@
       }
       
       .gd-header { position: absolute; top: 0; left: 0; right: 0; display: flex; justify-content: space-between; align-items: center; padding: 10px 20px; z-index: 1010; pointer-events: none; }
-      .gd-header-info { background: rgba(0,0,0,0.75); padding: 6px 16px; border-radius: 20px; border: 1px solid rgba(255,215,0,0.25); font-size: 13px; font-weight: bold; pointer-events: auto; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+      .gd-header-info { background: rgba(0,0,0,0.75); padding: 6px 16px; border-radius: 20px; border: 1px solid rgba(255,215,0,0.25); font-size: 13px; font-weight: bold; pointer-events: auto; }
       .gd-header-info span { color: #FFD700; margin: 0 4px; }
-      .gd-exit-btn { background: linear-gradient(180deg, #ff5e5e 0%, #ce2b2b 100%); color: white; border: none; padding: 6px 14px; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 12px; pointer-events: auto; box-shadow: 0 3px 8px rgba(0,0,0,0.4); }
+      .gd-exit-btn { background: linear-gradient(180deg, #ff5e5e 0%, #ce2b2b 100%); color: white; border: none; padding: 6px 14px; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 12px; pointer-events: auto; }
       
       .gd-arena { position: relative; flex: 1; display: flex; justify-content: center; align-items: center; width: 100%; height: 100%; }
       
-      /* 座位基本框架 */
+      /* 座位框架细调 */
       .gd-seat { position: absolute; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 50; pointer-events: none; }
-      .gd-seat.top { top: 20px; left: 50%; transform: translateX(-50%); flex-direction: column-reverse; } 
-      .gd-seat.left { left: 15px; top: 35%; transform: translateY(-50%); }
-      .gd-seat.right { right: 15px; top: 35%; transform: translateY(-50%); }
+      .gd-seat.top { top: 15px; left: 50%; transform: translateX(-50%); flex-direction: column-reverse; } 
+      .gd-seat.left { left: 20px; top: 38%; transform: translateY(-50%); }
+      .gd-seat.right { right: 20px; top: 38%; transform: translateY(-50%); }
       .gd-seat.bottom { bottom: 0; left: 0; right: 0; width: 100%; display: flex; flex-direction: column; align-items: center; z-index: 100; }
       
-      /* 其他 AI 玩家手牌编织背纹堆叠系统 */
-      .gd-opp-hand-wrapper { display: flex; justify-content: center; align-items: center; margin-top: 6px; padding: 2px; overflow: visible; pointer-events: none; }
+      /* ===== 【需求1：完美高质感蓝白重叠扑克牌背系统】 ===== */
+      .gd-opp-hand-wrapper { 
+        display: flex; 
+        justify-content: center; 
+        align-items: center; 
+        margin-top: 8px; 
+        padding: 4px; 
+        overflow: visible; 
+        pointer-events: none; 
+      }
       .gd-opp-card-back {
-        width: 14px; height: 20px;
+        width: 16px; height: 23px;
         flex-shrink: 0;
-        margin-left: -10px;
-        border: 1px solid #ffd700;
-        border-radius: 2px;
-        box-shadow: -1px 1px 3px rgba(0, 0, 0, 0.4);
+        margin-left: -11px;
+        border: 1px solid #ffffff;
+        border-radius: 3px;
+        box-shadow: -2px 1px 4px rgba(0, 0, 0, 0.4);
         position: relative;
-        background: radial-gradient(rgba(239, 68, 68, 0.2) 15%, transparent 16%), radial-gradient(rgba(239, 68, 68, 0.2) 15%, transparent 16%), #b91c1c;
-        background-size: 3px 3px;
-        background-position: 0 0, 1.5px 1.5px;
+        /* 高级蓝白英伦几何纹理 */
+        background-color: #2563eb;
+        background-image: linear-gradient(45deg, #ffffff 25%, transparent 25%), 
+                          linear-gradient(-45deg, #ffffff 25%, transparent 25%), 
+                          linear-gradient(45deg, transparent 75%, #ffffff 75%), 
+                          linear-gradient(-45deg, transparent 75%, #ffffff 75%);
+        background-size: 4px 4px;
+        background-position: 0 0, 0 2px, 2px -2px, -2px 0px;
       }
       .gd-opp-card-back:first-child { margin-left: 0 !important; }
-      .gd-seat.left .gd-opp-hand-wrapper, .gd-seat.right .gd-opp-hand-wrapper { max-width: 90px; flex-wrap: wrap; justify-content: center; }
-      .gd-seat.left .gd-opp-card-back, .gd-seat.right .gd-opp-card-back { margin-left: -11px; margin-top: -3px; }
-      .gd-seat.top .gd-opp-hand-wrapper { max-width: 180px; flex-wrap: wrap; justify-content: center; }
+      
+      /* 左右侧AI出牌牌背高负边距精细重叠布局 */
+      .gd-seat.left .gd-opp-hand-wrapper, .gd-seat.right .gd-opp-hand-wrapper { 
+        max-width: 100px; 
+        flex-wrap: wrap; 
+        justify-content: center; 
+      }
+      .gd-seat.left .gd-opp-card-back, .gd-seat.right .gd-opp-card-back { 
+        margin-left: -12px; 
+        margin-top: -2px; 
+      }
 
       /* 操作面板 */
-      .gd-action-bar { display: none; gap: 16px; justify-content: center; height: 36px; margin-bottom: 4px; z-index: 105; pointer-events: auto; width: 100%; }
+      .gd-action-bar { display: none; gap: 16px; justify-content: center; height: 38px; margin-bottom: 6px; z-index: 105; pointer-events: auto; width: 100%; }
       .gd-action-bar.show { display: flex !important; }
-      .gd-action-bar button { border: 1px solid rgba(255,255,255,0.15); padding: 0 24px; border-radius: 20px; font-weight: bold; font-size: 13px; cursor: pointer; box-shadow: 0 4px 8px rgba(0,0,0,0.4); text-shadow: 0 1px 2px rgba(0,0,0,0.6); transition: transform 0.1s; -webkit-tap-highlight-color: transparent; }
+      .gd-action-bar button { border: 1px solid rgba(255,255,255,0.2); padding: 0 26px; border-radius: 20px; font-weight: bold; font-size: 14px; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.4); transition: transform 0.1s; -webkit-tap-highlight-color: transparent; }
       .gd-action-bar button:active { transform: scale(0.92); }
       .gd-btn-play { background: linear-gradient(180deg, #10b981 0%, #059669 100%); color: white; border-color: #34d399 !important; }
       .gd-btn-pass { background: linear-gradient(180deg, #64748b 0%, #475569 100%); color: white; }
-      .gd-btn-sort { background: linear-gradient(180deg, #06b6d4 0%, #0db8d6 100%); color: white; }
-      .gd-action-bar button:disabled { background: linear-gradient(180deg, #475569 0%, #1e293b 100%) !important; color: #94a3b8 !important; cursor: not-allowed; box-shadow: none; opacity: 0.35; border-color: transparent !important; }
+      .gd-btn-sort { background: linear-gradient(180deg, #0284c7 0%, #0369a1 100%); color: white; position: relative; }
+      .gd-action-bar button:disabled { background: linear-gradient(180deg, #334155 0%, #1e293b 100%) !important; color: #64748b !important; cursor: not-allowed; box-shadow: none; opacity: 0.4; border-color: transparent !important; }
       
-      .gd-clock-panel { display: none; background: rgba(0,0,0,0.85); padding: 3px 12px; border-radius: 12px; border: 1px solid #10b981; margin-bottom: 4px; font-size: 12px; font-weight: bold; align-items: center; gap: 4px; color: #10b981; z-index: 104; }
+      .gd-clock-panel { display: none; background: rgba(0,0,0,0.85); padding: 3px 14px; border-radius: 12px; border: 1px solid #10b981; margin-bottom: 6px; font-size: 13px; font-weight: bold; align-items: center; gap: 4px; color: #10b981; z-index: 104; }
       .gd-clock-panel.show { display: flex; }
       
-      .gd-player-info { background: rgba(0,12,6,0.85); padding: 4px 10px; border-radius: 6px; text-align: center; min-width: 85px; border: 1px solid rgba(255,255,255,0.15); box-shadow: 0 3px 6px rgba(0,0,0,0.3); }
-      .gd-player-info.active { border-color: #f59e0b; background: rgba(18,44,24,0.95); box-shadow: 0 0 12px #f59e0b; }
-      .gd-player-name { font-weight: bold; font-size: 12px; color: #fff; }
-      .gd-player-detail { font-size: 11px; color: #f59e0b; margin-top: 1px; font-weight: bold; }
+      .gd-player-info { background: rgba(0,15,8,0.88); padding: 6px 14px; border-radius: 8px; text-align: center; min-width: 100px; border: 1px solid rgba(255,255,255,0.15); box-shadow: 0 4px 8px rgba(0,0,0,0.4); }
+      .gd-player-info.active { border-color: #f59e0b; background: rgba(20,50,30,0.95); box-shadow: 0 0 14px #f59e0b; }
+      .gd-player-name { font-weight: bold; font-size: 13px; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 110px; }
+      .gd-player-detail { font-size: 11px; color: #f59e0b; margin-top: 2px; font-weight: bold; }
       
-      /* ================= 优化：出牌桌案中心区域（黄金比例：高清放大、拒绝裁切与遮挡） ================= */
+      /* 桌案中心出牌区域 */
       .gd-center-table { 
         position: absolute; 
         width: 88vw; 
         height: 32vh; 
         max-width: 650px; 
         max-height: 180px; 
-        top: 25%;
-        border: 2px dashed rgba(255,215,0,0.35); 
+        top: 26%;
+        border: 2px dashed rgba(255,215,0,0.3); 
         border-radius: 16px; 
         display: flex; 
         flex-direction: column; 
         justify-content: flex-start; 
         align-items: center; 
-        background: rgba(0, 0, 0, 0.4); 
+        background: rgba(0, 0, 0, 0.45); 
         padding: 8px 0; 
         pointer-events: none;
         z-index: 40;
-        overflow: visible; 
         box-shadow: inset 0 0 20px rgba(0,0,0,0.6);
       }
-      
-      .gd-center-status-bar { width: auto; background: rgba(0, 0, 0, 0.75); padding: 3px 14px; font-size: 12px; font-weight: bold; color: #e2e8f0; border-radius: 12px; border: 1px solid rgba(255,215,0,0.15); }
+      .gd-center-status-bar { background: rgba(0, 0, 0, 0.8); padding: 4px 16px; font-size: 12px; font-weight: bold; color: #e2e8f0; border-radius: 12px; }
       .gd-center-status-bar.my-turn { color: #34d399; animation: gd-text-pulse 1.2s infinite alternate; }
       
-      .gd-trick { display: flex; flex-direction: column; justify-content: center; align-items: center; width: 100%; flex: 1; position: relative; overflow: visible; }
-      .gd-trick-cards-wrap { display: flex; justify-content: center; align-items: center; width: 100%; max-height: 100px; padding: 4px; overflow: visible; }
-      .gd-trick-empty { font-size: 13px; color: rgba(255,255,255,0.25); font-weight: bold; margin-top: 20px; letter-spacing: 1px; }
-      .gd-trick-owner { color: #ffd700; font-size: 12px; font-weight: bold; width: 100%; text-align: center; position: absolute; top: -6px; text-shadow: 0 2px 4px rgba(0,0,0,0.8); }
+      .gd-trick { display: flex; flex-direction: column; justify-content: center; align-items: center; width: 100%; flex: 1; position: relative; }
+      .gd-trick-cards-wrap { display: flex; justify-content: center; align-items: center; width: 100%; max-height: 100px; padding: 4px; }
+      .gd-trick-empty { font-size: 13px; color: rgba(255,255,255,0.2); font-weight: bold; margin-top: 25px; }
+      .gd-trick-owner { color: #ffd700; font-size: 12px; font-weight: bold; width: 100%; text-align: center; position: absolute; top: -6px; }
       
-      /* 中心出牌卡牌：全面放大视觉，采用完美的重叠比例 */
       .gd-trick .gd-card { 
         width: 54px !important; 
         height: 76px !important; 
-        margin-left: -28px !important; 
+        margin-left: -26px !important; 
         flex-shrink: 0 !important;
         transform: none !important;
-        cursor: default;
         position: relative;
         border-radius: 4px !important;
         box-shadow: -2px 2px 6px rgba(0,0,0,0.5) !important;
@@ -306,113 +397,124 @@
       .gd-trick .gd-card:first-child { margin-left: 0 !important; }
       .gd-trick .gd-card img { width: 100% !important; height: 100% !important; object-fit: fill !important; }
 
-      /* ================= 优化：当前玩家手牌区域：绝对一屏全显、彻底根除滚动条 ================= */
+      /* ================= 【需求2：当前玩家手牌展示区 - 极致比例防畸变全显系统】 ================= */
       .gd-hand { 
         display: flex; 
         align-items: flex-end; 
         justify-content: center; 
-        min-height: 130px; 
-        height: 130px;
+        min-height: 135px; 
+        height: 135px;
         width: 100vw; 
         max-width: 100vw; 
         pointer-events: auto; 
-        padding: 15px 4px 6px 4px; 
+        padding: 10px 6px 6px 6px; 
         z-index: 110; 
         overflow-x: hidden !important; 
         overflow-y: visible !important; 
       }
       
-      /* 核心自适应弹性空间：极限动态负边距压缩，保证27张牌在一屏中完美平摊伸缩 */
+      /* 精准锁定 1:1.44 扑克经典美学高宽比，解决拉长和畸变问题 */
       .gd-hand .gd-card { 
-        width: 4.8vw; 
-        max-width: 68px;
-        min-width: 32px;
-        height: 95px; 
+        width: 5.5vw; 
+        max-width: 66px;
+        min-width: 35px;
+        aspect-ratio: 1 / 1.44; /* 核心修正：绑定精准高宽比，防止畸变拉长 */
+        height: auto !important; /* 让高度由高宽比自适应 */
         flex-shrink: 1 !important; 
         flex-grow: 0;
         position: relative; 
-        margin-left: -3.2vw; 
+        margin-left: -3.8vw; 
         transition: transform 0.12s cubic-bezier(0.2, 0.8, 0.2, 1); 
-        border-radius: 4px; 
+        border-radius: 5px; 
         cursor: pointer; 
         transform-origin: bottom center; 
         touch-action: none;
       }
       .gd-hand .gd-card:first-child { margin-left: 0 !important; }
-      .gd-hand .gd-card img { width: 100%; height: 100%; object-fit: fill; background: #fff; border-radius: 4px; filter: drop-shadow(-2px 3px 4px rgba(0,0,0,0.35)); pointer-events: none; }
+      .gd-hand .gd-card img { width: 100%; height: 100%; object-fit: fill; background: #fff; border-radius: 5px; filter: drop-shadow(-2px 3px 5px rgba(0,0,0,0.4)); pointer-events: none; }
       
-      /* 手牌高亮与弹起 */
-      .gd-hand .gd-card.sel { transform: translateY(-25px) !important; }
+      .gd-hand .gd-card.sel { transform: translateY(-26px) !important; }
       .gd-hand .gd-card.sel img { filter: drop-shadow(0px 4px 12px rgba(245,158,11,0.95)) saturate(1.2); }
       
       .gd-wild-card img { filter: drop-shadow(0 0 6px #ef4444) !important; }
       .gd-rank-card img { filter: drop-shadow(0 0 5px #ffd700) !important; }
       
-      .gd-toast { position: fixed; top: 18%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.9); border: 1px solid #f59e0b; color: #fff; padding: 6px 18px; border-radius: 20px; font-size: 12px; font-weight: bold; z-index: 2000; opacity: 0; transition: opacity 0.2s; pointer-events: none; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
+      .gd-toast { position: fixed; top: 18%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.9); border: 1px solid #f59e0b; color: #fff; padding: 6px 18px; border-radius: 20px; font-size: 12px; font-weight: bold; z-index: 2000; opacity: 0; transition: opacity 0.2s; pointer-events: none; }
       
-      /* 强制横屏适配引导 */
       @media screen and (orientation: portrait) { .gd-landscape-tips { display: flex !important; } }
       .gd-landscape-tips { display: none; position: fixed; inset: 0; width: 100vw; height: 100vh; background: #06140b; z-index: 100000; flex-direction: column; justify-content: center; align-items: center; color: #ffd700; text-align: center; padding: 20px; }
       .gd-landscape-tips-icon { font-size: 45px; margin-bottom: 16px; animation: gd-rotate-phone 2s infinite ease-in-out; }
 
-      /* ================= PC端及宽屏设备独立视觉配置 ================= */
+      /* ================= 【需求6：PC端及宽屏设备独立视觉跃升配置（做大做舒适）】 ================= */
       @media screen and (min-width: 1024px) {
-        .gd-hand { min-height: 165px; height: 165px; padding-top: 25px; }
-        .gd-hand .gd-card { width: 75px; max-width: 75px; height: 110px; margin-left: -52px; }
-        .gd-hand .gd-card.sel { transform: translateY(-28px) !important; }
-        .gd-trick .gd-card { width: 58px !important; height: 82px !important; margin-left: -32px !important; }
-        .gd-center-table { max-width: 700px; max-height: 200px; top: 24%; }
+        .gd-hand { min-height: 185px; height: 185px; padding-top: 25px; }
+        .gd-hand .gd-card { width: 80px; max-width: 80px; margin-left: -55px; }
+        .gd-hand .gd-card.sel { transform: translateY(-32px) !important; }
+        .gd-trick .gd-card { width: 62px !important; height: 88px !important; margin-left: -34px !important; }
+        .gd-center-table { max-width: 750px; max-height: 220px; top: 24%; }
+        
+        /* 显著放大 PC 端的控制栏按钮与玩家头像 */
+        .gd-action-bar { height: 48px; gap: 24px; margin-bottom: 12px; }
+        .gd-action-bar button { padding: 0 45px; font-size: 16px; border-radius: 24px; }
+        .gd-player-info { padding: 10px 22px; min-width: 140px; border-radius: 12px; }
+        .gd-player-name { font-size: 16px; max-width: 150px; }
+        .gd-player-detail { font-size: 13px; margin-top: 4px; }
+        .gd-clock-panel { padding: 6px 20px; font-size: 15px; border-radius: 16px; margin-bottom: 10px; }
+        .gd-opp-card-back { width: 20px; height: 28px; margin-left: -14px; }
       }
 
-      /* ================= 移动端小屏幕极限自适应全显空间 ================= */
+      /* 移动端横屏极限自适应空间 */
       @media screen and (max-height: 460px) {
-        .gd-hand { min-height: 110px; height: 110px; padding-top: 15px; padding-bottom: 2px; }
-        .gd-hand .gd-card { height: 76px; width: 44px; min-width: 26px; margin-left: -32px; }
-        .gd-hand .gd-card.sel { transform: translateY(-18px) !important; }
-        .gd-center-table { top: 15%; height: 38vh; max-height: 140px; }
-        .gd-seat.top { top: 10px; }
+        .gd-hand { min-height: 115px; height: 115px; padding-top: 10px; }
+        .gd-hand .gd-card { width: 42px; min-width: 28px; margin-left: -30px; }
+        .gd-hand .gd-card.sel { transform: translateY(-20px) !important; }
+        .gd-center-table { top: 14%; height: 38vh; max-height: 140px; }
+        .gd-seat.top { top: 8px; }
         .gd-action-bar { height: 32px; margin-bottom: 2px; }
-        .gd-action-bar button { font-size: 11px; padding: 0 16px; }
+        .gd-action-bar button { font-size: 12px; padding: 0 18px; }
       }
 
       @keyframes gd-rotate-phone { 0% { transform: rotate(0deg); } 50% { transform: rotate(-90deg); } 100% { transform: rotate(0deg); } }
-      @keyframes gd-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
       @keyframes gd-text-pulse { 0% { text-shadow: 0 0 2px rgba(52,211,153,0.3); } 100% { text-shadow: 0 0 8px rgba(52,211,153,0.8); } }
     `;
     document.head.appendChild(s);
     state.styleNode = s;
   }
 
+  // ===== 【需求3 & 4：构建高拟真多游戏选择大厅舱】 =====
   function createLobbyShell() {
     const lobby = document.createElement('div');
     lobby.id = LOBBY_ID;
+    
     lobby.innerHTML = `
-      <div class="gd-lobby-window">
-        <h1 class="gd-lobby-title">♣ 经典淮安掼蛋大厅 ♦</h1>
-        <p class="gd-lobby-subtitle">PC端支持鼠标悬浮、点击、右键快捷出牌 | 移动端支持丝滑上划出牌</p>
-        <div class="gd-lobby-players-grid">
-          <div class="gd-lobby-player-card">
-            <div class="gd-lobby-avatar">👤</div>
-            <div class="gd-lobby-pname">南家 (你)</div>
-            <div class="gd-lobby-pstatus">就绪</div>
+      <div class="gd-lobby-container-box">
+        <div class="gd-lobby-header-zone">
+          <h1 class="gd-lobby-main-title">🎮 棋牌游戏娱乐大厅</h1>
+          <div class="gd-lobby-welcome-tag">欢迎您，尊贵的玩家：<span id="gd-lobby-user-span">${getUserNickname()}</span></div>
+        </div>
+        
+        <div class="gd-game-selection-grid">
+          <div class="gd-game-select-card active-selected" data-game-id="guandan">
+            <div class="gd-game-card-icon">♠️</div>
+            <div class="gd-game-card-title">江苏掼蛋</div>
+            <div class="gd-game-card-desc">经典淮安规则 双下连升三级</div>
           </div>
-          <div class="gd-lobby-player-card">
-            <div class="gd-lobby-avatar">🤖</div>
-            <div class="gd-lobby-pname">东家 (AI)</div>
-            <div class="gd-lobby-pstatus">就绪</div>
+          <div class="gd-game-select-card" data-game-id="doudizhu">
+            <div class="gd-game-card-icon">🃏</div>
+            <div class="gd-game-card-title">经典斗地主</div>
+            <div class="gd-game-card-desc">三分天下 抢地主明牌激战</div>
           </div>
-          <div class="gd-lobby-player-card">
-            <div class="gd-lobby-avatar">🤝</div>
-            <div class="gd-lobby-pname">北家 (对家AI)</div>
-            <div class="gd-lobby-pstatus">就绪</div>
-          </div>
-          <div class="gd-lobby-player-card">
-            <div class="gd-lobby-avatar">🤖</div>
-            <div class="gd-lobby-pname">西家 (AI)</div>
-            <div class="gd-lobby-pstatus">就绪</div>
+          <div class="gd-game-select-card" data-game-id="majiang">
+            <div class="gd-game-card-icon">🀄</div>
+            <div class="gd-game-card-title">血流成河麻将</div>
+            <div class="gd-game-card-desc">胡了还能胡 刺激到底刮风下雨</div>
           </div>
         </div>
-        <button class="gd-lobby-start-btn" id="gd-lobby-start-trigger">开始匹配对局</button>
+        
+        <div class="gd-lobby-action-footer">
+          <button class="gd-lobby-btn gd-btn-lobby-solo" id="gd-btn-lobby-solo-trigger" title="双击游戏卡牌亦可直接进入">进入单机模式 (双击)</button>
+          <button class="gd-lobby-btn gd-btn-lobby-net" id="gd-btn-lobby-net-trigger">创建游戏房间 (互联网对战)</button>
+        </div>
       </div>
     `;
     return lobby;
@@ -426,7 +528,7 @@
         <div class="gd-landscape-tips-icon">🔄</div>
         <h3 style="font-size:16px;">请旋转手机至横屏模式</h3>
         <p style="color: #94a3b8; font-size:12px; margin-top:6px;">推荐开启系统自动旋转，横屏即可享受全屏对局</p>
-        <button id="gd-fullscreen-trigger" style="margin-top: 15px; padding: 6px 18px; background: #10b981; border:none; color:white; font-weight:bold; border-radius:15px; font-size:12px; box-shadow: 0 3px 8px rgba(0,0,0,0.3); pointer-events:auto;">进入全屏对局</button>
+        <button id="gd-fullscreen-trigger" style="margin-top: 15px; padding: 6px 18px; background: #10b981; border:none; color:white; font-weight:bold; border-radius:15px; font-size:12px; pointer-events:auto;">进入全屏对局</button>
       </div>
 
       <div class="gd-header">
@@ -447,7 +549,7 @@
           <div class="gd-action-bar" data-gd-action-bar>
             <button class="gd-btn-pass" data-gd-pass>过 牌</button>
             <button class="gd-btn-play" data-gd-play>出 牌</button>
-            <button class="gd-btn-sort" data-gd-sort>理 牌</button>
+            <button class="gd-btn-sort" data-gd-sort>理 牌<span style="font-size:9px;position:absolute;top:-2px;right:4px;" data-gd-sort-tag>▼</span></button>
           </div>
           <div class="gd-clock-panel" data-gd-clock-panel>
             <span class="gd-clock-icon">⏱</span>
@@ -473,7 +575,6 @@
       deck.push({ id: uid(), kind: 'joker', label: '小王', rank: '小王', suit: 'J', symbol: '🃏', color: 'red', value: 16 });
       deck.push({ id: uid(), kind: 'joker', label: '大王', rank: '大王', suit: 'J', symbol: '🃏', color: 'black', value: 17 });
     }
-    // 洗牌算法
     for (let i = deck.length - 1; i > 0; i--) {
       const j = (Math.random() * (i + 1)) | 0;
       [deck[i], deck[j]] = [deck[j], deck[i]];
@@ -511,16 +612,17 @@
 
   let finishOrder = [];
 
-  // ===== 【核心修复：完美发牌系统，确保每人分得 27 张牌，解决变成 25 张的严重漏洞】 =====
   function startNewRound() {
-    const deck = makeDeck(); // 2副牌总计 108 张
+    const deck = makeDeck(); 
     finishOrder = [];
     state.players.forEach((p) => { p.hand = []; p.rankOutOrder = null; });
     
-    // 用严格索引精准分发，108 / 4 每个人必须得到 27 张牌
     for (let i = 0; i < deck.length; i++) {
       state.players[i % 4].hand.push(deck[i]);
     }
+    
+    // 动态同步最新的名字(需求5)
+    if(state.players[0]) state.players[0].name = getUserNickname();
     
     state.players.forEach((p) => { p.hand = sortCards(p.hand); });
     
@@ -690,7 +792,7 @@
         centerStatus.className = 'gd-center-status-bar';
         if (state.currentTurn === 0) {
           centerStatus.classList.add('my-turn');
-          centerStatus.textContent = `到你出牌 (上划或右击可直接出牌)`;
+          centerStatus.textContent = `到你出牌 (上划或右击直接出牌)`;
         } else {
           centerStatus.classList.add('ai-turn');
           centerStatus.textContent = `等待 [ ${activePlayer.name} ]...`;
@@ -709,6 +811,13 @@
     const move = root.querySelector('[data-gd-move]');
     const hand = root.querySelector('[data-gd-hand]');
     const actionBar = root.querySelector('[data-gd-action-bar]');
+    const sortTag = root.querySelector('[data-gd-sort-tag]');
+
+    // 理牌按钮标志动态渲染
+    if (sortTag) {
+      const modesStr = ["▼", "♣", "🔥"];
+      sortTag.textContent = modesStr[state.sortMode] || "▼";
+    }
 
     if (trick) {
       if (state.lastPlayedTrick) {
@@ -1030,13 +1139,22 @@
     
     if (state.lobbyRoot) {
       state.lobbyRoot.style.display = 'flex';
+      // 同步最新名称
+      const userSpan = state.lobbyRoot.querySelector('#gd-lobby-user-span');
+      if(userSpan) userSpan.textContent = getUserNickname();
     }
     
     if (document.exitFullscreen) { document.exitFullscreen().catch(()=>{}); }
     else if (document.webkitExitFullscreen) { document.webkitExitFullscreen().catch(()=>{}); }
   }
 
+  // ===== 进入单机模式对局核心控制 =====
   function initGameMatch() {
+    if (state.selectedGame !== 'guandan') {
+      alert(`温馨提示：当前仅支持“江苏掼蛋”对局，其他游戏开发中，敬请期待！`);
+      return;
+    }
+
     if (state.lobbyRoot) {
       state.lobbyRoot.style.display = 'none';
     }
@@ -1052,6 +1170,8 @@
     document.body.appendChild(newShell);
     state.root = newShell; 
 
+    // 【需求5：注入最新的玩家昵称】
+    SEATS[0].name = getUserNickname();
     state.players = SEATS.map((seat) => ({ ...seat, hand: [], rankOutOrder: null }));
     
     executeFullscreen(newShell);
@@ -1067,9 +1187,18 @@
 
       if (playBtn) on(playBtn, 'click', () => { playGDSound('click'); humanPlay(); });
       if (passBtn) on(passBtn, 'click', () => { playGDSound('click'); if(state.trick) passTurn(0); });
+      
+      // ===== 【需求7：理牌多重模态循环切换触发器】 =====
       if (sortBtn) on(sortBtn, 'click', () => { 
-        playGDSound('click'); state.players[0].hand = sortCards(state.players[0].hand); renderTable(); 
+        playGDSound('click'); 
+        state.sortMode = (state.sortMode + 1) % 3; // 0->1->2->0 循环
+        state.players[0].hand = sortCards(state.players[0].hand); 
+        renderTable(); 
+        
+        const modesLabel = ["经典排序", "同花聚拢", "组合炸弹"];
+        showToast(`已为您切换到：${modesLabel[state.sortMode]}`);
       });
+      
       if (exitBtn) on(exitBtn, 'click', () => { playGDSound('click'); destroy(); });
 
       on(newShell, 'click', () => {
@@ -1083,6 +1212,7 @@
     }, 80);
   }
 
+  // ===== 【需求3 & 4：绑定并激活游戏舱控制大厅】 =====
   function init() {
     injectResponsiveStyles();
     
@@ -1094,11 +1224,48 @@
     state.lobbyRoot = lobby;
     state.lobbyRoot.style.display = 'flex';
 
-    const matchBtn = lobby.querySelector('#gd-lobby-start-trigger');
-    if (matchBtn) {
-      matchBtn.onclick = (e) => {
+    // 刷新昵称数据展示(需求5)
+    const userSpan = lobby.querySelector('#gd-lobby-user-span');
+    if(userSpan) userSpan.textContent = getUserNickname();
+
+    const cards = lobby.querySelectorAll('.gd-game-select-card');
+    cards.forEach(card => {
+      // 需求4：单击切换选择
+      card.onclick = (e) => {
         e.preventDefault();
+        cards.forEach(c => c.classList.remove('active-selected'));
+        card.classList.add('active-selected');
+        state.selectedGame = card.getAttribute('data-game-id');
+        playGDSound('click');
+      };
+
+      // 需求4：双击直接进入单机版对局
+      card.ondblclick = (e) => {
+        e.preventDefault();
+        state.selectedGame = card.getAttribute('data-game-id');
+        state.gameMode = 'SINGLE_PLAYER';
         initGameMatch();
+      };
+    });
+
+    // 按钮1：单机对局
+    const soloBtn = lobby.querySelector('#gd-btn-lobby-solo-trigger');
+    if (soloBtn) {
+      soloBtn.onclick = (e) => {
+        e.preventDefault();
+        state.gameMode = 'SINGLE_PLAYER';
+        initGameMatch();
+      };
+    }
+
+    // 按钮2：互联网多端对战模式
+    const netBtn = lobby.querySelector('#gd-btn-lobby-net-trigger');
+    if (netBtn) {
+      netBtn.onclick = (e) => {
+        e.preventDefault();
+        state.gameMode = 'NET_BATTLE';
+        playGDSound('click');
+        alert(`进入互联网对战联机大厅：\n正在为玩家【${getUserNickname()}】寻找云服务器可用房间端口... \n目前联机对决需结合线上 Supabase 实时流，正在排队中！`);
       };
     }
   }
