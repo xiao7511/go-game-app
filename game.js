@@ -1,160 +1,120 @@
 /**
  * Modified Date: 2026-05-30
- * Description: Fixed game loading blocks. Optimized: 1. Routed Go (围棋) to bypass selection lobby and enter gameplay directly; 2. Corrected Guandan global reference pathways; 3. Re-aligned authentication lifecycle while forcing App-fullscreen UI layout.
+ * Description: Fully resolved interface locks.
+ * 1. Restored original game lobby element flows to guarantee Guandan activates smoothly.
+ * 2. Rewired Go game launchers to directly boot into Single Player or Multiplayer based on the bottom-left deck console selection.
+ * 3. Forced App-fullscreen container responsive layouts.
  */
 (() => {
   'use strict';
 
-  // --- 1. 核心状态与全局变量 ---
+  // --- 1. 核心状态维护与懒初始化 ---
   let supabaseInstance = null;
   let isInitializing = false;
-  let selectedGameId = 'guandan'; 
+  let currentActiveGame = 'guandan'; // 默认聚焦掼蛋
 
-  // 保证全局状态机和配置能安全挂载
+  // 全局共享状态保障
   window.state = window.state || {};
 
-  // 暴露获取 Supabase 客户端的全局方法，供掼蛋联机模块实时调用
+  // 暴露 Supabase 客户端，供掼蛋等联机对战引擎使用
   window.getSupabaseClient = function() {
       return supabaseInstance;
   };
 
-  // --- 2. 需求4：整体界面调整为 APP 全屏沉浸式模式样式注入 ---
-  function injectCentralAppStyles() {
-    if (document.getElementById('app-fs-global-style')) return;
+  // --- 2. 需求4：整体界面强制注入全屏 APP 沉浸式样式 ---
+  function applyAppFullScreenCSS() {
+    if (document.getElementById('app-fs-core-style')) return;
     const style = document.createElement('style');
-    style.id = 'app-fs-global-style';
+    style.id = 'app-fs-core-style';
     style.textContent = `
       html, body { 
         margin: 0; padding: 0; 
         width: 100vw; height: 100vh; 
         overflow: hidden !important; 
-        background: #090d16; 
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        background: #0f172a; 
       }
-      #app-central-lobby { 
-        position: fixed; inset: 0; 
-        width: 100vw; height: 100vh; 
-        background: radial-gradient(circle at center, #1e293b 0%, #0f172a 100%); 
-        display: flex; flex-direction: column; align-items: center; justify-content: center; 
-        z-index: 9999; color: #ffffff;
+      /* 游戏选择项激活时的绿色背景样式 */
+      .game-card-active-green {
+        background: linear-gradient(135deg, #16a34a 0%, #15803d 100%) !important;
+        border-color: #4ade80 !important;
+        color: #ffffff !important;
+        box-shadow: 0 8px 20px rgba(22, 163, 74, 0.3) !important;
       }
-      .app-lobby-card-box { 
-        width: 85%; max-width: 750px; 
-        background: rgba(30, 41, 59, 0.7); 
-        border: 1px solid rgba(255, 255, 255, 0.1); 
-        border-radius: 24px; padding: 40px; 
-        box-shadow: 0 25px 60px rgba(0,0,0,0.6); backdrop-filter: blur(20px);
-      }
-      .app-game-flex { display: flex; justify-content: center; gap: 30px; margin: 35px 0; }
-      .app-game-item { 
-        width: 200px; padding: 25px 15px; 
-        background: rgba(255, 255, 255, 0.04); 
-        border: 2px solid rgba(255, 255, 255, 0.08); 
-        border-radius: 18px; cursor: pointer; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); 
-        text-align: center;
-      }
-      .app-game-item:hover { transform: translateY(-4px); border-color: #3b82f6; }
-      
-      /* 点击选择游戏后背景颜色变为绿色 */
-      .app-game-item.active-selected { 
-        background: linear-gradient(135deg, #16a34a 0%, #15803d 100%) !important; 
-        border-color: #4ade80 !important; 
-        box-shadow: 0 10px 25px rgba(22, 163, 74, 0.4);
-      }
-      .app-btn-container { display: flex; justify-content: center; gap: 20px; }
-      .app-action-btn { 
-        padding: 12px 36px; font-size: 16px; font-weight: bold; 
-        border-radius: 30px; border: none; cursor: pointer; transition: transform 0.1s;
-      }
-      .app-action-btn:active { transform: scale(0.96); }
-      .app-btn-primary { background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); color: white; }
-      .app-btn-success { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: white; }
     `;
     document.head.appendChild(style);
   }
 
-  // --- 3. 动态维护中央控制大厅 ---
-  function renderAppCentralLobby() {
-    injectCentralAppStyles();
-    let lobbyWrapper = document.getElementById('app-central-lobby');
-    if (!lobbyWrapper) {
-      lobbyWrapper = document.createElement('div');
-      lobbyWrapper.id = 'app-central-lobby';
-      document.body.appendChild(lobbyWrapper);
+  // --- 3. 重构与补全核心事件绑定 (解决掼蛋拦截与围棋分流) ---
+  function initEventListeners() {
+    applyAppFullScreenCSS();
+
+    // 针对原有大厅中的游戏卡片选择器进行增强劫持
+    const gameCards = document.querySelectorAll('.game-card, .app-game-item');
+    if (gameCards && gameCards.length > 0) {
+      gameCards.forEach(card => {
+        
+        // 确保点击时赋予绿色高亮背景
+        card.addEventListener('click', (e) => {
+          gameCards.forEach(c => c.classList.remove('game-card-active-green'));
+          card.classList.add('game-card-active-green');
+          
+          // 判定当前选中的是围棋还是掼蛋
+          const gameId = card.getAttribute('data-game-id') || (card.innerText.includes('掼蛋') ? 'guandan' : 'go');
+          currentActiveGame = gameId;
+          console.log("当前选定竞技科目:", currentActiveGame);
+        });
+
+        // 双击默认直接触发单机快开
+        card.addEventListener('ondblclick', (e) => {
+          executeGameRouting('SINGLE');
+        });
+      });
     }
 
-    lobbyWrapper.innerHTML = `
-      <div class="app-lobby-card-box">
-        <h2 style="margin: 0; font-size: 28px; letter-spacing: 1px; font-weight: 800;">📱 竞技棋牌中央大厅</h2>
-        <p style="color: #94a3b8; font-size: 14px; margin-top: 8px;">请选择游戏玩法进入竞技舱</p>
-        <div class="app-game-flex">
-          <div class="app-game-item active-selected" data-game-id="guandan">
-            <div style="font-size: 45px; margin-bottom: 10px;">♠️</div>
-            <h4 style="margin: 0; font-size: 18px;">江苏掼蛋</h4>
-            <span style="font-size: 11px; opacity: 0.6; display:block; margin-top:5px;">经典规则 逢人配</span>
-          </div>
-          <div class="app-game-item" data-game-id="go">
-            <div style="font-size: 45px; margin-bottom: 10px;">⚪</div>
-            <h4 style="margin: 0; font-size: 18px;">经典围棋</h4>
-            <span style="font-size: 11px; opacity: 0.6; display:block; margin-top:5px;">【直接进局】免大厅干扰</span>
-          </div>
-        </div>
-        <div class="app-btn-container">
-          <button class="app-action-btn app-btn-primary" id="app-trigger-solo">单机对战模式</button>
-          <button class="app-action-btn app-btn-success" id="app-trigger-net">创建房间 (对战模式)</button>
-        </div>
-      </div>
-    `;
+    // 劫持底部的【单机模式】与【创建房间/联机对战】按钮，根据当前选定的游戏进入对应系统
+    const soloBtn = document.getElementById('launch-solo-btn') || document.getElementById('app-trigger-solo') || document.querySelector('.btn-solo');
+    const netBtn = document.getElementById('launch-net-btn') || document.getElementById('app-trigger-net') || document.querySelector('.btn-net');
 
-    // 卡片事件绑定
-    const items = lobbyWrapper.querySelectorAll('.app-game-item');
-    items.forEach(item => {
-      item.onclick = (e) => {
-        e.stopPropagation();
-        const gid = item.getAttribute('data-game-id');
-        
-        // 优化需求：围棋游戏点击后要求直接进入游戏界面，不需要选择大厅
-        if (gid === 'go') {
-          selectedGameId = 'go';
-          launchMatchGame('SINGLE'); // 围棋点击直接突入对局
-          return;
-        }
-
-        // 掼蛋保持高亮并选择
-        items.forEach(i => i.classList.remove('active-selected'));
-        item.classList.add('active-selected');
-        selectedGameId = gid;
+    if (soloBtn) {
+      soloBtn.onclick = (e) => {
+        if (e) e.preventDefault();
+        executeGameRouting('SINGLE');
       };
+    }
 
-      // 双击卡片直接切入
-      item.ondblclick = () => {
-        selectedGameId = item.getAttribute('data-game-id');
-        launchMatchGame('SINGLE');
+    if (netBtn) {
+      netBtn.onclick = (e) => {
+        if (e) e.preventDefault();
+        executeGameRouting('NET');
       };
-    });
-
-    document.getElementById('app-trigger-solo').onclick = () => launchMatchGame('SINGLE');
-    document.getElementById('app-trigger-net').onclick = () => launchMatchGame('NET');
+    }
   }
 
-  // 执行启动路由
-  function launchMatchGame(mode) {
-    if (selectedGameId === 'guandan') {
-      // 解决无法进入掼蛋游戏的映射冲突
-      const gdHandler = window.GD || (window.parent && window.parent.GD);
-      if (gdHandler && typeof gdHandler.initGameMatch === 'function') {
-        const lobby = document.getElementById('app-central-lobby');
-        if (lobby) lobby.style.display = 'none';
-        gdHandler.initGameMatch(mode); 
-      } else {
-        alert('掼蛋底座尚未就绪，请确保页面已引入 guandan-game.js');
-      }
-    } else if (selectedGameId === 'go') {
-      // 核心需求：围棋游戏直接进入游戏界面，不需要大厅中转
-      const lobby = document.getElementById('app-central-lobby');
-      if (lobby) lobby.style.display = 'none';
+  // 根据当前卡片的选择，路由分流至单机或联机
+  function executeGameRouting(mode) {
+    console.log(`执行游戏分流: 目标游戏=${currentActiveGame}, 目标模式=${mode}`);
 
-      // 适配原有系统的沉浸态切换逻辑
+    if (currentActiveGame === 'guandan') {
+      // 激活掼蛋引擎，隐藏原大厅骨架
+      const gdEngine = window.GD || (window.parent && window.parent.GD);
+      if (gdEngine && typeof gdEngine.initGameMatch === 'function') {
+        hideLobbyPanels();
+        gdEngine.initGameMatch(mode);
+      } else {
+        // 如果异步尚未载入，进行第二路径尝试
+        if (typeof window.initGuandanGame === 'function') {
+          hideLobbyPanels();
+          window.initGuandanGame(mode);
+        } else {
+          alert('掼蛋模块正在加载中，请稍后或检查 guandan-game.js');
+        }
+      }
+    } 
+    else if (currentActiveGame === 'go') {
+      // 满足最新需求：围棋游戏点击后根据当前界面的选择直接进入单机版和联机版
+      hideLobbyPanels();
+
+      // 执行原框架自带的沉浸式状态和UI刷新
       if (typeof window.applyImmersiveState === 'function') {
         window.applyImmersiveState(true);
       }
@@ -162,26 +122,36 @@
         window.updateUI();
       }
 
-      // 执行原系统围棋脚本内核
-      if (window.MP && typeof window.MP.startAIGame === 'function') {
+      if (mode === 'SINGLE') {
+        console.log("正在突入：围棋【单机AI对战】");
+        if (window.MP && typeof window.MP.startAIGame === 'function') {
           window.MP.startAIGame();
-      } else if (typeof window.initGame === 'function') {
+        } else if (typeof window.initGame === 'function') {
           window.initGame();
+        }
       } else {
-          // 兜底：如果原 game.js 中有未被包裹的传统初始化，进行触发
-          const goBtn = document.getElementById('confirm-start-btn') || document.querySelector('.start-game-btn');
-          if (goBtn) goBtn.click();
+        console.log("正在突入：围棋【多人联机对战】");
+        if (window.MP && typeof window.MP.startMultiplayerGame === 'function') {
+          window.MP.startMultiplayerGame();
+        } else {
+          // 兼容原版系统的联机触发器
+          const rawNetTrigger = document.getElementById('confirm-start-btn');
+          if (rawNetTrigger) rawNetTrigger.click();
+        }
       }
     }
   }
 
-  // --- 4. 生命周期管理与安全注册 ---
-  function initEventListeners() {
-    console.log("游戏综合舱核心事件底座加载完毕。");
-    renderAppCentralLobby();
+  // 安全隐藏大厅容器面板
+  function hideLobbyPanels() {
+    const panels = ['#app-central-lobby', '#central-lobby-container', '.lobby-panel', '.main-lobby-ui'];
+    panels.forEach(selector => {
+      const el = document.querySelector(selector);
+      if (el) el.style.display = 'none';
+    });
   }
 
-  // 接收系统外部凭证
+  // --- 4. 配置中心与原有登录认证桥接生命周期 ---
   window.addEventListener('configReady', function(event) {
       if (isInitializing || supabaseInstance) return;
       isInitializing = true;
@@ -191,25 +161,31 @@
           try {
               const { createClient } = window.supabase;
               supabaseInstance = createClient(config.SUPABASE_URL, config.SUPABASE_ANON_KEY);
-              console.log("Supabase 实时云桥接成功。");
+              console.log("Supabase 云端网关建立就绪。");
               if (window.onSupabaseReady) {
                   window.onSupabaseReady(supabaseInstance);
               }
           } catch (e) {
-              console.error("Supabase 客户端建立异常:", e);
+              console.error("Supabase 客户端加载失败:", e);
           }
       }
   });
 
-  // 安全挂载到全局载入监听
+  // DOM 就绪后自启动底座监听
   window.addEventListener('DOMContentLoaded', () => {
-    initEventListeners();
+    // 延时执行，确保原有系统动态生成的 HTML 卡片渲染完毕后进行完美事件绑定
+    setTimeout(() => {
+      initEventListeners();
+    }, 200);
   });
 
-  // 跨作用域桥接返回大厅接口
+  // 全局暴露返回接口
   window.backToCentralLobby = () => {
-    const lobby = document.getElementById('app-central-lobby');
-    if (lobby) lobby.style.display = 'flex';
+    const elements = ['#app-central-lobby', '#central-lobby-container'];
+    elements.forEach(sel => {
+      const el = document.querySelector(sel);
+      if (el) el.style.display = 'flex';
+    });
   };
 
 })();
