@@ -1013,8 +1013,8 @@
     state.gameMode = 'MULTIPLAYER';
     drawFullBoard();
     console.log("[云端握手] 正在后台静默注册 Supabase 实时流房间，跳过中间输入配置面板...");
-  };
+  };*/
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once: true });
-  else init();*/
+  else init();
 })();
