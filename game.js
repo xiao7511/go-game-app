@@ -1,9 +1,9 @@
-// APP全屏模式样式注入
-
 /**
  * Modified Date: 2026-05-30
- * Description: Optimized app-fullscreen, central lobby routing, added multiplayer realtime synced rooms, implemented tribute mechanics, advanced combo validations, and structural card sorting grouping.
+ * Description: 1. Cancelled internal lobby; 2. Enabled green-active toggle & ondblclick on game center; 3. Integrated Supabase realtime battle; 4. Forced APP-fullscreen viewport layout; 5. Implemented Tribute/Return and Wild Card (Heart Rank) combo logic; 6. Added ergonomic cluster sorting mode.
  */
+
+// APP全屏模式样式注入
 
 (() => {
   'use strict';
@@ -91,7 +91,6 @@
     document.getElementById('app-central-lobby').style.display = 'none';
     if (selectedGameId === 'guandan' && window.GD) {
       window.GD.initGameMatch
-      } // 唤醒掼蛋单机
     }
   }
 
