@@ -75,66 +75,110 @@
   }
 
   // 渲染并接管屏幕：显示新设计的全屏大厅，同时强力隐藏任何原系统自带的老旧大厅组件
-  function renderAppCentralLobby() {
-    injectCentralAppStyles();
-    
-    // 强制肃清并隐藏原系统的所有老旧大厅元素，防止出现重叠或跳回
-    const rawLobbySelectors = ['.lobby-container', '#lobby-container', '.main-lobby', '.game-selection-panel', '#app-sidebar'];
-    rawLobbySelectors.forEach(sel => {
-      const el = document.querySelector(sel);
-      if (el) el.style.setProperty('display', 'none', 'important');
-    });
-
-    let lobbyWrapper = document.getElementById('app-central-lobby');
-    if (!lobbyWrapper) {
-      lobbyWrapper = document.createElement('div');
-      lobbyWrapper.id = 'app-central-lobby';
-      document.body.appendChild(lobbyWrapper);
+  // 分流启动逻辑：在此完成围棋、掼蛋的“单机/联机”四路精准分流调度
+  function launchMatchGame(mode) {
+    // 1. 隐藏我们设计的中央选择大厅遮罩层
+    const centralLobby = document.getElementById('app-perfect-selector-mask') || document.getElementById('app-central-lobby');
+    if (centralLobby) {
+      centralLobby.style.setProperty('display', 'none', 'important');
     }
-    lobbyWrapper.style.setProperty('display', 'flex', 'important');
 
-    lobbyWrapper.innerHTML = `
-      <div class="app-lobby-card-box">
-        <h2 style="margin: 0; font-size: 30px; letter-spacing: 1px; font-weight: 800; color: #f8fafc;">🎮 游戏竞技舱中央大厅</h2>
-        <p style="color: #94a3b8; font-size: 14px; margin-top: 10px;">请选中下方的游戏卡片，随后选择您要突入的竞技模式</p>
-        <div class="app-game-flex">
-          <div class="app-game-item active-selected" data-game-id="guandan">
-            <div style="font-size: 50px; margin-bottom: 12px;">🃏</div>
-            <h4 style="margin: 0; font-size: 19px; color: #fff;">江苏掼蛋</h4>
-            <span style="font-size: 11px; opacity: 0.6; display:block; margin-top:6px;">经典逢人配 进贡规则</span>
-          </div>
-          <div class="app-game-item" data-game-id="go">
-            <div style="font-size: 50px; margin-bottom: 12px;">⚪</div>
-            <h4 style="margin: 0; font-size: 19px; color: #fff;">经典围棋</h4>
-            <span style="font-size: 11px; opacity: 0.6; display:block; margin-top:6px;">单机与联机 多端分流</span>
-          </div>
-        </div>
-        <div class="app-btn-container">
-          <button class="app-action-btn app-btn-primary" id="app-trigger-solo">单机对战模式</button>
-          <button class="app-action-btn app-btn-success" id="app-trigger-net">创建房间 (对战模式)</button>
-        </div>
-      </div>
-    `;
-
-    const items = lobbyWrapper.querySelectorAll('.app-game-item');
-    items.forEach(item => {
-      // 需求2：点击选择游戏后背景颜色变为绿色
-      item.onclick = (e) => {
-        e.stopPropagation();
-        items.forEach(i => i.classList.remove('active-selected'));
-        item.classList.add('active-selected');
-        selectedGameId = item.getAttribute('data-game-id');
-      };
-
-      // 需求2：通过双击进入单机对战模式
-      item.ondblclick = () => {
-        selectedGameId = item.getAttribute('data-game-id');
-        launchMatchGame('SINGLE');
-      };
+    // 🌟 【核心修复点】强力精准清除原系统自带的“选择游戏”老旧弹窗选单，防止其死锁或拦截
+    const rawChoicePanels = [
+      '#game-choice-panel', 
+      '.game-selection-wrapper', 
+      '.game-select-modal',
+      '[class*="select-game"]', 
+      '[id*="select-game"]'
+    ];
+    rawChoicePanels.forEach(selector => {
+      const elements = document.querySelectorAll(selector);
+      elements.forEach(el => {
+        // 发现目标后直接实施最高优先级隐藏，防止其跳出阻挡
+        el.style.setProperty('display', 'none', 'important');
+        el.style.setProperty('visibility', 'hidden', 'important');
+        el.style.setProperty('opacity', '0', 'important');
+      });
     });
 
-    document.getElementById('app-trigger-solo').onclick = () => launchMatchGame('SINGLE');
-    document.getElementById('app-trigger-net').onclick = () => launchMatchGame('NET');
+    // 此外，如果该老旧选单是动态生成的弹窗，通过遍历其内部文本“选择游戏”或“经典围棋 19x19”将其精准揪出并隐藏
+    document.querySelectorAll('div, section, p').forEach(node => {
+      if (node.offsetWidth > 0 && (node.innerText.includes('选择游戏') || node.innerText.includes('当前版本已聚焦围棋对局'))) {
+        // 向上查找最邻近的独立弹窗容器并将其隐藏
+        const modalContainer = node.closest('[class*="modal"]') || node.closest('[class*="overlay"]') || node.closest('div');
+        if (modalContainer) {
+          modalContainer.style.setProperty('display', 'none', 'important');
+        }
+      }
+    });
+
+    // 2. 执行真正的对局无缝跳入
+    if (selectedGameId === 'guandan') {
+      console.log(`[分流路由] 绕过中间菜单，直接启动掼蛋 -> 模式: ${mode}`);
+      
+      let gdHandler = window.GD || (window.parent && window.parent.GD) || (window.top && window.top.GD);
+      
+      if (gdHandler && typeof gdHandler.initGameMatch === 'function') {
+        gdHandler.initGameMatch(mode); 
+      } 
+      else {
+        console.warn("[分流路由] window.GD 尚未完全就绪，执行底层无损代理模拟触发");
+        
+        // 模拟点击原系统的掼蛋触发项
+        const rawGdCard = document.querySelector('.game-card[data-game-id="guandan"]') || 
+                           document.querySelector('.app-game-item[data-game-id="guandan"]') ||
+                           document.querySelector('.game-card') ||
+                           document.getElementById('go-guandan-btn');
+                           
+        if (rawGdCard) rawGdCard.click();
+
+        // 延迟 50 毫秒，直接派发出底层的单机或联机真实出海口
+        setTimeout(() => {
+          let rawLaunchBtn = null;
+          if (mode === 'SINGLE') {
+            rawLaunchBtn = document.getElementById('launch-solo-btn') || 
+                           document.getElementById('gd-btn-lobby-solo-trigger') || 
+                           document.querySelector('.btn-solo');
+          } else {
+            rawLaunchBtn = document.getElementById('launch-net-btn') || 
+                           document.getElementById('gd-btn-lobby-net-trigger') || 
+                           document.querySelector('.btn-net');
+          }
+
+          if (rawLaunchBtn) {
+            rawLaunchBtn.click();
+          } else {
+            // 终极保底：如果还是找不到按钮，直接手动调用初始化
+            if (typeof window.initGuandanGame === 'function') {
+              window.initGuandanGame(mode);
+            }
+          }
+        }, 50);
+      }
+    } 
+    else if (selectedGameId === 'go') {
+      console.log(`[分流路由] 绕过中间菜单，直接启动围棋 -> 模式: ${mode}`);
+      
+      // 激活原系统底层的围棋画布渲染和沉浸转换上下文
+      if (typeof window.applyImmersiveState === 'function') window.applyImmersiveState(true);
+      if (typeof window.updateUI === 'function') window.updateUI();
+
+      if (mode === 'SINGLE') {
+        if (window.MP && typeof window.MP.startAIGame === 'function') {
+          window.MP.startAIGame();
+        } else if (typeof window.initGame === 'function') {
+          window.initGame();
+        }
+      } else {
+        if (window.MP && typeof window.MP.startMultiplayerGame === 'function') {
+          window.MP.startMultiplayerGame();
+        } else {
+          // 联机模式下如果原框架有确认创建按钮，则自动代客点击
+          const netTrigger = document.getElementById('confirm-start-btn') || document.getElementById('create-room-submit');
+          if (netTrigger) netTrigger.click();
+        }
+      }
+    }
   }
 
   // 分流启动逻辑：在此完成围棋、掼蛋的“单机/联机”四路精准分流调度
