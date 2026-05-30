@@ -181,6 +181,102 @@
     }
   }
 
+  /**
+   * 渲染并接管屏幕：显示新设计的全屏大厅，同时强力隐藏任何原系统自带的老旧大厅组件
+   */
+  window.renderAppCentralLobby = function() {
+    // 1. 动态注入全屏竞技样式
+    if (!document.getElementById('app-perfect-overlay-css')) {
+      const style = document.createElement('style');
+      style.id = 'app-perfect-overlay-css';
+      style.textContent = `
+        #app-perfect-selector-mask {
+          position: fixed; inset: 0;
+          width: 100vw; height: 100vh;
+          background: radial-gradient(circle at center, #111827 0%, #030712 100%) !important;
+          display: none; flex-direction: column; align-items: center; justify-content: center;
+          z-index: 999999 !important; color: #ffffff;
+          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        }
+        .app-lobby-box {
+          width: 85%; max-width: 720px;
+          background: rgba(31, 41, 55, 0.65);
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          border-radius: 24px; padding: 40px;
+          box-shadow: 0 25px 60px rgba(0,0,0,0.8); backdrop-filter: blur(20px);
+          text-align: center;
+        }
+        .app-game-flex { display: flex; justify-content: center; gap: 30px; margin: 35px 0; }
+        .app-game-item {
+          width: 200px; padding: 25px 15px;
+          background: rgba(255, 255, 255, 0.03);
+          border: 2px solid rgba(255, 255, 255, 0.06);
+          border-radius: 18px; cursor: pointer; transition: all 0.2s ease;
+        }
+        .app-game-item:hover { transform: translateY(-4px); border-color: #3b82f6; }
+        .app-game-item.active-selected {
+          background: linear-gradient(135deg, #16a34a 0%, #15803d 100%) !important;
+          border-color: #4ade80 !important;
+          box-shadow: 0 10px 25px rgba(22, 163, 74, 0.4);
+        }
+        .app-btn-container { display: flex; justify-content: center; gap: 20px; }
+        .app-action-btn {
+          padding: 12px 35px; font-size: 15px; font-weight: bold;
+          border-radius: 30px; border: none; cursor: pointer; transition: transform 0.1s;
+        }
+        .app-action-btn:active { transform: scale(0.96); }
+        .app-btn-primary { background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); color: white; }
+        .app-btn-success { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: white; }
+      `;
+      document.head.appendChild(style);
+    }
+
+    let mask = document.getElementById('app-perfect-selector-mask');
+    if (!mask) {
+      mask = document.createElement('div');
+      mask.id = 'app-perfect-selector-mask';
+      document.body.appendChild(mask);
+    }
+    
+    mask.style.setProperty('display', 'flex', 'important');
+
+    mask.innerHTML = `
+      <div class="app-lobby-box">
+        <h2 style="margin: 0; font-size: 26px; font-weight: 800; letter-spacing: 0.5px;">🎮 游戏对局主控舱</h2>
+        <p style="color: #94a3b8; font-size: 13px; margin-top: 8px;">选择科目后将绕过中间级选单，直接突入战场</p>
+        <div class="app-game-flex">
+          <div class="app-game-item active-selected" data-id="guandan">
+            <div style="font-size: 45px; margin-bottom: 8px;">🃏</div>
+            <h4 style="margin: 0; font-size: 17px;">江苏掼蛋</h4>
+            <span style="font-size: 11px; opacity: 0.6; display:block; margin-top:4px;">逢人配 智能理牌版</span>
+          </div>
+          <div class="app-game-item" data-id="go">
+            <div style="font-size: 45px; margin-bottom: 8px;">⚪</div>
+            <h4 style="margin: 0; font-size: 17px;">经典围棋</h4>
+            <span style="font-size: 11px; opacity: 0.6; display:block; margin-top:4px;">单机 / 联机 精准分流</span>
+          </div>
+        </div>
+        <div class="app-btn-container">
+          <button class="app-action-btn app-btn-primary" id="perfect-go-solo">进入单机版</button>
+          <button class="app-action-btn app-btn-success" id="perfect-go-net">进入联机版</button>
+        </div>
+      </div>
+    `;
+
+    const items = mask.querySelectorAll('.app-game-item');
+    items.forEach(item => {
+      item.onclick = (e) => {
+        e.stopPropagation();
+        items.forEach(i => i.classList.remove('active-selected'));
+        item.classList.add('active-selected');
+        selectedGameId = item.getAttribute('data-id');
+      };
+    });
+
+    document.getElementById('perfect-go-solo').onclick = () => window.launchMatchGame('SINGLE');
+    document.getElementById('perfect-go-net').onclick = () => window.launchMatchGame('NET');
+  };
+
   // 分流启动逻辑：在此完成围棋、掼蛋的“单机/联机”四路精准分流调度
   function launchMatchGame(mode) {
     // 隐藏中央选择大厅遮罩层
