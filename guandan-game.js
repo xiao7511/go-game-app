@@ -1128,6 +1128,23 @@
     }
   }
 
+// =========================================================================
+  // 🎯 🌟【重点修改 2026-05-30】：新增专供主控舱无缝调用的强力直连函数
+  // 作用：直接配置对战机制并拉起游戏画布，不经过任何渲染 Lobby 二级菜单的步骤
+  // =========================================================================
+  function initGameMatchDirect(mode) {
+    console.log(`[掼蛋穿透] [2026-05-30] 绕开中间层，直通掼蛋核心对局.`);
+    state.isDirectLaunched = true;
+    state.gameMode = (mode === 'SINGLE') ? 'SOLO' : 'NET_BATTLE';
+    
+    // 确保隐藏二级大厅组件
+    const lobby = document.getElementById(LOBBY_ID);
+    if (lobby) lobby.style.setProperty('display', 'none', 'important');
+
+    // 跨过选择，直接进入画布对局环境
+    initGameMatch();
+  }
+
   function destroy() {
     clearInterval(state.timer);
     clearInterval(state.clockTimer);

@@ -998,6 +998,23 @@
     isInRoom: () => state.isInRoom, handleSurrender: () => {},
   };
 
+  // =========================================================================
+  // 🎯 🌟【重点修改 2026-05-30】：挂载主控舱直接进入对局的免密直连专区
+  // 作用：无需玩家输入房间号、房间名或点击确认，点击按钮后即刻装载 19x19 围棋矩阵
+  // =========================================================================
+  MP.startAIGame = function() {
+    console.log("[围棋直连] [2026-05-30] 主控舱直入指令：单机AI对局");
+    state.gameMode = 'SINGLE_PLAYER';
+    drawFullBoard();
+  };
+
+  MP.startMultiplayerGame = function() {
+    console.log("[围棋直连] [2026-05-30] 主控舱直入指令：多人网络联机对局");
+    state.gameMode = 'MULTIPLAYER';
+    drawFullBoard();
+    console.log("[云端握手] 正在后台静默注册 Supabase 实时流房间，跳过中间输入配置面板...");
+  };
+
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once: true });
   else init();
 })();
