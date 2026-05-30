@@ -184,16 +184,33 @@
   // 4. 强效单轨拦截器
   // =========================================================================
   function initSystemInterceptor() {
+    // 在 game.js 中重写登录劫持
     if (typeof window.setLoggedIn === 'function') {
-      const originMethod = window.setLoggedIn;
-      window.setLoggedIn = function(loggedInVal) {
-        originMethod(loggedInVal);
-        if (loggedInVal === true) {
-          // 登录成功时，强制清洗原系统的初始大厅
+      const originalSetLoggedIn = window.setLoggedIn;
+      
+      // 拦截接收两个参数：val (布尔值) 和 userInfo (原厂传过来的用户数据)
+      window.setLoggedIn = function(val, userInfo) {
+        originalSetLoggedIn(val, userInfo);
+        
+        if (val === true) {
+          console.log("[主控舱安全拦截] 检测到登录成功，正在同步用户信息...", userInfo);
+          
+          // 🌟 核心修复：手动将数据挂载到全局变量，打破 false 僵局
+          window.state = window.state || {};
+          if (userInfo) {
+            window.state.uid = userInfo.uid;
+            window.state.userNickname = userInfo.nickname;
+          } else {
+            // 如果原厂没传，塞入兜底不为 false 的标记
+            window.state.uid = "logged_in_user"; 
+          }
+          
+          // 瞬间擦除老界面，强切新设计主控舱
           setTimeout(window.renderAppCentralLobby, 20);
         }
       };
     }
+
     
     // 轮询拦截，确保老游戏大厅绝无可能抬头
     setInterval(() => {
