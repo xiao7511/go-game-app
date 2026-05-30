@@ -1,16 +1,19 @@
 /**
  * Modified Date: 2026-05-30
- * Description: Fixed initEventListeners reference error. Implemented: 1. Lobby decoupling; 2. Click highlight & ondblclick single mode; 3. Supabase realtime battle sync; 4. Fullscreen app layout; 5. Tribute and Heart rank Wild Card rule checking; 6. Ergonomic cluster sorting mode.
+ * Description: Fixed game loading blocks. Optimized: 1. Routed Go (围棋) to bypass selection lobby and enter gameplay directly; 2. Corrected Guandan global reference pathways; 3. Re-aligned authentication lifecycle while forcing App-fullscreen UI layout.
  */
 (() => {
   'use strict';
 
-  // --- 1. 核心状态与全局变量定义 ---
+  // --- 1. 核心状态与全局变量 ---
   let supabaseInstance = null;
   let isInitializing = false;
-  let selectedGameId = 'guandan'; // 默认选中掼蛋
+  let selectedGameId = 'guandan'; 
 
-  // 暴露获取 Supabase 客户端的全局方法，供掼蛋联机模块使用
+  // 保证全局状态机和配置能安全挂载
+  window.state = window.state || {};
+
+  // 暴露获取 Supabase 客户端的全局方法，供掼蛋联机模块实时调用
   window.getSupabaseClient = function() {
       return supabaseInstance;
   };
@@ -52,7 +55,7 @@
       }
       .app-game-item:hover { transform: translateY(-4px); border-color: #3b82f6; }
       
-      /* 需求2：点击选择游戏后背景颜色变为绿色 */
+      /* 点击选择游戏后背景颜色变为绿色 */
       .app-game-item.active-selected { 
         background: linear-gradient(135deg, #16a34a 0%, #15803d 100%) !important; 
         border-color: #4ade80 !important; 
@@ -70,7 +73,7 @@
     document.head.appendChild(style);
   }
 
-  // --- 3. 渲染中央游戏大厅 ---
+  // --- 3. 动态维护中央控制大厅 ---
   function renderAppCentralLobby() {
     injectCentralAppStyles();
     let lobbyWrapper = document.getElementById('app-central-lobby');
@@ -93,7 +96,7 @@
           <div class="app-game-item" data-game-id="go">
             <div style="font-size: 45px; margin-bottom: 10px;">⚪</div>
             <h4 style="margin: 0; font-size: 18px;">经典围棋</h4>
-            <span style="font-size: 11px; opacity: 0.6; display:block; margin-top:5px;">纵横博弈 策略对决</span>
+            <span style="font-size: 11px; opacity: 0.6; display:block; margin-top:5px;">【直接进局】免大厅干扰</span>
           </div>
         </div>
         <div class="app-btn-container">
@@ -103,18 +106,27 @@
       </div>
     `;
 
-    // 绑定卡片切换事件
+    // 卡片事件绑定
     const items = lobbyWrapper.querySelectorAll('.app-game-item');
     items.forEach(item => {
-      // 需求2：点击选择游戏后背景颜色变为绿色
       item.onclick = (e) => {
         e.stopPropagation();
+        const gid = item.getAttribute('data-game-id');
+        
+        // 优化需求：围棋游戏点击后要求直接进入游戏界面，不需要选择大厅
+        if (gid === 'go') {
+          selectedGameId = 'go';
+          launchMatchGame('SINGLE'); // 围棋点击直接突入对局
+          return;
+        }
+
+        // 掼蛋保持高亮并选择
         items.forEach(i => i.classList.remove('active-selected'));
         item.classList.add('active-selected');
-        selectedGameId = item.getAttribute('data-game-id');
+        selectedGameId = gid;
       };
 
-      // 需求2：通过双击进入单机对战模式
+      // 双击卡片直接切入
       item.ondblclick = () => {
         selectedGameId = item.getAttribute('data-game-id');
         launchMatchGame('SINGLE');
@@ -125,34 +137,51 @@
     document.getElementById('app-trigger-net').onclick = () => launchMatchGame('NET');
   }
 
-  // 启动对应游戏和模式
+  // 执行启动路由
   function launchMatchGame(mode) {
     if (selectedGameId === 'guandan') {
-      if (window.GD && typeof window.GD.initGameMatch === 'function') {
-        document.getElementById('app-central-lobby').style.display = 'none';
-        window.GD.initGameMatch(mode); 
+      // 解决无法进入掼蛋游戏的映射冲突
+      const gdHandler = window.GD || (window.parent && window.parent.GD);
+      if (gdHandler && typeof gdHandler.initGameMatch === 'function') {
+        const lobby = document.getElementById('app-central-lobby');
+        if (lobby) lobby.style.display = 'none';
+        gdHandler.initGameMatch(mode); 
       } else {
-        alert('掼蛋游戏扩展模块未就绪，请检查 guandan-game.js 是否正常载入。');
+        alert('掼蛋底座尚未就绪，请确保页面已引入 guandan-game.js');
       }
     } else if (selectedGameId === 'go') {
-      document.getElementById('app-central-lobby').style.display = 'none';
+      // 核心需求：围棋游戏直接进入游戏界面，不需要大厅中转
+      const lobby = document.getElementById('app-central-lobby');
+      if (lobby) lobby.style.display = 'none';
+
+      // 适配原有系统的沉浸态切换逻辑
+      if (typeof window.applyImmersiveState === 'function') {
+        window.applyImmersiveState(true);
+      }
+      if (typeof window.updateUI === 'function') {
+        window.updateUI();
+      }
+
+      // 执行原系统围棋脚本内核
       if (window.MP && typeof window.MP.startAIGame === 'function') {
           window.MP.startAIGame();
       } else if (typeof window.initGame === 'function') {
           window.initGame();
       } else {
-          alert('围棋初始化函数未就绪。');
+          // 兜底：如果原 game.js 中有未被包裹的传统初始化，进行触发
+          const goBtn = document.getElementById('confirm-start-btn') || document.querySelector('.start-game-btn');
+          if (goBtn) goBtn.click();
       }
     }
   }
 
-  // --- 4. 补全缺失的事件监听与原有生命周期函数 ---
+  // --- 4. 生命周期管理与安全注册 ---
   function initEventListeners() {
-    console.log("游戏中央监听底座已安全建立。");
+    console.log("游戏综合舱核心事件底座加载完毕。");
     renderAppCentralLobby();
   }
 
-  // 监听原始配置就绪事件，保障原 Supabase 初始化流程不受破坏
+  // 接收系统外部凭证
   window.addEventListener('configReady', function(event) {
       if (isInitializing || supabaseInstance) return;
       isInitializing = true;
@@ -162,22 +191,22 @@
           try {
               const { createClient } = window.supabase;
               supabaseInstance = createClient(config.SUPABASE_URL, config.SUPABASE_ANON_KEY);
-              console.log("Supabase 客户端已于中央控制舱初始化成功");
+              console.log("Supabase 实时云桥接成功。");
               if (window.onSupabaseReady) {
                   window.onSupabaseReady(supabaseInstance);
               }
           } catch (e) {
-              console.error("初始化 Supabase 异常:", e);
+              console.error("Supabase 客户端建立异常:", e);
           }
       }
   });
 
-  // 页面加载完毕安全引导
+  // 安全挂载到全局载入监听
   window.addEventListener('DOMContentLoaded', () => {
     initEventListeners();
   });
 
-  // 暴露全局返回中央大厅接口供子对局舱调用
+  // 跨作用域桥接返回大厅接口
   window.backToCentralLobby = () => {
     const lobby = document.getElementById('app-central-lobby');
     if (lobby) lobby.style.display = 'flex';
