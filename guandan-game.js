@@ -1312,7 +1312,7 @@
     secureBindLaunch();
   }
   // 🌟【最核心修复：打破隔离】向全局 window 直接暴露出无阻碍启动接口
-  window.initGuandanDirectMatch = function(mode) {
+ /* window.initGuandanDirectMatch = function(mode) {
     console.log("[公开网关] 接收到大厅直通掼蛋指令，突入游戏画布。");
     internalState.playMode = mode;
     internalState.tributeDone = false;
@@ -1323,5 +1323,5 @@
 
   // 保持与老代码对象的兼容性
   window.GD = window.GD || {};
-  window.GD.initGameMatch = window.initGuandanDirectMatch;
+  window.GD.initGameMatch = window.initGuandanDirectMatch;*/
 })();
