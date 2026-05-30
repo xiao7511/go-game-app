@@ -139,40 +139,78 @@
 
   // 分流启动逻辑：在此完成围棋、掼蛋的“单机/联机”四路精准分流调度
   function launchMatchGame(mode) {
+    // 隐藏中央选择大厅遮罩层
+    const centralLobby = document.getElementById('app-perfect-selector-mask') || document.getElementById('app-central-lobby');
+    if (centralLobby) {
+      centralLobby.style.setProperty('display', 'none', 'important');
+    }
+
     if (selectedGameId === 'guandan') {
-      const gdHandler = window.GD || (window.parent && window.parent.GD);
+      console.log(`[分流路由] 准备启动掼蛋 -> 模式: ${mode}`);
+      
+      // 1. 第一路径：尝试从各种作用域获取全局 GD 引擎
+      let gdHandler = window.GD || (window.parent && window.parent.GD) || (window.top && window.top.GD);
+      
       if (gdHandler && typeof gdHandler.initGameMatch === 'function') {
-        document.getElementById('app-central-lobby').style.setProperty('display', 'none', 'important');
+        console.log("[分流路由] 成功定位到全局 GD 引擎，直接注入对局模式");
         gdHandler.initGameMatch(mode); 
-      } else {
-        alert('掼蛋对局引擎尚未就绪，请确认 guandan-game.js 已加载。');
+      } 
+      // 2. 第二路径：如果引擎未就绪，采用无损“代理点击法”唤醒原系统隐藏的掼蛋底座
+      else {
+        console.warn("[分流路由] window.GD 为 undefined，启动底层无损代理桥接");
+        
+        // 尝试点击原系统大厅的掼蛋选项卡（以此触发 guandan-game.js 的内部加载或初始化）
+        const rawGdCard = document.querySelector('.game-card[data-game-id="guandan"]') || 
+                           document.querySelector('.app-game-item[data-game-id="guandan"]') ||
+                           document.querySelector('.game-card');
+                           
+        if (rawGdCard) {
+          rawGdCard.click();
+          console.log("[分流路由] 已模拟点击原系统的掼蛋卡片");
+        }
+
+        // 稍微延迟 80 毫秒，等待原系统切换上下文后，直接模拟点击底部的单机或联机按钮
+        setTimeout(() => {
+          // 尝试映射对应的启动按钮
+          let rawLaunchBtn = null;
+          if (mode === 'SINGLE') {
+            rawLaunchBtn = document.getElementById('launch-solo-btn') || 
+                           document.getElementById('gd-btn-lobby-solo-trigger') || 
+                           document.querySelector('.btn-solo');
+          } else {
+            rawLaunchBtn = document.getElementById('launch-net-btn') || 
+                           document.getElementById('gd-btn-lobby-net-trigger') || 
+                           document.querySelector('.btn-net');
+          }
+
+          if (rawLaunchBtn) {
+            console.log("[分流路由] 成功定位到底层启动按钮，执行模拟点击:", rawLaunchBtn.id || rawLaunchBtn.className);
+            rawLaunchBtn.click();
+          } else {
+            // 如果两层路径都失败了，说明 guandan-game.js 确实没有在页面中通过 <script> 标签引入
+            alert('掼蛋对局模块未能建立连接。请确认 HTML 页面中已引入 <script src="guandan-game.js"></script>');
+          }
+        }, 80);
       }
     } 
     else if (selectedGameId === 'go') {
-      // 满足最新需求：围棋点击后根据此界面的选择直接进入单机版和联机版
-      document.getElementById('app-central-lobby').style.setProperty('display', 'none', 'important');
-
-      if (typeof window.applyImmersiveState === 'function') {
-        window.applyImmersiveState(true);
-      }
-      if (typeof window.updateUI === 'function') {
-        window.updateUI();
-      }
+      console.log(`[分流路由] 准备启动围棋 -> 模式: ${mode}`);
+      // 激活原系统的沉浸转换，确保不报画布缺失错误
+      if (typeof window.applyImmersiveState === 'function') window.applyImmersiveState(true);
+      if (typeof window.updateUI === 'function') window.updateUI();
 
       if (mode === 'SINGLE') {
-        console.log("启动：围棋 -> 【单机版 AI 对局】");
         if (window.MP && typeof window.MP.startAIGame === 'function') {
           window.MP.startAIGame();
         } else if (typeof window.initGame === 'function') {
           window.initGame();
         }
       } else {
-        console.log("启动：围棋 -> 【联机对战版】");
         if (window.MP && typeof window.MP.startMultiplayerGame === 'function') {
           window.MP.startMultiplayerGame();
         } else {
-          const rawNetTrigger = document.getElementById('confirm-start-btn');
-          if (rawNetTrigger) rawNetTrigger.click();
+          const netTrigger = document.getElementById('confirm-start-btn');
+          if (netTrigger) netTrigger.click();
         }
       }
     }
