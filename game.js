@@ -197,16 +197,23 @@
     
     // 轮询拦截，确保老游戏大厅绝无可能抬头
     setInterval(() => {
-      const authOverlay = document.getElementById('auth-overlay');
-      if (authOverlay && (authOverlay.style.display === 'none' || authOverlay.classList.contains('hidden'))) {
+      // 1. 直接检测全局状态机里是否有用户 ID 或 Token（证明已登录成功）
+      const isLoggedIn = !!(window.state && (window.state.uid || window.state.userNickname));
+      
+      if (isLoggedIn) {
         const mask = document.getElementById('app-perfect-selector-mask');
         const containerGd = document.getElementById('guandan-game-container');
         const containerGo = document.getElementById('go-game-board-container');
         
-        // 如果没有进行真实的局内对局，则必须显示主控舱
+        // 2. 如果已经登录，且当前既没在对局中，也没弹出主控舱，则强制拉起主控舱
         if ((!mask || mask.style.display === 'none') && 
             (!containerGd || containerGd.style.display === 'none') && 
             (!containerGo || containerGo.style.display === 'none')) {
+          
+          // 顺手清洗掉可能残留的原厂老大厅
+          const rawLobby = document.getElementById('game-choice-panel');
+          if (rawLobby) rawLobby.style.setProperty('display', 'none', 'important');
+          
           window.renderAppCentralLobby();
         }
       }
