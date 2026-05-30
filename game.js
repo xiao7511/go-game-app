@@ -8,6 +8,11 @@
 (() => {
   'use strict';
 
+  // ==========================================
+  // 1. 在最外层（非任何闭包内）定义核心全局变量
+  // ==========================================
+  window.selectedGameId = window.selectedGameId || 'guandan';
+
   let supabaseInstance = null;
   let isInitializing = false;
   let selectedGameId = 'guandan'; // 默认聚焦掼蛋
@@ -181,11 +186,89 @@
     }
   }
 
-  /**
-   * 渲染并接管屏幕：显示新设计的全屏大厅，同时强力隐藏任何原系统自带的老旧大厅组件
-   */
+  // ==========================================
+  // 2. 补全并强化 window.launchMatchGame 全局分流函数
+  // ==========================================
+  window.launchMatchGame = function(mode) {
+    console.log(`[分流路由] 触发核心开局机制 -> 目标科目: ${window.selectedGameId}, 模式: ${mode}`);
+
+    // 1. 隐藏新设计的中央选择大厅遮罩层
+    const mask = document.getElementById('app-perfect-selector-mask') || document.getElementById('app-central-lobby');
+    if (mask) {
+      mask.style.setProperty('display', 'none', 'important');
+    }
+
+    // 2. 强力暴力抹除原系统残留的任何“选择游戏”老旧中间弹窗
+    const rawChoicePanels = [
+      '#game-choice-panel', 
+      '.game-selection-wrapper', 
+      '.game-select-modal',
+      '[class*="select-game"]', 
+      '[id*="select-game"]'
+    ];
+    rawChoicePanels.forEach(selector => {
+      document.querySelectorAll(selector).forEach(el => {
+        el.style.setProperty('display', 'none', 'important');
+        el.style.setProperty('visibility', 'hidden', 'important');
+      });
+    });
+
+    // 智能检索并清除包含冲突文本的任何动态弹窗容器
+    document.querySelectorAll('div, section').forEach(node => {
+      if (node.offsetWidth > 0 && (node.innerText.includes('选择游戏') || node.innerText.includes('当前版本已聚焦围棋对局'))) {
+        const parentModal = node.closest('[class*="modal"]') || node.closest('[class*="overlay"]') || node;
+        if (parentModal) parentModal.style.setProperty('display', 'none', 'important');
+      }
+    });
+
+    // 3. 执行真正的对局无缝跳入
+    if (window.selectedGameId === 'guandan') {
+      console.log(`[分流路由] 绕过中间层，直通掼蛋: ${mode}`);
+      let gdHandler = window.GD || (window.parent && window.parent.GD) || (window.top && window.top.GD);
+      
+      if (gdHandler && typeof gdHandler.initGameMatch === 'function') {
+        gdHandler.initGameMatch(mode); 
+      } else {
+        // 保底路径：如果引擎尚未注册，代理触发底层卡片
+        const rawGdCard = document.querySelector('.game-card[data-game-id="guandan"]') || document.getElementById('go-guandan-btn');
+        if (rawGdCard) rawGdCard.click();
+
+        setTimeout(() => {
+          let rawLaunchBtn = (mode === 'SINGLE') 
+            ? (document.getElementById('launch-solo-btn') || document.querySelector('.btn-solo') || document.getElementById('gd-btn-lobby-solo-trigger'))
+            : (document.getElementById('launch-net-btn') || document.querySelector('.btn-net') || document.getElementById('gd-btn-lobby-net-trigger'));
+          if (rawLaunchBtn) rawLaunchBtn.click();
+        }, 50);
+      }
+    } 
+    else if (window.selectedGameId === 'go') {
+      console.log(`[分流路由] 绕过中间层，直通围棋: ${mode}`);
+      
+      // 激活原系统底层的围棋画布渲染和沉浸转换上下文
+      if (typeof window.applyImmersiveState === 'function') window.applyImmersiveState(true);
+      if (typeof window.updateUI === 'function') window.updateUI();
+
+      if (mode === 'SINGLE') {
+        if (window.MP && typeof window.MP.startAIGame === 'function') {
+          window.MP.startAIGame();
+        } else if (typeof window.initGame === 'function') {
+          window.initGame();
+        }
+      } else {
+        if (window.MP && typeof window.MP.startMultiplayerGame === 'function') {
+          window.MP.startMultiplayerGame();
+        } else {
+          const netTrigger = document.getElementById('confirm-start-btn') || document.getElementById('create-room-submit');
+          if (netTrigger) netTrigger.click();
+        }
+      }
+    }
+  };
+
+  // ==========================================
+  // 3. 补全并强化 window.renderAppCentralLobby 全局渲染函数
+  // ==========================================
   window.renderAppCentralLobby = function() {
-    // 1. 动态注入全屏竞技样式
     if (!document.getElementById('app-perfect-overlay-css')) {
       const style = document.createElement('style');
       style.id = 'app-perfect-overlay-css';
@@ -269,92 +352,13 @@
         e.stopPropagation();
         items.forEach(i => i.classList.remove('active-selected'));
         item.classList.add('active-selected');
-        selectedGameId = item.getAttribute('data-id');
+        window.selectedGameId = item.getAttribute('data-id');
       };
     });
 
     document.getElementById('perfect-go-solo').onclick = () => window.launchMatchGame('SINGLE');
     document.getElementById('perfect-go-net').onclick = () => window.launchMatchGame('NET');
   };
-
-  // 分流启动逻辑：在此完成围棋、掼蛋的“单机/联机”四路精准分流调度
-  function launchMatchGame(mode) {
-    // 隐藏中央选择大厅遮罩层
-    const centralLobby = document.getElementById('app-perfect-selector-mask') || document.getElementById('app-central-lobby');
-    if (centralLobby) {
-      centralLobby.style.setProperty('display', 'none', 'important');
-    }
-
-    if (selectedGameId === 'guandan') {
-      console.log(`[分流路由] 准备启动掼蛋 -> 模式: ${mode}`);
-      
-      // 1. 第一路径：尝试从各种作用域获取全局 GD 引擎
-      let gdHandler = window.GD || (window.parent && window.parent.GD) || (window.top && window.top.GD);
-      
-      if (gdHandler && typeof gdHandler.initGameMatch === 'function') {
-        console.log("[分流路由] 成功定位到全局 GD 引擎，直接注入对局模式");
-        gdHandler.initGameMatch(mode); 
-      } 
-      // 2. 第二路径：如果引擎未就绪，采用无损“代理点击法”唤醒原系统隐藏的掼蛋底座
-      else {
-        console.warn("[分流路由] window.GD 为 undefined，启动底层无损代理桥接");
-        
-        // 尝试点击原系统大厅的掼蛋选项卡（以此触发 guandan-game.js 的内部加载或初始化）
-        const rawGdCard = document.querySelector('.game-card[data-game-id="guandan"]') || 
-                           document.querySelector('.app-game-item[data-game-id="guandan"]') ||
-                           document.querySelector('.game-card');
-                           
-        if (rawGdCard) {
-          rawGdCard.click();
-          console.log("[分流路由] 已模拟点击原系统的掼蛋卡片");
-        }
-
-        // 稍微延迟 80 毫秒，等待原系统切换上下文后，直接模拟点击底部的单机或联机按钮
-        setTimeout(() => {
-          // 尝试映射对应的启动按钮
-          let rawLaunchBtn = null;
-          if (mode === 'SINGLE') {
-            rawLaunchBtn = document.getElementById('launch-solo-btn') || 
-                           document.getElementById('gd-btn-lobby-solo-trigger') || 
-                           document.querySelector('.btn-solo');
-          } else {
-            rawLaunchBtn = document.getElementById('launch-net-btn') || 
-                           document.getElementById('gd-btn-lobby-net-trigger') || 
-                           document.querySelector('.btn-net');
-          }
-
-          if (rawLaunchBtn) {
-            console.log("[分流路由] 成功定位到底层启动按钮，执行模拟点击:", rawLaunchBtn.id || rawLaunchBtn.className);
-            rawLaunchBtn.click();
-          } else {
-            // 如果两层路径都失败了，说明 guandan-game.js 确实没有在页面中通过 <script> 标签引入
-            alert('掼蛋对局模块未能建立连接。请确认 HTML 页面中已引入 <script src="guandan-game.js"></script>');
-          }
-        }, 80);
-      }
-    } 
-    else if (selectedGameId === 'go') {
-      console.log(`[分流路由] 准备启动围棋 -> 模式: ${mode}`);
-      // 激活原系统的沉浸转换，确保不报画布缺失错误
-      if (typeof window.applyImmersiveState === 'function') window.applyImmersiveState(true);
-      if (typeof window.updateUI === 'function') window.updateUI();
-
-      if (mode === 'SINGLE') {
-        if (window.MP && typeof window.MP.startAIGame === 'function') {
-          window.MP.startAIGame();
-        } else if (typeof window.initGame === 'function') {
-          window.initGame();
-        }
-      } else {
-        if (window.MP && typeof window.MP.startMultiplayerGame === 'function') {
-          window.MP.startMultiplayerGame();
-        } else {
-          const netTrigger = document.getElementById('confirm-start-btn');
-          if (netTrigger) netTrigger.click();
-        }
-      }
-    }
-  }
 
   // --- 4. 生命周期劫持：监听原始系统的成功登录状态 ---
   function initEventListeners() {
@@ -394,9 +398,12 @@
     setTimeout(initEventListeners, 150);
   });
 
+  // ==========================================
+  // 4. 全局安全桥接退回方法
+  // ==========================================
   window.backToCentralLobby = () => {
-    const lobby = document.getElementById('app-central-lobby');
-    if (lobby) lobby.style.setProperty('display', 'flex', 'important');
+    const mask = document.getElementById('app-perfect-selector-mask');
+    if (mask) mask.style.setProperty('display', 'flex', 'important');
   };
 
 })();
