@@ -186,26 +186,18 @@
     }
   }
 
-  // ==========================================
-  // 2. 补全并强化 window.launchMatchGame 全局分流函数
-  // ==========================================
+  // 2. 核心路由分流调度函数 (直接挂载到顶层 window 确保随时随地可调用)
   window.launchMatchGame = function(mode) {
-    console.log(`[分流路由] 触发核心开局机制 -> 目标科目: ${window.selectedGameId}, 模式: ${mode}`);
+    console.log(`[分流路由] 正在启动对局 -> 目标科目: ${window.selectedGameId}, 模式: ${mode}`);
 
-    // 1. 隐藏新设计的中央选择大厅遮罩层
+    // 隐藏我们设计的中央选择大厅遮罩层
     const mask = document.getElementById('app-perfect-selector-mask') || document.getElementById('app-central-lobby');
     if (mask) {
       mask.style.setProperty('display', 'none', 'important');
     }
 
-    // 2. 强力暴力抹除原系统残留的任何“选择游戏”老旧中间弹窗
-    const rawChoicePanels = [
-      '#game-choice-panel', 
-      '.game-selection-wrapper', 
-      '.game-select-modal',
-      '[class*="select-game"]', 
-      '[id*="select-game"]'
-    ];
+    // 🌟【强制精准抹除】清除原系统残留的任何中间“选择游戏”弹窗，杜绝二次拦截
+    const rawChoicePanels = ['#game-choice-panel', '.game-selection-wrapper', '.game-select-modal', '[class*="select-game"]', '[id*="select-game"]'];
     rawChoicePanels.forEach(selector => {
       document.querySelectorAll(selector).forEach(el => {
         el.style.setProperty('display', 'none', 'important');
@@ -213,36 +205,52 @@
       });
     });
 
-    // 智能检索并清除包含冲突文本的任何动态弹窗容器
-    document.querySelectorAll('div, section').forEach(node => {
-      if (node.offsetWidth > 0 && (node.innerText.includes('选择游戏') || node.innerText.includes('当前版本已聚焦围棋对局'))) {
-        const parentModal = node.closest('[class*="modal"]') || node.closest('[class*="overlay"]') || node;
-        if (parentModal) parentModal.style.setProperty('display', 'none', 'important');
-      }
-    });
-
     // 3. 执行真正的对局无缝跳入
     if (window.selectedGameId === 'guandan') {
-      console.log(`[分流路由] 绕过中间层，直通掼蛋: ${mode}`);
-      let gdHandler = window.GD || (window.parent && window.parent.GD) || (window.top && window.top.GD);
+      console.log(`[分流路由] 绕过中间层，代理穿透直通掼蛋 -> ${mode}`);
       
-      if (gdHandler && typeof gdHandler.initGameMatch === 'function') {
-        gdHandler.initGameMatch(mode); 
-      } else {
-        // 保底路径：如果引擎尚未注册，代理触发底层卡片
-        const rawGdCard = document.querySelector('.game-card[data-game-id="guandan"]') || document.getElementById('go-guandan-btn');
-        if (rawGdCard) rawGdCard.click();
-
-        setTimeout(() => {
-          let rawLaunchBtn = (mode === 'SINGLE') 
-            ? (document.getElementById('launch-solo-btn') || document.querySelector('.btn-solo') || document.getElementById('gd-btn-lobby-solo-trigger'))
-            : (document.getElementById('launch-net-btn') || document.querySelector('.btn-net') || document.getElementById('gd-btn-lobby-net-trigger'));
-          if (rawLaunchBtn) rawLaunchBtn.click();
-        }, 50);
+      // 优先路径：如果 guandan-game.js 已经在顶层暴露出全新专属接口，直接秒启动
+      if (window.initGuandanDirectMatch && typeof window.initGuandanDirectMatch === 'function') {
+        window.initGuandanDirectMatch(mode);
+        return;
       }
+
+      // 备用兼容路径：无损“穿透代理点击法”，模拟触发底层卡片激活其生命周期
+      const rawGdCard = document.querySelector('.game-card[data-game-id="guandan"]') || 
+                        document.querySelector('.app-game-item[data-game-id="guandan"]') ||
+                        document.getElementById('go-guandan-btn');
+      if (rawGdCard) {
+        rawGdCard.click();
+      }
+
+      // 延迟 60 毫秒，直接点击原始大厅中隐藏对应的单机/联机启动按钮
+      setTimeout(() => {
+        let rawLaunchBtn = null;
+        if (mode === 'SINGLE') {
+          rawLaunchBtn = document.getElementById('launch-solo-btn') || 
+                        document.getElementById('gd-btn-lobby-solo-trigger') || 
+                        document.querySelector('.btn-solo');
+        } else {
+          rawLaunchBtn = document.getElementById('launch-net-btn') || 
+                        document.getElementById('gd-btn-lobby-net-trigger') || 
+                        document.querySelector('.btn-net');
+        }
+
+        if (rawLaunchBtn) {
+          console.log("[分流路由] 成功穿透底层按钮:", rawLaunchBtn.id || rawLaunchBtn.className);
+          rawLaunchBtn.click();
+        } else {
+          // 如果底层按钮由于重绘还没生成，直接通过强制应急全局机制调用
+          if (window.GD && typeof window.GD.initGameMatch === 'function') {
+            window.GD.initGameMatch(mode);
+          } else if (typeof window.initGuandanGame === 'function') {
+            window.initGuandanGame(mode);
+          }
+        }
+      }, 60);
     } 
     else if (window.selectedGameId === 'go') {
-      console.log(`[分流路由] 绕过中间层，直通围棋: ${mode}`);
+      console.log(`[分流路由] 绕过中间层，直通围棋 -> ${mode}`);
       
       // 激活原系统底层的围棋画布渲染和沉浸转换上下文
       if (typeof window.applyImmersiveState === 'function') window.applyImmersiveState(true);
@@ -265,48 +273,36 @@
     }
   };
 
-  // ==========================================
-  // 3. 补全并强化 window.renderAppCentralLobby 全局渲染函数
-  // ==========================================
+  // 4. 渲染新设计的全屏大厅主模板
   window.renderAppCentralLobby = function() {
     if (!document.getElementById('app-perfect-overlay-css')) {
       const style = document.createElement('style');
       style.id = 'app-perfect-overlay-css';
       style.textContent = `
         #app-perfect-selector-mask {
-          position: fixed; inset: 0;
-          width: 100vw; height: 100vh;
+          position: fixed; inset: 0; width: 100vw; height: 100vh;
           background: radial-gradient(circle at center, #111827 0%, #030712 100%) !important;
           display: none; flex-direction: column; align-items: center; justify-content: center;
           z-index: 999999 !important; color: #ffffff;
           font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
         }
         .app-lobby-box {
-          width: 85%; max-width: 720px;
-          background: rgba(31, 41, 55, 0.65);
-          border: 1px solid rgba(255, 255, 255, 0.08);
-          border-radius: 24px; padding: 40px;
-          box-shadow: 0 25px 60px rgba(0,0,0,0.8); backdrop-filter: blur(20px);
-          text-align: center;
+          width: 85%; max-width: 720px; background: rgba(31, 41, 55, 0.65);
+          border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 24px; padding: 40px;
+          box-shadow: 0 25px 60px rgba(0,0,0,0.8); backdrop-filter: blur(20px); text-align: center;
         }
         .app-game-flex { display: flex; justify-content: center; gap: 30px; margin: 35px 0; }
         .app-game-item {
-          width: 200px; padding: 25px 15px;
-          background: rgba(255, 255, 255, 0.03);
-          border: 2px solid rgba(255, 255, 255, 0.06);
-          border-radius: 18px; cursor: pointer; transition: all 0.2s ease;
+          width: 200px; padding: 25px 15px; background: rgba(255, 255, 255, 0.03);
+          border: 2px solid rgba(255, 255, 255, 0.06); border-radius: 18px; cursor: pointer; transition: all 0.2s ease;
         }
         .app-game-item:hover { transform: translateY(-4px); border-color: #3b82f6; }
         .app-game-item.active-selected {
           background: linear-gradient(135deg, #16a34a 0%, #15803d 100%) !important;
-          border-color: #4ade80 !important;
-          box-shadow: 0 10px 25px rgba(22, 163, 74, 0.4);
+          border-color: #4ade80 !important; box-shadow: 0 10px 25px rgba(22, 163, 74, 0.4);
         }
         .app-btn-container { display: flex; justify-content: center; gap: 20px; }
-        .app-action-btn {
-          padding: 12px 35px; font-size: 15px; font-weight: bold;
-          border-radius: 30px; border: none; cursor: pointer; transition: transform 0.1s;
-        }
+        .app-action-btn { padding: 12px 35px; font-size: 15px; font-weight: bold; border-radius: 30px; border: none; cursor: pointer; transition: transform 0.1s; }
         .app-action-btn:active { transform: scale(0.96); }
         .app-btn-primary { background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); color: white; }
         .app-btn-success { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: white; }
@@ -326,7 +322,7 @@
     mask.innerHTML = `
       <div class="app-lobby-box">
         <h2 style="margin: 0; font-size: 26px; font-weight: 800; letter-spacing: 0.5px;">🎮 游戏对局主控舱</h2>
-        <p style="color: #94a3b8; font-size: 13px; margin-top: 8px;">选择科目后将绕过中间级选单，直接突入战场</p>
+        <p style="color: #94a3b8; font-size: 13px; margin-top: 8px;">请选择科目，点击下方按钮将直接进入游戏</p>
         <div class="app-game-flex">
           <div class="app-game-item active-selected" data-id="guandan">
             <div style="font-size: 45px; margin-bottom: 8px;">🃏</div>
@@ -359,6 +355,33 @@
     document.getElementById('perfect-go-solo').onclick = () => window.launchMatchGame('SINGLE');
     document.getElementById('perfect-go-net').onclick = () => window.launchMatchGame('NET');
   };
+
+  // 5. 挂载生命周期监听：当原始登录状态机置为真时，自动罩上全新大厅选单层
+  function initLifecycleInterceptor() {
+    if (typeof window.setLoggedIn === 'function') {
+      const originMethod = window.setLoggedIn;
+      window.setLoggedIn = function(loggedInVal) {
+        originMethod(loggedInVal);
+        if (loggedInVal === true) {
+          setTimeout(window.renderAppCentralLobby, 100);
+        }
+      };
+    } else {
+      setInterval(() => {
+        const authOverlay = document.getElementById('auth-overlay');
+        if (authOverlay && authOverlay.style.display === 'none') {
+          const mask = document.getElementById('app-perfect-selector-mask');
+          if (!mask || mask.style.display === 'none') {
+            window.renderAppCentralLobby();
+          }
+        }
+      }, 600);
+    }
+  }
+
+  window.addEventListener('DOMContentLoaded', () => {
+    setTimeout(initLifecycleInterceptor, 150);
+  });
 
   // --- 4. 生命周期劫持：监听原始系统的成功登录状态 ---
   function initEventListeners() {
