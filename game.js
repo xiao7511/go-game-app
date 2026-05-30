@@ -1,9 +1,9 @@
+// APP全屏模式样式注入
+
 /**
  * Modified Date: 2026-05-30
- * Description: 1. Cancelled internal lobby; 2. Enabled green-active toggle & ondblclick on game center; 3. Integrated Supabase realtime battle; 4. Forced APP-fullscreen viewport layout; 5. Implemented Tribute/Return and Wild Card (Heart Rank) combo logic; 6. Added ergonomic cluster sorting mode.
+ * Description: Implemented 1. Lobby decoupling; 2. Click highlight & dblclick single mode; 3. Supabase realtime battle sync; 4. Fullscreen app layout; 5. Tribute and Heart rank Wild Card rule checking; 6. Ergonomic cluster sorting mode.
  */
-
-// APP全屏模式样式注入
 
 (() => {
   'use strict';
