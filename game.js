@@ -1,9 +1,9 @@
 /**
  * Modified Date: 2026-05-30
  * Description: Fully optimized routing & interface overlays. 
- * 1. 物理隔离与全域重叠技术：用绝对最高层级（z-index: 9999999）主控舱全屏覆盖原厂围棋和掼蛋容器。
- * 2. 状态监听器重写：完美对接 login.html 派发的 setLoggedIn(true, userInfo) 事件。
- * 3. 0毫秒穿透路由：点击后直接拉起真实局内画布，彻底剔除任何原厂中间大厅、房间列表或模式选择遮罩。
+ * 1. 放弃依赖不稳定的原厂大厅类名，改用【登录窗体退场雷达】作为核心判定。
+ * 2. 动态自愈：若检测到 mask 不存在，雷达会自动调用绘制函数进行动态创建，根除 null 报错。
+ * 3. 顶级隔离：利用 z-index: 99999999 全屏壁垒，在原生对局和中间菜单前筑起主控舱。
  */
 (() => {
   'use strict';
@@ -20,7 +20,7 @@
   };
 
   // ==========================================
-  // 1. APP 全屏沉浸式主控舱高强度样式注入
+  // 1. APP 全屏沉浸式主控舱高强度样式静态注入
   // ==========================================
   function injectCentralAppStyles() {
     if (document.getElementById('app-fs-global-style')) return;
@@ -28,21 +28,23 @@
     style.id = 'app-fs-global-style';
     style.textContent = `
       html, body { 
-        margin: 0; padding: 0; 
-        width: 100vw; height: 100vh; 
+        margin: 0 !important; padding: 0 !important; 
+        width: 100vw !important; height: 100vh !important; 
         overflow: hidden !important; 
         background: #090d16 !important; 
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       }
-      /* 强制将原厂自带的围棋主容器和可能产生的模式弹出层在主控舱期间处于完全静隐状态 */
-      .app-container, .main-layout, #confirm-modal, .modal-backdrop {
+      /* 🔒【绝对物理压制】强行雪藏原厂围棋主框架(.app)和所有中间弹窗 */
+      .app, .main-layout, #confirm-modal, .modal-backdrop {
         display: none !important;
       }
       #app-perfect-selector-mask {
-        position: fixed; inset: 0; width: 100vw; height: 100vh;
+        position: fixed !important; inset: 0 !important; 
+        width: 100vw !important; height: 100vh !important;
         background: radial-gradient(circle at center, #111827 0%, #030712 100%) !important;
-        display: flex; flex-direction: column; align-items: center; justify-content: center;
-        z-index: 9999999 !important; color: #ffffff;
+        display: flex !important; flex-direction: column !important; 
+        align-items: center !important; justify-content: center !important;
+        z-index: 99999999 !important; color: #ffffff !important;
       }
       .app-lobby-box {
         width: 85%; max-width: 700px; background: rgba(22, 30, 49, 0.85);
@@ -65,27 +67,27 @@
       .app-btn-primary { background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); color: white; box-shadow: 0 8px 20px rgba(37,99,235,0.3); }
       .app-btn-success { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: white; box-shadow: 0 8px 20px rgba(217,119,6,0.3); }
       
-      /* 运行时动态还原覆盖样式 */
-      body.in-game-match .app-container { display: grid !important; }
+      /* 🔓 真实局内画布释放锁 */
+      body.in-game-match .app, body.in-game-match .main-layout { display: grid !important; }
       body.in-game-match #app-perfect-selector-mask { display: none !important; }
     `;
     document.head.appendChild(style);
   }
 
   // =========================================================================
-  // 🎯 2. 核心穿透中心：越级直接激活各科目对局画布（彻底剥离原有选择逻辑）
+  // 🎯 2. 穿透直通车路由：直接越级激活局内对局（彻底剥离原有选择逻辑）
   // =========================================================================
   window.launchMatchGame = function(mode) {
-    console.log(`[主控舱路由直通车] 激活目标 -> 游戏: ${window.selectedGameId}, 模式: ${mode}`);
+    console.log(`[主控舱直通路由] 目标 -> 游戏: ${window.selectedGameId}, 模式: ${mode}`);
 
-    // 1. 关闭主控舱遮罩
+    // 1. 隐藏主控舱
     const mask = document.getElementById('app-perfect-selector-mask');
     if (mask) mask.style.setProperty('display', 'none', 'important');
     
-    // 2. 解除对原厂整体框架的不可见封锁
+    // 2. 赋予身体允许渲染原生游戏画布的权限
     document.body.classList.add('in-game-match');
 
-    // 3. 强行把原厂系统所有中间过渡弹窗、二次选单、房间密码遮罩物理抹平
+    // 3. 强行物理抹平原厂可能弹出的任何多余容器
     const intermediateGarbage = [
       '#confirm-modal', '.modal-backdrop', '#guandan-lobby-container', '#login-container', 'iframe'
     ];
@@ -93,39 +95,25 @@
       document.querySelectorAll(selector).forEach(el => el.style.setProperty('display', 'none', 'important'));
     });
 
-    // 4. 0毫秒越级直连注入
+    // 4. 精准穿透分流
     if (window.selectedGameId === 'guandan') {
-      // 如果选择掼蛋，强行切断原本的大厅逻辑，改由直接构建全屏牌桌容器
       if (window.GD) {
-        // 关闭原生大厅标记
         const gdLobby = document.getElementById('guandan-lobby-container');
         if (gdLobby) gdLobby.style.setProperty('display', 'none', 'important');
         
-        // 判定对战模式
-        if (mode === 'SINGLE') {
-          console.log("[主控舱直连] 正在绕过菜单，秒开单机掼蛋智能局");
-          // 模拟原厂点击直接拉起初始化局内画布
-          if (typeof window.GD.initGameMatch === 'function') {
-             window.GD.initGameMatch(); 
-          }
-        } else {
-          alert(`进入【江苏掼蛋】云端多端网络对局...\n正在结合底层线上 Supabase 通信网关为您寻找可用房间！`);
-          if (typeof window.GD.initGameMatch === 'function') window.GD.initGameMatch();
+        if (typeof window.GD.initGameMatch === 'function') {
+           window.GD.initGameMatch(); 
         }
       }
     } 
     else if (window.selectedGameId === 'go') {
-      // 如果选择围棋，直接恢复沉浸式对局画布
       if (typeof window.applyImmersiveState === 'function') window.applyImmersiveState(true);
       if (typeof window.updateUI === 'function') window.updateUI();
 
       if (window.MP) {
         if (mode === 'SINGLE') {
-          console.log("[主控舱直连] 正在绕过菜单，秒开 19x19 智能AI围棋局");
           if (typeof window.MP.startAIGame === 'function') window.MP.startAIGame();
         } else {
-          console.log("[主控舱直连] 正在绕过菜单，直接拉起多人实时联机房间匹配");
-          // 越过密码输入和创建房间界面，直接调取原厂底层的创建/加入逻辑
           if (typeof window.MP.createRoom === 'function') window.MP.createRoom();
         }
       }
@@ -133,14 +121,14 @@
   };
 
   // ==========================================
-  // 3. 游戏对局主控舱的无感知高奢渲染
+  // 3. 渲染构建游戏对局主控舱（自带自愈能力）
   // ==========================================
   window.renderAppCentralLobby = function() {
-    // 强制移出局内渲染类，让原厂老布局保持被雪藏状态
     document.body.classList.remove('in-game-match');
     injectCentralAppStyles();
 
     let mask = document.getElementById('app-perfect-selector-mask');
+    // 如果没有找到 mask，这里会即刻执行创建，绝不会返回 null
     if (!mask) {
       mask = document.createElement('div');
       mask.id = 'app-perfect-selector-mask';
@@ -173,7 +161,6 @@
       </div>
     `;
 
-    // 绑定交互点选高亮逻辑
     const items = mask.querySelectorAll('.app-game-item');
     items.forEach(item => {
       item.onclick = (e) => {
@@ -189,42 +176,36 @@
   };
 
   // =========================================================================
-  // 4. 双重防御性生命周期拦截（100% 根除登录后进入原有游戏界面的可能）
+  // 4. 全域高频【登录框退场雷达】检测（彻底解决 null 报错与时序死结）
   // =========================================================================
   function initEventListeners() {
-    console.log("[主控舱防御系统] 拦截就绪。正在封锁所有原有选择界面...");
+    console.log("[主控舱防御雷达] 已调校至极致。监控登录组件状态中...");
 
-    // 🔒 劫持防御 1：精准捕捉 login.html 触发的登录成功事件
-    if (typeof window.setLoggedIn === 'function' || !window.setLoggedIn) {
-      window.setLoggedIn = function(val, userInfo) {
-        if (val === true) {
-          console.log("[核心捕捉] 用户身份验证通过！强行拦截，直接进入主控舱。");
-          // 写入全局变量，打破变量不一致性
-          window.state = window.state || {};
-          if (userInfo) {
-            window.state.uid = userInfo.uid;
-            window.state.userNickname = userInfo.nickname;
-          }
-          // 立刻唤醒主控舱，压制原厂界面
-          window.renderAppCentralLobby();
+    // 提前声明防止原厂回调 undefined 报错
+    window.setLoggedIn = function(val, userInfo) {
+      if (val === true) {
+        window.state = window.state || {};
+        if (userInfo) {
+          window.state.uid = userInfo.uid;
+          window.state.userNickname = userInfo.nickname;
         }
-      };
-    }
+        window.renderAppCentralLobby();
+      }
+    };
 
-    // 🔒 劫持防御 2：高频主框架渲染轮询（兜底保障）
-    // 原厂代码即使在未调用 setLoggedIn 的极端状态下，只要登录完成，也必须要让包含围棋的容器可见。
-    // 我们在这里实施强制反向阻断。
+    // 🔒【退场雷达核心】：每 100 毫秒扫描一次页面。
+    // 如果发现页面上原本用来挡着玩家的登录层（#login-container 或 iframe）不存在或被隐藏了
+    // 并且此时玩家不在核心局内，那就说明登录通过了！立刻激活拉起主控舱。
     setInterval(() => {
-      const mainApp = document.querySelector('.app-container') || document.querySelector('.main-layout');
+      const loginBox = document.getElementById('login-container') || document.querySelector('iframe');
       const mask = document.getElementById('app-perfect-selector-mask');
-      
-      // 如果原厂框架被激活显示了，但当前 body 并没有 "in-game-match"（证明玩家并没点主控舱的进入按钮）
-      if (mainApp && !document.body.classList.contains('in-game-match')) {
-        // 瞬间剥夺原厂渲染资格
-        mainApp.style.setProperty('display', 'none', 'important');
-        
-        // 只要主控舱没开，立刻强行展示主控舱
+      const isInGame = document.body.classList.contains('in-game-match');
+
+      // 判定依据：登录框已经撤场，且玩家没有处于局内
+      if ((!loginBox || loginBox.style.display === 'none' || loginBox.offsetWidth === 0) && !isInGame) {
+        // 如果主控舱还没创建或没显示，立刻强行将其渲染出来
         if (!mask || mask.style.display === 'none') {
+          console.log("[雷达捕获] 检测到登录框已安全退场，正在无缝呼叫主控舱舱门...");
           window.renderAppCentralLobby();
         }
       }
@@ -232,7 +213,7 @@
   }
 
   // ==========================================
-  // 5. 原生系统参数流同步
+  // 5. 状态机通信代理
   // ==========================================
   window.addEventListener('configReady', function(event) {
       if (isInitializing || supabaseInstance) return;
@@ -247,11 +228,9 @@
   });
 
   window.addEventListener('DOMContentLoaded', () => {
-    // 注入全屏拦截与重设
-    setTimeout(initEventListeners, 30);
+    setTimeout(initEventListeners, 20);
   });
 
-  // 全局提供局内返回主控舱方法
   window.backToCentralLobby = () => {
     document.body.classList.remove('in-game-match');
     const mask = document.getElementById('app-perfect-selector-mask');
