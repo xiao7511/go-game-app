@@ -9,21 +9,17 @@
 (() => {
   'use strict';
 
-  // ==========================================
-  // 1. 全局变量初始化
-  // ==========================================
   window.selectedGameId = window.selectedGameId || 'guandan';
 
   let supabaseInstance = null;
   let isInitializing = false;
-
   window.state = window.state || {};
 
   window.getSupabaseClient = function() {
       return supabaseInstance;
   };
 
-  // APP 全屏沉浸式主控舱基础全局样式
+  // APP 全屏沉浸式模式全局样式注入
   function injectCentralAppStyles() {
     if (document.getElementById('app-fs-global-style')) return;
     const style = document.createElement('style');
@@ -42,25 +38,25 @@
 
   // =========================================================================
   // 🎯 核心调度：路由直通穿透函数 (修改日期: 2026-05-30)
-  // 作用：直接透传核心参数进入真实游戏对局，深度封杀所有原大厅中间二次界面
   // =========================================================================
   window.launchMatchGame = function(mode) {
-    console.log(`[主控舱路由] [2026-05-30] 正在直接拉起对局 -> 游戏: ${window.selectedGameId}, 模式: ${mode}`);
+    console.log(`[主控舱路由] [2026-05-30] 正在直接拉起真实游戏局内 -> 游戏: ${window.selectedGameId}, 模式: ${mode}`);
 
-    // 1. 隐蔽主控舱主界面
+    // 1. 隐藏主控舱主界面
     const mask = document.getElementById('app-perfect-selector-mask');
     if (mask) {
       mask.style.setProperty('display', 'none', 'important');
     }
 
-    // 2. 🌟【重点修改 2026-05-30】：强制隐藏老系统大厅可能残留或弹出的所有中间阻挡容器、二次选单
+    // 2. 🌟【根治核心】：强制将原系统所有老旧的游戏选择、模式选择、房间列表界面彻底封杀，防止它们弹出
     const intermediateSelectors = [
       '#game-choice-panel', 
       '.game-selection-wrapper', 
       '.game-select-modal', 
       '#mode-select-overlay',
       '.lobby-menu-container',
-      '#guandan-lobby-container' // 掼蛋原来的二级模式选择大厅
+      '#guandan-lobby-container',
+      '#room-lobby-container'
     ];
     intermediateSelectors.forEach(selector => {
       document.querySelectorAll(selector).forEach(el => {
@@ -69,27 +65,18 @@
       });
     });
 
-    // 3. 直通穿透分流至具体的游戏底层对局
+    // 3. 绕过原厂大厅菜单，直切真实游戏局内
     if (window.selectedGameId === 'guandan') {
-      console.log(`[路由直通] [2026-05-30] 跳过中间选择，直切掼蛋竞技对局`);
       let gdHandler = window.GD || (window.parent && window.parent.GD);
-      
-      // 调用 2026-05-30 在 guandan-game.js 中重构拓展的直通接口
       if (gdHandler && typeof gdHandler.initGameMatchDirect === 'function') {
+        // 调用重构后的直接进入函数
         gdHandler.initGameMatchDirect(mode);
-      } else if (gdHandler && typeof gdHandler.initGameMatch === 'function') {
-        // 兜底降级方案
-        gdHandler.initGameMatch();
       }
     } 
     else if (window.selectedGameId === 'go') {
-      console.log(`[路由直通] [2026-05-30] 跳过中间选择，直切围棋核心画布`);
-      
-      // 激活围棋底层的沉浸渲染状态
       if (typeof window.applyImmersiveState === 'function') window.applyImmersiveState(true);
       if (typeof window.updateUI === 'function') window.updateUI();
 
-      // 调用 2026-05-30 在 multiplayer-ext.js 中重构暴露的直通接口
       if (window.MP) {
         if (mode === 'SINGLE') {
           if (typeof window.MP.startAIGame === 'function') window.MP.startAIGame();
@@ -101,11 +88,17 @@
   };
 
   // ==========================================
-  // 3. 渲染游戏对局主控舱界面
+  // 3. 渲染新设计的“游戏对局主控舱”
   // ==========================================
   window.renderAppCentralLobby = function() {
     injectCentralAppStyles();
     
+    // 强制把原有的乱七八糟选择容器隐藏
+    const intermediateSelectors = ['#game-selection', '.game-selection-wrapper', '#guandan-lobby-container'];
+    intermediateSelectors.forEach(s => {
+      document.querySelectorAll(s).forEach(el => el.style.setProperty('display', 'none', 'important'));
+    });
+
     if (!document.getElementById('app-perfect-overlay-css')) {
       const style = document.createElement('style');
       style.id = 'app-perfect-overlay-css';
@@ -153,17 +146,17 @@
     mask.innerHTML = `
       <div class="app-lobby-box">
         <h2 style="margin: 0; font-size: 26px; font-weight: 800; letter-spacing: 0.5px;">🎮 游戏对局主控舱</h2>
-        <p style="color: #94a3b8; font-size: 13px; margin-top: 8px;">选择游戏科目与模式，一键越过传统大厅直接进入局内</p>
+        <p style="color: #94a3b8; font-size: 13px; margin-top: 8px;">在这里选择科目，点击下方按钮直接进入游戏局内，免除一切中间干扰</p>
         <div class="app-game-flex">
           <div class="app-game-item active-selected" data-id="guandan">
             <div style="font-size: 45px; margin-bottom: 8px;">🃏</div>
             <h4 style="margin: 0; font-size: 17px;">江苏掼蛋</h4>
-            <span style="font-size: 11px; opacity: 0.6; display:block; margin-top:4px;">逢人配 智能直通版</span>
+            <span style="font-size: 11px; opacity: 0.6; display:block; margin-top:4px;">智能直通版</span>
           </div>
           <div class="app-game-item" data-id="go">
             <div style="font-size: 45px; margin-bottom: 8px;">⚪</div>
             <h4 style="margin: 0; font-size: 17px;">经典围棋</h4>
-            <span style="font-size: 11px; opacity: 0.6; display:block; margin-top:4px;">19x19 矩阵免密对局</span>
+            <span style="font-size: 11px; opacity: 0.6; display:block; margin-top:4px;">19x19 矩阵免密版</span>
           </div>
         </div>
         <div class="app-btn-container">
@@ -188,7 +181,7 @@
   };
 
   // =========================================================================
-  // 4. 单轨生命周期登录状态拦截器 (修改日期: 2026-05-30)
+  // 4. 强效单轨拦截器
   // =========================================================================
   function initSystemInterceptor() {
     if (typeof window.setLoggedIn === 'function') {
@@ -196,26 +189,30 @@
       window.setLoggedIn = function(loggedInVal) {
         originMethod(loggedInVal);
         if (loggedInVal === true) {
-          // 登录成功瞬间拉起主控舱
-          setTimeout(window.renderAppCentralLobby, 30);
+          // 登录成功时，强制清洗原系统的初始大厅
+          setTimeout(window.renderAppCentralLobby, 20);
         }
       };
-    } else {
-      setInterval(() => {
-        const authOverlay = document.getElementById('auth-overlay');
-        if (authOverlay && (authOverlay.style.display === 'none' || authOverlay.classList.contains('hidden'))) {
-          const mask = document.getElementById('app-perfect-selector-mask');
-          if (!mask || mask.style.display === 'none') {
-            window.renderAppCentralLobby();
-          }
-        }
-      }, 300);
     }
+    
+    // 轮询拦截，确保老游戏大厅绝无可能抬头
+    setInterval(() => {
+      const authOverlay = document.getElementById('auth-overlay');
+      if (authOverlay && (authOverlay.style.display === 'none' || authOverlay.classList.contains('hidden'))) {
+        const mask = document.getElementById('app-perfect-selector-mask');
+        const containerGd = document.getElementById('guandan-game-container');
+        const containerGo = document.getElementById('go-game-board-container');
+        
+        // 如果没有进行真实的局内对局，则必须显示主控舱
+        if ((!mask || mask.style.display === 'none') && 
+            (!containerGd || containerGd.style.display === 'none') && 
+            (!containerGo || containerGo.style.display === 'none')) {
+          window.renderAppCentralLobby();
+        }
+      }
+    }, 200);
   }
 
-  // ==========================================
-  // 5. 初始化与配置就绪挂载
-  // ==========================================
   window.addEventListener('configReady', function(event) {
       if (isInitializing || supabaseInstance) return;
       isInitializing = true;
@@ -224,17 +221,14 @@
           try {
               const { createClient } = window.supabase;
               supabaseInstance = createClient(config.SUPABASE_URL, config.SUPABASE_ANON_KEY);
-          } catch (e) {
-              console.error("Supabase 代理崩溃:", e);
-          }
+          } catch (e) {}
       }
   });
 
   window.addEventListener('DOMContentLoaded', () => {
-    setTimeout(initSystemInterceptor, 100);
+    setTimeout(initSystemInterceptor, 50);
   });
 
-  // 退出对局后返回主控舱的全局安全网关
   window.backToCentralLobby = () => {
     const mask = document.getElementById('app-perfect-selector-mask');
     if (mask) mask.style.setProperty('display', 'flex', 'important');
