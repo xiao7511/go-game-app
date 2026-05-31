@@ -1,8 +1,8 @@
 /**
  * Modified Date: 2026-05-30
- * Description: 游戏对局主控舱 - 完美穿透与单机版修复直连版
- * 1. 彻底修复单机版无法进入问题：在主控舱内主动重寫/兜底因老文件注释失效的 `MP.startAIGame`。
- * 2. 状态机物理重置：穿透分流时自动清理原厂残留大厅状态，100% 唤醒棋盘/牌桌。
+ * Description: 游戏对局主控舱 - 旗舰版（带全量退局路由拦截锁）
+ * 1. 【核心功能】：物理劫持并穿透 `#quit-game-btn`，点击后秒级安全断开并返回新版主控舱。
+ * 2. 状态机物理重置：穿透分流时自动清理原厂残留大厅状态，100% 唤棋盘/牌桌。
  * 3. 登录退场雷达：完美应对所有 null 值的时序冲突。
  */
 (() => {
@@ -34,8 +34,8 @@
         background: #090d16 !important; 
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       }
-      /* 🔒【绝对物理压制】强行雪藏原厂围棋大厅外观和所有中间过渡弹窗 */
-      .app, .main-layout, #confirm-modal, .modal-backdrop {
+      /* 🔒【绝对物理压制】非局内匹配状态下，强行雪藏原厂围棋大厅外观、掼蛋容器和所有中间弹窗 */
+      .app, .main-layout, #confirm-modal, .modal-backdrop, #guandan-lobby-container, #lobby-container, .lobby {
         display: none !important;
       }
       #app-perfect-selector-mask {
@@ -67,27 +67,28 @@
       .app-btn-primary { background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); color: white; box-shadow: 0 8px 20px rgba(37,99,235,0.3); }
       .app-btn-success { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: white; box-shadow: 0 8px 20px rgba(217,119,6,0.3); }
       
-      /* 🔓 真实局内画布释放锁 */
-      body.in-game-match .app, body.in-game-match .main-layout { display: grid !important; }
-      body.in-game-match #app-perfect-selector-mask { display: none !important; }
+      /* 🔓 【局内真视窗释放锁】只有激活该类名时，才解禁原厂游戏画布的底层布局展现 */
+      body.in-game-match .app, body.in-game-match .main-layout { 
+        display: grid !important; 
+      }
+      body.in-game-match #app-perfect-selector-mask { 
+        display: none !important; 
+      }
     `;
     document.head.appendChild(style);
   }
 
   // =========================================================================
-  // 🎯 2. 穿透直通车路由：强行重置状态机，秒开单机版与联机版
+  // 🎯 2. 穿透直通车路由：强行抹平原生菜单，进入真实棋盘/牌桌对局
   // =========================================================================
   window.launchMatchGame = function(mode) {
     console.log(`[主控舱直通车] 正在强切对局 -> 游戏: ${window.selectedGameId}, 模式: ${mode}`);
 
-    // 1. 关闭主控舱全屏遮罩
+    document.body.classList.add('in-game-match');
+
     const mask = document.getElementById('app-perfect-selector-mask');
     if (mask) mask.style.setProperty('display', 'none', 'important');
     
-    // 2. 赋予Body释放原生游戏画布显示的权限
-    document.body.classList.add('in-game-match');
-
-    // 3. 强行抹平原厂大厅可能弹出的中间二级菜单
     const intermediateGarbage = [
       '#confirm-modal', '.modal-backdrop', '#guandan-lobby-container', '#login-container', 'iframe'
     ];
@@ -95,58 +96,29 @@
       document.querySelectorAll(selector).forEach(el => el.style.setProperty('display', 'none', 'important'));
     });
 
-    // 4. 精准穿透与状态自愈
     if (window.selectedGameId === 'guandan') {
       if (window.GD) {
-        // 关闭掼蛋老款房间选择器
         const gdLobby = document.getElementById('guandan-lobby-container');
         if (gdLobby) gdLobby.style.setProperty('display', 'none', 'important');
-        
-        // 【单机版状态修复】：重置掼蛋单机模式变量
-        if (mode === 'SINGLE') {
-          console.log("[主控舱直连] 正在穿透进入：掼蛋单机智能陪练局");
-          // 模拟原厂核心画布初始化
-          if (typeof window.GD.initGameMatch === 'function') {
-            window.GD.initGameMatch();
-          }
-        } else {
-          console.log("[主控舱直连] 正在进入：掼蛋联机网络竞技");
-          if (typeof window.GD.initGameMatch === 'function') window.GD.initGameMatch();
-        }
+        if (typeof window.GD.initGameMatch === 'function') window.GD.initGameMatch();
       }
     } 
     else if (window.selectedGameId === 'go') {
-      // 激活原厂画布大小自适应更新
       if (typeof window.applyImmersiveState === 'function') window.applyImmersiveState(true);
       if (typeof window.updateUI === 'function') window.updateUI();
 
       if (window.MP) {
         if (mode === 'SINGLE') {
-          console.log("[主控舱直连] 正在穿透进入：19x19 围棋智能AI对局");
-          
-          // ✨【核心修复】：若底层的 MP.startAIGame 因为被注释或未定义，主控舱在此处动态为其编写兜底逻辑
-          if (typeof window.MP.startAIGame !== 'function') {
-            console.warn("[主控舱自愈] 检测到底层 startAIGame 函数丢失，正在强行注入激活...");
-            // 利用原厂底层已有的单机 AI 绘制逻辑，强行跳过选择
-            if (typeof window.startAIGame === 'function') {
-              window.startAIGame();
-            } else if (typeof window.initGame === 'function') {
-              window.initGame('single');
-            }
-          } else {
+          if (typeof window.MP.startAIGame === 'function') {
             window.MP.startAIGame();
+          } else if (typeof window.startAIGame === 'function') {
+            window.startAIGame();
           }
         } else {
-          console.log("[主控舱直连] 正在穿透进入：围棋多人联机对局房间");
-          if (typeof window.MP.createRoom === 'function') {
-            window.MP.createRoom();
-          } else if (typeof window.createRoom === 'function') {
-            window.createRoom();
-          }
+          if (typeof window.MP.createRoom === 'function') window.MP.createRoom();
         }
       }
-      // ⚡【完美补丁】：确保调用 startAIGame 后，如果老系统的某些中间界面仍然没有隐去，
-      // 我们通过代码强行使其不露头。
+      
       const rawGoLobby = document.getElementById('game-selection') || document.querySelector('.lobby');
       if (rawGoLobby) rawGoLobby.style.setProperty('display', 'none', 'important');
     }
@@ -207,10 +179,10 @@
   };
 
   // =========================================================================
-  // 4. 全域高频【登录窗退场雷达】检测（彻底解决免密时序死结）
+  // 4. 全域高频【登录检测】与【退局 quit-game-btn 全域劫持拦截锁】
   // =========================================================================
   function initEventListeners() {
-    console.log("[主控舱防御雷达] 系统就绪。正在监控原厂组件状态...");
+    console.log("[主控舱防御雷达] 系统就绪。正在监控原厂组件与退局动作...");
 
     window.setLoggedIn = function(val, userInfo) {
       if (val === true) {
@@ -223,8 +195,36 @@
       }
     };
 
-    // 🔒 每 100 毫秒扫描一次：只要发现登录完毕（登录框 iframe 退场），
-    // 且玩家当前没有处在局内，就秒开主控舱将老布局覆盖。
+    // ⚡【退局核心拦截锁】：利用捕获流（Capture Phase）深度拦截 quit-game-btn 的点击事件
+    document.addEventListener('click', (e) => {
+      const target = e.target;
+      // 兼容 ID 精确命中或通过 class/组件冒泡检索
+      const isQuitBtn = target.id === 'quit-game-btn' || target.closest('#quit-game-btn') || target.classList.contains('quit-game-btn');
+      
+      if (isQuitBtn) {
+        console.log("[主控舱核心反截获] 检测到用户按下 `quit-game-btn`，正在无缝执行退局归舱操作...");
+        
+        // 1. 物理移除局内显示权限类名，令底层 CSS 强行关闭围棋画布
+        document.body.classList.remove('in-game-match');
+        
+        // 2. 清理围棋可能残留的闪烁高光定时器或单机线程
+        if (typeof window.clearBlink === 'function') window.clearBlink();
+        if (window.state) {
+          window.state.isInRoom = false;
+          window.state.gameMode = null;
+        }
+
+        // 3. 如果是掼蛋对局，调用对应的销毁清理钩子
+        if (window.GD && typeof window.GD.destroy === 'function') {
+          window.GD.destroy();
+        }
+        
+        // 4. 强制重新渲染并拉起新版选择主控舱，完美封死原厂老旧大厅
+        window.renderAppCentralLobby();
+      }
+    }, true); // 使用 true 激活捕获流，确保优先于任何原厂底层逻辑运行
+
+    // 🔒 登录雷达：发现登录完毕且玩家不处在局内时，自动拉起主控舱覆盖老选单
     setInterval(() => {
       const loginBox = document.getElementById('login-container') || document.querySelector('iframe');
       const mask = document.getElementById('app-perfect-selector-mask');
