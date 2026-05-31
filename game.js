@@ -493,70 +493,89 @@
     setTimeout(initEventListeners, 20);
   });*/
   // =========================================================================
-  // 🧭 【终极防弹回 & 信道保活】掼蛋参数一键直连雷达
+  // 🧭 【自愈网关版】掼蛋参数一键直连雷达（带依赖催熟与重试机制）
   // =========================================================================
-  window.addEventListener('DOMContentLoaded', () => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const gameParam = urlParams.get('game');
-    const modeParam = urlParams.get('mode');
-    const roomParam = urlParams.get('room');
+    window.addEventListener('DOMContentLoaded', () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const gameParam = urlParams.get('game');
+      const modeParam = urlParams.get('mode');
+      const roomParam = urlParams.get('room');
 
-    // 只要系统加载，先尝试洗刷一次围棋，防止大厅默认带入上局状态
-    if (typeof window.clearGoBoardResidual === 'function') {
-      window.clearGoBoardResidual();
-    }
-
-    if (gameParam === 'guandan' && modeParam === 'NET' && roomParam) {
-      console.log(`[路由雷达] 拦截到掼蛋联机专属请求，房间号: ${roomParam}。正在切断原厂单机大厅...`);
-      
-      // 1. 强力锁死全局状态机
-      window.selectedGameId = 'guandan';
-      if (window.state) {
-        window.state.gameMode = 'NET_BATTLE';
-        // 锁定账号昵称，防止因大厅未加载完成导致客军uid丢失
-        if (!window.state.uid) window.state.uid = 'net_' + Math.random().toString(36).substr(2, 6);
+      // 只要系统加载，先尝试洗刷一次围棋，防止大厅默认带入上局状态
+      if (typeof window.clearGoBoardResidual === 'function') {
+        window.clearGoBoardResidual();
       }
 
-      // 2. ✂️【物理切断原厂抢跑】直接阉割原厂 guandan-game.js 的自启动与初始化能力
-      if (window.GD) {
-        // 将原厂可能自动执行的 init 篡改为无害的空函数，防止其在后台偷偷重绘单机选择界面
-        window.GD.init = () => { console.log("[雷达拦截] 成功阻止原厂单机大厅复辟。"); };
-        if (window.gdAutoStartTimer) clearTimeout(window.gdAutoStartTimer);
-      }
-
-      // 3. 建立 3 秒高频清洗弹幕，物理蒸发单机大厅 DOM
-      let enforcementTimer = setInterval(() => {
-        const lobbySelectors = [
-          '#game-selection', '.lobby', '#guandan-lobby-container', 
-          '#app-perfect-selector-mask', '#login-container', '.modal-backdrop', '#confirm-modal'
-        ];
-        lobbySelectors.forEach(selector => {
-          document.querySelectorAll(selector).forEach(el => el.style.setProperty('display', 'none', 'important'));
-        });
-
-        // 强行把掼蛋战场对局容器拉起来
-        document.querySelectorAll('#guandan-game-container, #game-container, .game-board').forEach(el => {
-          el.style.setProperty('display', 'block', 'important');
-        });
-        document.body.classList.add('in-game-match');
-      }, 50);
-
-      setTimeout(() => clearInterval(enforcementTimer), 3000);
-
-      // 4. 延迟 80 毫秒，在原厂 DOM 结构尘埃落定后，将房间号锁死灌入联机引擎
-      setTimeout(() => {
-        if (window.GD_MP && typeof window.GD_MP.startNetMatch === 'function') {
-          console.log(`[路由雷达] 正在激活联机引擎直连房间: ${roomParam}`);
-          window.GD_MP.startNetMatch(roomParam);
-        } else {
-          console.error("⛔ [致命] 掼蛋联机核心依赖包 guandan-mp-ext.js 未加载，请检查 HTML 引入顺序！");
+      if (gameParam === 'guandan' && modeParam === 'NET' && roomParam) {
+        console.log(`[路由雷达] 拦截到掼蛋联机专属请求，房间号: ${roomParam}。正在阻止原厂单机大厅...`);
+        
+        // 1. 强力锁死全局状态机
+        window.selectedGameId = 'guandan';
+        if (window.state) {
+          window.state.gameMode = 'NET_BATTLE';
+          if (!window.state.uid) window.state.uid = 'net_' + Math.random().toString(36).substr(2, 6);
         }
-      }, 80);
-    }
 
-    // 恢复原系统 20ms 事件初始化逻辑
-    setTimeout(initEventListeners, 20);
-  });
+        // 2. ✂️ 直接阉割原厂 guandan-game.js 的自启动与初始化能力
+        if (window.GD) {
+          window.GD.init = () => { console.log("[雷达拦截] 成功阻止原厂单机大厅复辟。"); };
+          if (window.gdAutoStartTimer) clearTimeout(window.gdAutoStartTimer);
+        }
+
+        // 3. 建立 3 秒高频清洗弹幕，物理蒸发单机大厅 DOM
+        let enforcementTimer = setInterval(() => {
+          const lobbySelectors = [
+            '#game-selection', '.lobby', '#guandan-lobby-container', 
+            '#app-perfect-selector-mask', '#login-container', '.modal-backdrop', '#confirm-modal'
+          ];
+          lobbySelectors.forEach(selector => {
+            document.querySelectorAll(selector).forEach(el => el.style.setProperty('display', 'none', 'important'));
+          });
+
+          // 强行把掼蛋战场对局容器拉起来
+          document.querySelectorAll('#guandan-game-container, #game-container, .game-board').forEach(el => {
+            el.style.setProperty('display', 'block', 'important');
+          });
+          document.body.classList.add('in-game-match');
+        }, 50);
+
+        setTimeout(() => clearInterval(enforcementTimer), 3000);
+
+        // 4. 🧭【核心修复】：智能轮询催熟 Supabase 网关，直到其加载就绪再放行连接
+        let retryCount = 0;
+        const maxRetries = 30; // 最多等待 6 秒 (30 * 200ms)
+
+        const tryLaunchNetMatch = () => {
+          // 检查全局变量或方法是否已经挂载就绪
+          const isSupabaseReady = !!(
+            window.getSupabaseClient || 
+            window.supabase || 
+            (window.GD_MP && mpState?.client)
+          );
+
+          if (isSupabaseReady && window.GD_MP && typeof window.GD_MP.startNetMatch === 'function') {
+            console.log(`[网关就绪] 历时 ${retryCount * 200}ms，成功捕获 Supabase 依赖！正在打入对局...`);
+            window.GD_MP.startNetMatch(roomParam);
+          } else if (retryCount < maxRetries) {
+            retryCount++;
+            console.warn(`[网关未就绪] 正在等待基础网络组件加载... 第 ${retryCount} 次重试 (200ms后)`);
+            setTimeout(tryLaunchNetMatch, 200); // 没准备好就每隔 200 毫秒重试一次
+          } else {
+            console.error("⛔ [致命] 超过 6 秒未检测到 Supabase 网络环境，请检查页面 HTML 的 script 标签是否包含 supabase-js！");
+            // 兜底强制拉起，让其内部的备用机制去尝试重构
+            if (window.GD_MP && typeof window.GD_MP.startNetMatch === 'function') {
+              window.GD_MP.startNetMatch(roomParam);
+            }
+          }
+        };
+
+        // 启动轮询检查锁
+        setTimeout(tryLaunchNetMatch, 100);
+      }
+
+      // 恢复原系统 20ms 事件初始化逻辑
+      setTimeout(initEventListeners, 20);
+    });
 
   window.backToCentralLobby = () => {
     if (window.isLoggingOut) return;
