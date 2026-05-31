@@ -1,6 +1,6 @@
 /**
  * Modified Date: 2026-05-31
- * Description: 掼蛋联机引擎（严防抢跑、动态真人同步与AI托管版）
+ * Description: 江苏掼蛋 - 独立游戏主界面联机引擎（防房间丢失 & 3分钟AI托管终结版）
  */
 (() => {
   'use strict';
@@ -18,45 +18,63 @@
     matchTimer: null,          
     countdownSeconds: 180,     
     uiRefreshTimer: null,
-    isGameStarted: false // 🚨 新增：全局游戏开局锁，防止任何未满员状态下的“抢跑发牌”
+    isGameStarted: false 
   };
 
   function getNetUser() {
     if (window.state && window.state.uid) {
-      return { uid: window.state.uid, nickname: window.state.userNickname || '我' };
+      return { uid: window.state.uid, nickname: window.state.userNickname || '玩家_' + window.state.uid.substr(0,4) };
     }
-    const localNickname = localStorage.getItem('user_nickname') || '新玩家';
-    return { uid: 'guest_' + Math.random().toString(36).substr(2, 6), nickname: localNickname };
+    let localUid = localStorage.getItem('gd_net_uid') || 'u_' + Math.random().toString(36).substr(2, 6);
+    localStorage.setItem('gd_net_uid', localUid);
+    let localNickname = localStorage.getItem('user_nickname') || '客军_' + Math.floor(Math.random() * 900);
+    return { uid: localUid, nickname: localNickname };
   }
 
   function initMpClient() {
     if (mpState.client) return true;
     if (typeof window.getSupabaseClient === 'function') mpState.client = window.getSupabaseClient();
+    if (!mpState.client && window.supabase && window.APP_CONFIG) {
+      const { createClient } = window.supabase;
+      mpState.client = createClient(window.APP_CONFIG.SUPABASE_URL, window.APP_CONFIG.SUPABASE_ANON_KEY);
+    }
     return !!mpState.client;
   }
 
+  // =========================================================================
+  // 🚀 联机直连网关（带房间号去空格防丢失功能）
+  // =========================================================================
   GD_MP.startNetMatch = async function(targetRoomCode = null) {
-    if (!initMpClient()) return;
+    if (!initMpClient()) {
+      alert("Supabase 网关未就绪！");
+      return;
+    }
 
     if (window.state) window.state.gameMode = 'NET_BATTLE';
-    mpState.isGameStarted = false; // 锁死开局状态
-
-    // 🚧 拦截原厂的自动发牌：若原厂有自动初始化的定时器，尝试将其清除
-    if (window.gdAutoStartTimer) clearTimeout(window.gdAutoStartTimer);
+    mpState.isGameStarted = false; 
 
     const user = getNetUser();
     
+    // 🔒【精修】：对房间号进行高强度清洗，防止链接复制时产生隐形换行符或空格导致房间不存在
     if (targetRoomCode) {
-      mpState.roomCode = targetRoomCode;
+      mpState.roomCode = String(targetRoomCode).trim().toUpperCase();
       mpState.isHost = false;
+      console.log(`[联机网关] 客军正在加入纯净房间号: ${mpState.roomCode}`);
     } else {
       mpState.roomCode = 'GD' + Math.floor(1000 + Math.random() * 9000);
       mpState.isHost = true;
       mpState.seats[0] = user;
       mpState.mySeatIndex = 0;
+      console.log(`[联机网关] 房东正在创建纯净房间号: ${mpState.roomCode}`);
     }
 
-    mpState.channel = mpState.client.channel(`room:guandan:${mpState.roomCode}`, {
+    // 强拉对局核心战场视图，阻止单机大厅渲染
+    const rawLobby = document.getElementById('guandan-lobby-container');
+    if (rawLobby) rawLobby.style.setProperty('display', 'none', 'important');
+    
+    // ⚡ 建立全网唯一的纯净房间信道
+    const channelName = `room_guandan_${mpState.roomCode}`;
+    mpState.channel = mpState.client.channel(channelName, {
       config: { broadcast: { self: false, ack: true } }
     });
 
@@ -69,13 +87,18 @@
 
     await mpState.channel.subscribe(async (status) => {
       if (status === 'SUBSCRIBED') {
+        console.log(`[信道建立成功] 已成功挂载到云端信道: ${channelName}`);
         injectBannerIntoGuandan();
 
         if (!mpState.isHost) {
-          // 📥 真人进房间：立刻发送报到广播
-          mpState.channel.send({ type: 'broadcast', event: 'PLAYER_JOIN', payload: user });
+          // 客军入局：向房东发送同步申请
+          mpState.channel.send({
+            type: 'broadcast',
+            event: 'PLAYER_JOIN',
+            payload: user
+          });
         } else {
-          // 👑 房东：开始 3 分钟倒计时，期间不准发牌
+          // 房东：拉起 3分钟 真人匹配倒计时
           startMatchCountdown();
           syncEngineNicknames();
         }
@@ -83,6 +106,9 @@
     });
   };
 
+  // =========================================================================
+  // ⏳ 3分钟倒计时闸门与 AI 托管激活
+  // =========================================================================
   function startMatchCountdown() {
     if (mpState.matchTimer) return;
     mpState.countdownSeconds = 180;
@@ -95,7 +121,7 @@
 
     mpState.matchTimer = setTimeout(() => {
       clearInterval(mpState.uiRefreshTimer);
-      triggerAiBotFilling(); // 3分钟到，AI 托管补位开局
+      triggerAiBotFilling(); 
     }, 3 * 60 * 1000);
   }
 
@@ -105,7 +131,7 @@
     const currentCount = mpState.seats.filter(Boolean).length;
     if (currentCount >= 4) return; 
 
-    console.log(`[3分钟大限到] 真人未满员。智能 AI 补位托管开局！`);
+    console.log(`[3分钟到] 真人未满员。正在召唤智能机器人填充对局...`);
     const aiNames = ['智能机甲(东)', '深蓝之影(北)', '阿尔法狗(西)'];
     const seatPositions = ['east', 'north', 'west'];
 
@@ -129,9 +155,13 @@
     checkAndStartGame(); 
   }
 
+  // =========================================================================
+  // 👥 席位动态同步（确保新加入玩家信息绝对互通）
+  // =========================================================================
   function handlePlayerJoin({ payload }) {
     if (mpState.isHost && !mpState.isGameStarted) {
-      // 检查是否已经是房间里的老玩家重新连接，防止无限挤占坑位
+      console.log(`[房东收到真人申请] 玩家: ${payload.nickname} 正在进入席位...`);
+      
       let existingIdx = mpState.seats.findIndex(s => s && s.uid === payload.uid);
       if (existingIdx === -1) {
         for (let i = 0; i < 4; i++) {
@@ -144,7 +174,7 @@
       
       const currentReady = mpState.seats.filter(Boolean).length;
       
-      // 📡 核心：向所有新老玩家广播当前最新的房间席位与状态，实现信息实时同步
+      // 📡 核心：向全网广播最新的人员结构，让后来的人也能看到前面已经进房的玩家
       mpState.channel.send({
         type: 'broadcast',
         event: 'ROOM_SYNC',
@@ -161,7 +191,7 @@
   }
 
   function handleRoomSync({ payload }) {
-    // 📥 无论何时有新玩家进入，非房东玩家都会收到此广播，自动同步桌面上所有人的信息
+    console.log("[客军接收席位同步] 正在更新当前房间总席位数据...");
     mpState.seats = payload.seats;
     const user = getNetUser();
     mpState.mySeatIndex = mpState.seats.findIndex(s => s && s.uid === user.uid);
@@ -169,19 +199,41 @@
     if (payload.countdownOver) clearAllMatchTimers();
     syncEngineNicknames();
 
-    // 如果接收到房东发出的强开信号，客机同步开局
     if (payload.triggerStart && !mpState.isGameStarted) {
       mpState.isGameStarted = true;
     }
   }
 
-  function checkAndStartGame() {
-    if (mpState.isGameStarted) return;
-    const currentCount = mpState.seats.filter(Boolean).length;
+  function syncEngineNicknames() {
+    updateMpBannerText();
+    const seatPositions = ['south', 'east', 'north', 'west'];
     
+    seatPositions.forEach((pos, idx) => {
+      const playerObj = mpState.seats[idx];
+      const targetName = playerObj ? playerObj.nickname : (idx === mpState.mySeatIndex ? '我' : '等待加入...');
+      
+      const domNameTag = document.querySelector(`.player-info.${pos} .name`) || document.getElementById(`gd-player-name-${pos}`);
+      if (domNameTag) {
+        domNameTag.innerText = targetName;
+        domNameTag.style.color = playerObj?.isBot ? '#e11d48' : '#22c55e';
+        domNameTag.style.fontWeight = 'bold';
+      }
+
+      if (window.state) {
+        if (!window.state.playerNames) window.state.playerNames = {};
+        window.state.playerNames[pos] = targetName;
+      }
+    });
+
+    if (typeof window.renderGameBoard === 'function') {
+      window.renderGameBoard();
+    }
+  }
+
+  function checkAndStartGame() {
+    const currentCount = mpState.seats.filter(Boolean).length;
     if (currentCount === 4) {
       mpState.isGameStarted = true;
-      console.log("[联机引擎] 触发正式发牌流水...");
       
       let allCards = [];
       const suits = ['S', 'H', 'C', 'D'];
@@ -220,15 +272,21 @@
     if (mpState.uiRefreshTimer) { clearInterval(mpState.uiRefreshTimer); mpState.uiRefreshTimer = null; }
   }
 
-  // 保持之前的极简胶囊布局不变...
+  // =========================================================================
+  // 📌 胶囊悬浮排版（右上角挂载，绝不遮挡对家和发牌区）
+  // =========================================================================
   function injectBannerIntoGuandan() {
     let parentContainer = document.getElementById('guandan-game-container') || document.getElementById('game-container') || document.querySelector('.game-board');
     if (!parentContainer) parentContainer = document.body;
-    let banner = document.getElementById('guandan-inner-mp-banner') || document.createElement('div');
-    banner.id = 'guandan-inner-mp-banner';
-    parentContainer.appendChild(banner);
+    
+    let banner = document.getElementById('guandan-inner-mp-banner');
+    if (!banner) {
+      banner = document.createElement('div');
+      banner.id = 'guandan-inner-mp-banner';
+      parentContainer.appendChild(banner);
+    }
     Object.assign(banner.style, {
-      position: 'absolute', top: '10px', right: '15px', left: 'auto', transform: 'none',
+      position: 'absolute', top: '12px', right: '15px', left: 'auto', transform: 'none',
       padding: '6px 14px', background: 'rgba(15, 23, 42, 0.85)', border: '1px solid rgba(34, 197, 94, 0.5)',
       color: '#ffffff', borderRadius: '8px', fontSize: '12px', zIndex: '999999', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px'
     });
@@ -245,9 +303,9 @@
 
     let countdownHtml = mpState.countdownSeconds > 0 && count < 4
       ? `⏳ AI托管倒计时: <span style="color:#f59e0b; font-weight:bold;">${timeStr}</span>`
-      : `<span style="color:#ef4444; font-weight:bold;">🤖 AI已托管</span>`;
+      : `<span style="color:#ef4444; font-weight:bold;">🤖 AI已托管对战</span>`;
       
-    if (count === 4) countdownHtml = `<span style="color:#10b981; font-weight:bold;">✨ 真人对局</span>`;
+    if (count === 4) countdownHtml = `<span style="color:#10b981; font-weight:bold;">✨ 真人对局中</span>`;
 
     banner.innerHTML = `
       <div style="display:flex; gap:10px; align-items:center;">
@@ -256,23 +314,9 @@
       </div>
       <div style="display:flex; gap:8px; align-items:center; margin-top:2px;">
         ${countdownHtml}
-        <button onclick="window.GD_MP.copyRoomLink()" style="padding:2px 8px; background:#22c55e; color:#fff; border:none; border-radius:4px; font-size:11px; font-weight:bold; cursor:pointer;">🔗 复制</button>
+        <button onclick="window.GD_MP.copyRoomLink()" style="padding:2px 8px; background:#22c55e; color:#fff; border:none; border-radius:4px; font-size:11px; font-weight:bold; cursor:pointer;">🔗 复制邀请</button>
       </div>
     `;
-  }
-
-  function syncEngineNicknames() {
-    updateMpBannerText();
-    const seatPositions = ['south', 'east', 'north', 'west'];
-    seatPositions.forEach((pos, idx) => {
-      const playerObj = mpState.seats[idx];
-      const targetName = playerObj ? playerObj.nickname : (idx === mpState.mySeatIndex ? '我' : '等待加入...');
-      const domNameTag = document.querySelector(`.player-info.${pos} .name`) || document.getElementById(`gd-player-name-${pos}`);
-      if (domNameTag) {
-        domNameTag.innerText = targetName;
-        domNameTag.style.color = playerObj?.isBot ? '#e11d48' : '#22c55e';
-      }
-    });
   }
 
   function loadNetGameData(rawHandCards, initialTurn) {
@@ -283,14 +327,13 @@
     }));
     if (typeof window.sortHandCards === 'function') window.sortHandCards(window.gdPlayerHand);
     if (typeof window.renderGameBoard === 'function') window.renderGameBoard();
-    if (window.GD && typeof window.GD.initGameMatch === 'function') window.GD.initGameMatch(); 
     syncEngineNicknames(); 
   }
 
   GD_MP.copyRoomLink = function() {
     if (!mpState.roomCode) return;
     const roomLink = `${window.location.href.split('?')[0]}?game=guandan&mode=NET&room=${mpState.roomCode}`;
-    navigator.clipboard.writeText(roomLink).then(() => alert(`🎉 链接已复制，快发给好友入局：\n${roomLink}`));
+    navigator.clipboard.writeText(roomLink).then(() => alert(`🎉 邀请链接已复制，去发给微信好友吧：\n${roomLink}`));
   };
 
   window.GD_MP = GD_MP;

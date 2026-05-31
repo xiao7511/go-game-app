@@ -493,7 +493,7 @@
     setTimeout(initEventListeners, 20);
   });*/
   // =========================================================================
-  // 🧭 【引导雷达】
+  // 🧭 【终极防弹回 & 信道保活】掼蛋参数一键直连雷达
   // =========================================================================
   window.addEventListener('DOMContentLoaded', () => {
     const urlParams = new URLSearchParams(window.location.search);
@@ -507,11 +507,24 @@
     }
 
     if (gameParam === 'guandan' && modeParam === 'NET' && roomParam) {
-      console.log(`[路由雷达] 发现掼蛋联机专属房: ${roomParam}。物理压制大厅中...`);
+      console.log(`[路由雷达] 拦截到掼蛋联机专属请求，房间号: ${roomParam}。正在切断原厂单机大厅...`);
       
+      // 1. 强力锁死全局状态机
       window.selectedGameId = 'guandan';
-      if (window.state) window.state.gameMode = 'NET_BATTLE';
+      if (window.state) {
+        window.state.gameMode = 'NET_BATTLE';
+        // 锁定账号昵称，防止因大厅未加载完成导致客军uid丢失
+        if (!window.state.uid) window.state.uid = 'net_' + Math.random().toString(36).substr(2, 6);
+      }
 
+      // 2. ✂️【物理切断原厂抢跑】直接阉割原厂 guandan-game.js 的自启动与初始化能力
+      if (window.GD) {
+        // 将原厂可能自动执行的 init 篡改为无害的空函数，防止其在后台偷偷重绘单机选择界面
+        window.GD.init = () => { console.log("[雷达拦截] 成功阻止原厂单机大厅复辟。"); };
+        if (window.gdAutoStartTimer) clearTimeout(window.gdAutoStartTimer);
+      }
+
+      // 3. 建立 3 秒高频清洗弹幕，物理蒸发单机大厅 DOM
       let enforcementTimer = setInterval(() => {
         const lobbySelectors = [
           '#game-selection', '.lobby', '#guandan-lobby-container', 
@@ -521,6 +534,7 @@
           document.querySelectorAll(selector).forEach(el => el.style.setProperty('display', 'none', 'important'));
         });
 
+        // 强行把掼蛋战场对局容器拉起来
         document.querySelectorAll('#guandan-game-container, #game-container, .game-board').forEach(el => {
           el.style.setProperty('display', 'block', 'important');
         });
@@ -529,11 +543,15 @@
 
       setTimeout(() => clearInterval(enforcementTimer), 3000);
 
+      // 4. 延迟 80 毫秒，在原厂 DOM 结构尘埃落定后，将房间号锁死灌入联机引擎
       setTimeout(() => {
         if (window.GD_MP && typeof window.GD_MP.startNetMatch === 'function') {
+          console.log(`[路由雷达] 正在激活联机引擎直连房间: ${roomParam}`);
           window.GD_MP.startNetMatch(roomParam);
+        } else {
+          console.error("⛔ [致命] 掼蛋联机核心依赖包 guandan-mp-ext.js 未加载，请检查 HTML 引入顺序！");
         }
-      }, 40);
+      }, 80);
     }
 
     // 恢复原系统 20ms 事件初始化逻辑
