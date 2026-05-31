@@ -121,7 +121,7 @@
   // =========================================================================
   // 🎯 2. 穿透直通车路由
   // =========================================================================
-  window.launchMatchGame = function(mode) {
+ /* window.launchMatchGame = function(mode) {
     if (window.isLoggingOut) return;
     console.log(`[主控舱直通车] 正在强切对局 -> 游戏: ${window.selectedGameId}, 模式: ${mode}`);
 
@@ -140,6 +140,82 @@
       if (window.GD) {
         const gdLobby = document.getElementById('guandan-lobby-container');
         if (gdLobby) gdLobby.style.setProperty('display', 'none', 'important');
+        if (typeof window.GD.initGameMatch === 'function') {
+          window.GD.initGameMatch();
+        } else if (typeof window.GD.init === 'function') {
+          window.GD.init();
+        }
+      }
+    } 
+    else if (window.selectedGameId === 'go') {
+      if (typeof window.applyImmersiveState === 'function') window.applyImmersiveState(true);
+      if (typeof window.updateUI === 'function') window.updateUI();
+
+      if (window.MP) {
+        if (mode === 'SINGLE') {
+          if (typeof window.MP.startAIGame === 'function') {
+            window.MP.startAIGame();
+          } else if (typeof window.startAIGame === 'function') {
+            window.startAIGame();
+          }
+        } else {
+          if (typeof window.MP.createRoom === 'function') window.MP.createRoom();
+        }
+      }
+      const rawGoLobby = document.getElementById('game-selection') || document.querySelector('.lobby');
+      if (rawGoLobby) rawGoLobby.style.setProperty('display', 'none', 'important');
+    }
+  };*/
+  // =========================================================================
+  // 🎯 2. 穿透直通车路由（已完美融合掼蛋一键刺穿联机网关）
+  // =========================================================================
+  window.launchMatchGame = function(mode) {
+    if (window.isLoggingOut) return;
+    console.log(`[主控舱直通车] 正在强切对局 -> 游戏: ${window.selectedGameId}, 模式: ${mode}`);
+
+    // 🚀【核心改造】：如果选中的是掼蛋且点击的是联机版（NET），直接穿透刺入 Supabase 实时联机引擎
+    if (window.selectedGameId === 'guandan' && mode === 'NET') {
+      document.body.classList.add('in-game-match');
+      const mask = document.getElementById('app-perfect-selector-mask');
+      if (mask) mask.style.setProperty('display', 'none', 'important');
+
+      // 清除可能产生干扰的弹窗与遮罩
+      const intermediateGarbage = ['#confirm-modal', '.modal-backdrop', '#guandan-lobby-container', '#login-container', 'iframe'];
+      intermediateGarbage.forEach(selector => {
+        document.querySelectorAll(selector).forEach(el => el.style.setProperty('display', 'none', 'important'));
+      });
+
+      // 强力拉起掼蛋实时联机引擎
+      if (window.GD_MP && typeof window.GD_MP.startNetMatch === 'function') {
+        window.GD_MP.startNetMatch();
+      } else {
+        alert("检测到联机数据包 guandan-mp-ext.js 尚未就绪，请检查引入顺序！");
+      }
+      return; // 🔥 熔断拦截，不进入下方的常规单机/二级大厅逻辑
+    }
+
+    // ==========================================
+    // 常规对局切入路径（单机版或围棋对局流程）
+    // ==========================================
+    document.body.classList.add('in-game-match');
+    const mask = document.getElementById('app-perfect-selector-mask');
+    if (mask) mask.style.setProperty('display', 'none', 'important');
+    
+    const intermediateGarbage = [
+      '#confirm-modal', '.modal-backdrop', '#guandan-lobby-container', '#login-container', 'iframe'
+    ];
+    intermediateGarbage.forEach(selector => {
+      document.querySelectorAll(selector).forEach(el => el.style.setProperty('display', 'none', 'important'));
+    });
+
+    if (window.selectedGameId === 'guandan') {
+      if (window.GD) {
+        // 进入单机模式，确保状态标记为 SOLO
+        if (window.state) window.state.gameMode = 'SOLO';
+        
+        const gdLobby = document.getElementById('guandan-lobby-container');
+        if (gdLobby) gdLobby.style.setProperty('display', 'none', 'important');
+        
         if (typeof window.GD.initGameMatch === 'function') {
           window.GD.initGameMatch();
         } else if (typeof window.GD.init === 'function') {
