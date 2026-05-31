@@ -1,8 +1,9 @@
 /**
  * Modified Date: 2026-05-31
- * Description: 江苏掼蛋 - 强力一键穿透直连联机引擎扩展包（动态复制链接版）
- * 1. 物理刺穿：大厅点击“进入联机版”直调本模块，自动强拉原生 Canvas 战场，跳过二级大厅。
- * 2. 房间链接：看板集成一键复制专属动态对战 URL 链接，支持外部好友点击一键入局。
+ * Description: 江苏掼蛋 - 独立游戏主界面内聚联机引擎（精修版）
+ * 1. 界面内聚：房间号看板与复制链接直接嵌入掼蛋游戏主 DOM 容器中，不污染大厅和围棋。
+ * 2. 昵称打通：动态覆盖原厂 Canvas/DOM 的 4 人座次昵称，告别“电脑代打”。
+ * 3. 路由重塑：生成标准全环境自愈链接，确保多端进入不卡死。
  */
 (() => {
   'use strict';
@@ -13,7 +14,7 @@
     client: null,
     channel: null,
     roomCode: null,
-    mySeatIndex: -1, // 0: 南, 1: 东, 2: 北, 3: 西
+    mySeatIndex: -1, // 0: 南(我), 1: 东, 2: 北, 3: 西
     seats: [null, null, null, null], 
     isHost: false,
     currentTurnSeat: 0,
@@ -22,9 +23,9 @@
 
   function getNetUser() {
     if (window.state && window.state.uid) {
-      return { uid: window.state.uid, nickname: window.state.userNickname || '新玩家' };
+      return { uid: window.state.uid, nickname: window.state.userNickname || '我(玩家)' };
     }
-    return { uid: 'guest_' + Math.random().toString(36).substr(2, 6), nickname: '玩家_' + Math.floor(Math.random()*900) };
+    return { uid: 'guest_' + Math.random().toString(36).substr(2, 6), nickname: '新浪客_' + Math.floor(Math.random()*900) };
   }
 
   function initMpClient() {
@@ -40,46 +41,40 @@
   }
 
   // =========================================================================
-  // 🚀 主控舱核心直连入口（支持传入已有房间号）
+  // 🚀 核心直连入口
   // =========================================================================
   GD_MP.startNetMatch = async function(targetRoomCode = null) {
     if (!initMpClient()) {
-      alert("Supabase 联机组件未就绪，请检查网络配置或重新登录！");
+      alert("Supabase Realtime 网关未就绪，请检查网络！");
       return;
     }
 
-    console.log("[掼蛋联机] 正在一键穿透启动网络匹配...");
-    
-    if (window.state) {
-      window.state.gameMode = 'NET_BATTLE';
-    }
+    if (window.state) window.state.gameMode = 'NET_BATTLE';
 
-    // 强行提前唤醒并拉起原厂掼蛋的 Canvas 游戏主战场环境
+    // 1. 优先拉起原厂掼蛋主战场容器与 Canvas
     if (window.GD && typeof window.GD.initGameMatch === 'function') {
       window.GD.initGameMatch(); 
     } else if (window.GD && typeof window.GD.init === 'function') {
       window.GD.init();
     }
 
+    // 2. 隐蔽二级大厅
     const rawLobby = document.getElementById('guandan-lobby-container');
     if (rawLobby) rawLobby.style.setProperty('display', 'none', 'important');
 
     const user = getNetUser();
     
-    // 💡 解析是创建房间还是加入他人房间
     if (targetRoomCode) {
       mpState.roomCode = targetRoomCode;
       mpState.isHost = false;
-      console.log(`[掼蛋联机] 正在作为客军潜入房间: ${mpState.roomCode}`);
     } else {
       mpState.roomCode = 'GD' + Math.floor(1000 + Math.random() * 9000);
       mpState.isHost = true;
       mpState.seats[0] = user;
       mpState.mySeatIndex = 0;
-      console.log(`[掼蛋联机] 正在作为房东开辟新对局，房间号: ${mpState.roomCode}`);
     }
 
-    // 建立云端信道
+    // 3. 建立房间独占流信道
     mpState.channel = mpState.client.channel(`room:guandan:${mpState.roomCode}`, {
       config: { broadcast: { self: false, ack: true } }
     });
@@ -93,50 +88,62 @@
 
     await mpState.channel.subscribe(async (status) => {
       if (status === 'SUBSCRIBED') {
-        injectMpBanner();
+        // 🔒【内聚嵌入】：将面板精准钉在掼蛋游戏主界面内
+        injectBannerIntoGuandan();
 
         if (!mpState.isHost) {
-          // 如果是客人，自发向房东发送“申请入座”广播
           mpState.channel.send({
             type: 'broadcast',
             event: 'PLAYER_JOIN',
             payload: user
           });
         } else {
-          // 房东本地调试：若无真人可在 500ms 后自动用模拟高手填满空位测试
+          // 房东本地快速匹配测试（500ms后自动补齐真实昵称的对端玩家）
           setTimeout(() => {
             if (mpState.seats.filter(Boolean).length < 4) {
-              handlePlayerJoin({ payload: { uid: 'player_east', nickname: '江阴二少' } });
-              handlePlayerJoin({ payload: { uid: 'player_north', nickname: '南京雀圣' } });
-              handlePlayerJoin({ payload: { uid: 'player_west', nickname: '苏州阿福' } });
+              handlePlayerJoin({ payload: { uid: 'p_east', nickname: '江阴二少 ✦' } });
+              handlePlayerJoin({ payload: { uid: 'p_north', nickname: '南京雀圣 ✦' } });
+              handlePlayerJoin({ payload: { uid: 'p_west', nickname: '苏州阿福 ✦' } });
             }
-          }, 800);
+          }, 600);
         }
       }
     });
   };
 
-  // 生成当前对局链接并写入剪贴板
+  // =========================================================================
+  // 🔗 完美自愈路由链接生成器
+  // =========================================================================
   GD_MP.copyRoomLink = function() {
     if (!mpState.roomCode) return;
-    // 构建标准的直通车动态 URL，带有 room 参数
-    const baseUrl = window.location.origin + window.location.pathname;
-    const roomLink = `${baseUrl}?game=guandan&mode=NET&room=${mpState.roomCode}`;
     
-    navigator.clipboard.writeText(roomLink).then(() => {
-      alert(`🎉 掼蛋联机链接复制成功！去发给好友吧：\n${roomLink}`);
-    }).catch(() => {
-      // 兼容性降级输入框复制
-      const input = document.createElement('input');
-      input.value = roomLink;
-      document.body.appendChild(input);
-      input.select();
-      document.execCommand('copy');
-      document.body.removeChild(input);
-      alert(`🎉 链接已生成，快去分享：\n${roomLink}`);
-    });
+    // 获取当前完整的基础 URL 地址，并带有严密的联机分流参数
+    const currentUrl = window.location.href.split('?')[0];
+    const roomLink = `${currentUrl}?game=guandan&mode=NET&room=${mpState.roomCode}`;
+    
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(roomLink).then(() => {
+        alert(`🃏 掼蛋联机专属链接已生成并复制！\n好友点击即可自动跨越空间直接入局：\n\n${roomLink}`);
+      }).catch(() => fallbackCopy(roomLink));
+    } else {
+      fallbackCopy(roomLink);
+    }
   };
 
+  function fallbackCopy(text) {
+    const input = document.createElement('textarea');
+    input.value = text;
+    Object.assign(input.style, { position: 'fixed', opacity: '0' });
+    document.body.appendChild(input);
+    input.select();
+    document.execCommand('copy');
+    document.body.removeChild(input);
+    alert(`🃏 掼蛋联机专属链接已生成：\n\n${text}`);
+  }
+
+  // =========================================================================
+  // 👥 联机座次流转与原厂昵称实时穿透优化
+  // =========================================================================
   function handlePlayerJoin({ payload }) {
     if (mpState.isHost) {
       for (let i = 0; i < 4; i++) {
@@ -150,7 +157,7 @@
         event: 'ROOM_SYNC',
         payload: { seats: mpState.seats }
       });
-      updateMpBannerText();
+      syncEngineNicknames();
       checkAndStartGame();
     }
   }
@@ -159,7 +166,41 @@
     mpState.seats = payload.seats;
     const user = getNetUser();
     mpState.mySeatIndex = mpState.seats.findIndex(s => s && s.uid === user.uid);
+    syncEngineNicknames();
+  }
+
+  /**
+   * 🎨【重点优化】：将联机座次表上的真实玩家昵称，穿透刷新到掼蛋的 Canvas 渲染区与 DOM 节点中
+   */
+  function syncEngineNicknames() {
     updateMpBannerText();
+    
+    // 映射相对座次：0南(我)，1东，2北，3西
+    const seatPositions = ['south', 'east', 'north', 'west'];
+    
+    seatPositions.forEach((pos, idx) => {
+      const playerObj = mpState.seats[idx];
+      const targetName = playerObj ? playerObj.nickname : (idx === mpState.mySeatIndex ? '我' : '正在占位...');
+      
+      // 1. 尝试修改原厂可能在 DOM 中渲染的昵称面板
+      const domNameTag = document.querySelector(`.player-info.${pos} .name`) || 
+                         document.getElementById(`gd-player-name-${pos}`);
+      if (domNameTag) {
+        domNameTag.innerText = targetName;
+        domNameTag.style.color = '#10b981';
+      }
+
+      // 2. 强行灌入原厂全局状态机变量（供原生 Canvas renderGameBoard 重绘时读取）
+      if (window.state) {
+        if (!window.state.playerNames) window.state.playerNames = {};
+        window.state.playerNames[pos] = targetName;
+      }
+    });
+
+    // 触发画布重绘，让新昵称立刻显现
+    if (typeof window.renderGameBoard === 'function') {
+      window.renderGameBoard();
+    }
   }
 
   function checkAndStartGame() {
@@ -217,14 +258,13 @@
     if (typeof window.sortHandCards === 'function') window.sortHandCards(window.gdPlayerHand);
     if (typeof window.renderGameBoard === 'function') window.renderGameBoard();
     updateTurnUiVisual();
-    injectMpBanner(); 
+    syncEngineNicknames(); 
   }
 
   GD_MP.sendPlayAction = function(cards) {
     if (!mpState.channel) return;
     mpState.channel.send({
-      type: 'broadcast',
-      event: 'PLAY_CARDS',
+      type: 'broadcast', event: 'PLAY_CARDS',
       payload: { seatIndex: mpState.mySeatIndex, cards: cards }
     });
     mpState.currentTurnSeat = (mpState.mySeatIndex + 1) % 4;
@@ -234,8 +274,7 @@
   GD_MP.sendPassAction = function() {
     if (!mpState.channel) return;
     mpState.channel.send({
-      type: 'broadcast',
-      event: 'PASS_TURN',
+      type: 'broadcast', event: 'PASS_TURN',
       payload: { seatIndex: mpState.mySeatIndex }
     });
     mpState.currentTurnSeat = (mpState.mySeatIndex + 1) % 4;
@@ -255,42 +294,56 @@
   }
 
   // =========================================================================
-  // 🎨 【看板升级】：注入支持交互的一键复制链接按钮
+  // 📌 掼蛋独立主界面专属节点挂载核心
   // =========================================================================
-  function injectMpBanner() {
-    let banner = document.getElementById('gd-mp-status-banner');
+  function injectBannerIntoGuandan() {
+    // 移除全局可能存在的旧形态大厅横幅
+    const oldGlobalBanner = document.getElementById('gd-mp-status-banner');
+    if (oldGlobalBanner) oldGlobalBanner.remove();
+
+    // 寻找掼蛋游戏主界面的顶级包装容器（原厂通常为 #guandan-game-container 或 #game-board）
+    let parentContainer = document.getElementById('guandan-game-container') || 
+                          document.getElementById('game-container') || 
+                          document.querySelector('.game-board');
+    
+    // 降级保障：如果没有找到标准游戏容器，则挂载在 body 顶层
+    if (!parentContainer) parentContainer = document.body;
+
+    let banner = document.getElementById('guandan-inner-mp-banner');
     if (!banner) {
       banner = document.createElement('div');
-      banner.id = 'gd-mp-status-banner';
-      document.body.appendChild(banner);
+      banner.id = 'guandan-inner-mp-banner';
+      parentContainer.appendChild(banner);
     }
     
+    // 只在掼蛋主界面内部绝对定位，不干涉大厅与围棋页面
     Object.assign(banner.style, {
-      position: 'fixed', top: '20px', left: '50%', transform: 'translateX(-50%)',
-      padding: '12px 28px', background: 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)',
-      border: '2px solid #10b981', color: '#10b981', borderRadius: '40px', fontSize: '15px',
-      zIndex: '2147483647', boxShadow: '0 10px 30px rgba(16,185,129,0.4)', fontWeight: '800',
-      textAlign: 'center', letterSpacing: '0.5px'
+      position: 'absolute', top: '15px', left: '50%', transform: 'translateX(-50%)',
+      padding: '10px 24px', background: 'rgba(20, 83, 45, 0.95)', border: '2px solid #22c55e',
+      color: '#ffffff', borderRadius: '30px', fontSize: '14px', zIndex: '99999',
+      boxShadow: '0 8px 24px rgba(0,0,0,0.5)', fontWeight: 'bold', textAlign: 'center',
+      display: 'flex', alignItems: 'center', gap: '15px'
     });
     
     updateMpBannerText();
   }
 
   function updateMpBannerText() {
-    const banner = document.getElementById('gd-mp-status-banner');
+    const banner = document.getElementById('guandan-inner-mp-banner');
     if (!banner) return;
     const count = mpState.seats.filter(Boolean).length;
     
     banner.innerHTML = `
-      📡 掼蛋房间号: <span style="color:#ffffff; font-size:18px; text-shadow: 0 0 10px #10b981;">${mpState.roomCode || '⏱️...'}</span> 
-      | 席位: <span style="color:#ffffff">${count}/4</span>人
-      <button onclick="window.GD_MP.copyRoomLink()" style="margin-left:15px; padding:4px 12px; background:#10b981; color:#fff; border:none; border-radius:15px; font-size:12px; font-weight:bold; cursor:pointer; box-shadow: 0 2px 6px rgba(0,0,0,0.3); transition:all 0.2s;">🔗 复制邀请链接</button>
+      <span>♣️ 掼蛋专属联机房: <strong style="color:#22c55e; font-size:16px;">${mpState.roomCode || '分发中...'}</strong></span>
+      <span style="color:rgba(255,255,255,0.6);">|</span>
+      <span>满员度: <strong>${count}/4</strong> 人</span>
+      <button onclick="window.GD_MP.copyRoomLink()" style="padding:4px 14px; background:#22c55e; color:#fff; border:none; border-radius:15px; font-size:12px; font-weight:bold; cursor:pointer; box-shadow:0 2px 5px rgba(0,0,0,0.2);">🔗 复制邀请链接</button>
     `;
   }
 
   function updateTurnUiVisual() {
     const isMyTurn = (mpState.mySeatIndex === mpState.currentTurnSeat);
-    const actionPanel = document.querySelector('.action-panel');
+    const actionPanel = document.querySelector('.action-panel') || document.getElementById('gd-action-bar');
     if (actionPanel) actionPanel.style.setProperty('display', isMyTurn ? 'flex' : 'none', 'important');
   }
 
