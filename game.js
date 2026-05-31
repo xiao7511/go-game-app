@@ -145,6 +145,10 @@
           }
         }
       }
+      // ⚡【完美补丁】：确保调用 startAIGame 后，如果老系统的某些中间界面仍然没有隐去，
+      // 我们通过代码强行使其不露头。
+      const rawGoLobby = document.getElementById('game-selection') || document.querySelector('.lobby');
+      if (rawGoLobby) rawGoLobby.style.setProperty('display', 'none', 'important');
     }
   };
 
