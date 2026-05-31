@@ -268,7 +268,7 @@
       }
 
       // 5. 🚨【物理接管】：把隐藏的老版登录框强制唤醒，并初始化其内部状态
-      const loginBox = document.getElementById('login-container');
+      const loginBox = document.getElementById('login-form');
       if (loginBox) {
         // 解除任何原厂可能附带的隐藏属性
         loginBox.style.setProperty('display', 'block', 'important');
