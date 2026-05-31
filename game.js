@@ -429,8 +429,44 @@
       }
   });
 
-  window.addEventListener('DOMContentLoaded', () => {
+  /*window.addEventListener('DOMContentLoaded', () => {
     setTimeout(initEventListeners, 20);
+  });*/
+  // =========================================================================
+  // 🧭 【核心注入】掼蛋参数直连自愈引导雷达
+  // =========================================================================
+  window.addEventListener('DOMContentLoaded', () => {
+    // 延迟 600ms 等待宿主主控舱基础资产与 Supabase 全局实例加载就绪
+    setTimeout(() => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const gameParam = urlParams.get('game');
+      const modeParam = urlParams.get('mode');
+      const roomParam = urlParams.get('room');
+
+      if (gameParam === 'guandan' && modeParam === 'NET' && roomParam) {
+        console.log(`[路由雷达] 拦截到掼蛋联机专属邀请。房间号: ${roomParam}。正在打通游戏战场沙盒...`);
+        
+        // 1. 修正主控舱当前选中游戏
+        window.selectedGameId = 'guandan';
+        
+        // 2. 物理清除主大厅遮罩与残留模态框阻挡
+        document.body.classList.add('in-game-match');
+        const mask = document.getElementById('app-perfect-selector-mask');
+        if (mask) mask.style.setProperty('display', 'none', 'important');
+        
+        const intermediateGarbage = ['#confirm-modal', '.modal-backdrop', '#guandan-lobby-container', '#login-container'];
+        intermediateGarbage.forEach(selector => {
+          document.querySelectorAll(selector).forEach(el => el.style.setProperty('display', 'none', 'important'));
+        });
+
+        // 3. 直接调用掼蛋联机引擎加入对应房间
+        if (window.GD_MP && typeof window.GD_MP.startNetMatch === 'function') {
+          window.GD_MP.startNetMatch(roomParam);
+        } else {
+          console.error("检测到 guandan-mp-ext.js 依赖加载滞后，请检查引入顺序。");
+        }
+      }
+    }, 600);
   });
 
   window.backToCentralLobby = () => {
