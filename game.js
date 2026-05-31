@@ -1,15 +1,15 @@
 /**
  * Modified Date: 2026-05-30
- * Description: 游戏对局主控舱 - 旗舰自愈版
- * 1. 【完美修复】：彻底解决掼蛋游戏结束、返回大厅时无法跳回新版选择界面的硬伤。
- * 2. 物理劫持：利用捕获流深度拦截全网页的 `#quit-game-btn` 以及掼蛋专属退出返回动作。
- * 3. 状态自愈：双重守护雷达，发现老旧大厅死灰复燃时自动平滑切回主控舱。
+ * Description: 游戏对局主控舱 - 旗舰自愈与状态物理清洗版
+ * 1. 【完美修复】：彻底解决从围棋退局后，新主控舱默认高亮掼蛋但点击按钮仍旧进入围棋的恶性 Bug。
+ * 2. 状态强洗：在退出对局（quit-game-btn）及重绘大厅（renderAppCentralLobby）时，强制重置 window.selectedGameId 为默认值 'guandan'。
+ * 3. 拦截增强：全面劫持围棋与掼蛋的“退出/返回大厅”动作，消除一切内存残留。
  */
 (() => {
   'use strict';
 
-  // 全局核心状态机挂载
-  window.selectedGameId = window.selectedGameId || 'guandan';
+  // 全局核心状态机初始化（默认聚焦掼蛋）
+  window.selectedGameId = 'guandan';
   window.state = window.state || {};
 
   let supabaseInstance = null;
@@ -71,7 +71,6 @@
       body.in-game-match .app, body.in-game-match .main-layout { 
         display: grid !important; 
       }
-      /* 蛋游戏特殊画布容器释放 */
       body.in-game-match #guandan-game-container {
         display: block !important;
       }
@@ -86,7 +85,7 @@
   // 🎯 2. 穿透直通车路由：强行抹平原生菜单，进入真实棋盘/牌桌对局
   // =========================================================================
   window.launchMatchGame = function(mode) {
-    console.log(`[主控舱直通车] 正在强切对局 -> 游戏: ${window.selectedGameId}, 模式: ${mode}`);
+    console.log(`[主控舱直通车] 正在强切对局 -> 当前选择游戏ID: ${window.selectedGameId}, 模式: ${mode}`);
 
     document.body.classList.add('in-game-match');
 
@@ -105,7 +104,6 @@
         const gdLobby = document.getElementById('guandan-lobby-container');
         if (gdLobby) gdLobby.style.setProperty('display', 'none', 'important');
         
-        // 强行启动掼蛋局内初始化
         if (typeof window.GD.initGameMatch === 'function') {
           window.GD.initGameMatch();
         } else if (typeof window.GD.init === 'function') {
@@ -138,6 +136,10 @@
   // 3. 渲染构建游戏对局主控舱
   // ==========================================
   window.renderAppCentralLobby = function() {
+    // ✨【核心修复点 1】：每次调用重绘时，确保内存状态与 UI 的默认高亮（掼蛋）100% 同步
+    window.selectedGameId = 'guandan';
+    console.log("[主控舱状态强洗] 选择舱渲染，已强设内存 window.selectedGameId = 'guandan'");
+
     document.body.classList.remove('in-game-match');
     injectCentralAppStyles();
 
@@ -152,7 +154,7 @@
     mask.innerHTML = `
       <div class="app-lobby-box">
         <h2 style="margin: 0; font-size: 28px; font-weight: 800; letter-spacing: 1px; color: #f3f4f6;">🎮 游戏对局主控舱</h2>
-        <p style="color: #9ca3af; font-size: 14px; margin-top: 10px;">已剔除原生选择界面，选择科目和模式后直接切入局内</p>
+        <p style="color: #9ca3af; font-size: 14px; margin-top: 10px;">选择科目和模式后直接切入局内</p>
         
         <div class="app-game-flex">
           <div class="app-game-item active-selected" data-id="guandan">
@@ -181,6 +183,7 @@
         items.forEach(i => i.classList.remove('active-selected'));
         item.classList.add('active-selected');
         window.selectedGameId = item.getAttribute('data-id');
+        console.log(`[主控舱动态切换] 用户手动切换游戏项目为: ${window.selectedGameId}`);
       };
     });
 
@@ -192,7 +195,7 @@
   // 4. 全域高频【退局重定向守卫】与【状态自愈雷达】
   // =========================================================================
   function initEventListeners() {
-    console.log("[主控舱防御雷达] 系统就绪。全向拦截退局动作与大厅重定向...");
+    console.log("[主控舱防御雷达] 系统就绪。全向监控残留拦截锁...");
 
     window.setLoggedIn = function(val, userInfo) {
       if (val === true) {
@@ -205,26 +208,28 @@
       }
     };
 
-    // ⚡【退局动作深度拦截】：全向劫持掼蛋和围棋内所有的返回大厅/退出按钮
+    // ⚡【退局动作深度劫持】：全向拦截并重置底层状态
     document.addEventListener('click', (e) => {
       const target = e.target;
       if (!target) return;
 
-      // 命中标准退出键，或掼蛋结算弹窗里写有 "返回大厅"、"离开" 等字样的按钮
       const isQuitAction = 
         target.id === 'quit-game-btn' || 
         target.closest('#quit-game-btn') || 
         target.classList.contains('quit-game-btn') ||
         (target.tagName === 'BUTTON' && target.textContent.includes('返回大厅')) ||
-        target.id === 'gd-btn-lobby-return'; // 预防掼蛋原生遗留返回键
+        target.id === 'gd-btn-lobby-return';
 
       if (isQuitAction) {
-        console.log("[主控舱防御机制] 拦截到退出或返回大厅动作，正在平滑收置状态机...");
+        console.log("[主控舱防御机制] 捕捉到退局信号，启动数据脱敏与状态硬清洗...");
         
-        // 拔掉局内特异样式权限
+        // 剥离局内核心视窗显示锁
         document.body.classList.remove('in-game-match');
         
-        // 执行重置与环境清理
+        // ✨【核心修复点 2】：退局时不仅清空局内状态，立刻硬洗全局选择标记为 'guandan'
+        window.selectedGameId = 'guandan';
+        
+        // 擦除围棋可能残留的闪烁高光定时器
         if (typeof window.clearBlink === 'function') window.clearBlink();
         if (window.state) {
           window.state.isInRoom = false;
@@ -234,31 +239,27 @@
           window.GD.destroy();
         }
 
-        // 强行雪藏可能弹出的老掼蛋大厅
         const gdLobby = document.getElementById('guandan-lobby-container');
         if (gdLobby) gdLobby.style.setProperty('display', 'none', 'important');
 
-        // 一键安全归舱
+        // 重新渲染选择主控舱（内部会再次兜底洗一次变量）
         window.renderAppCentralLobby();
       }
-    }, true);
+    }, true); // 激活捕获流，优先于任何原厂底层逻辑运行
 
-    // 🔒【物理防回头雷达】：每100ms扫描一次，防止掼蛋底层逻辑在结算后强制将老版大厅设为可见
+    // 🔒【物理防回头雷达】
     setInterval(() => {
       const loginBox = document.getElementById('login-container') || document.querySelector('iframe');
       const mask = document.getElementById('app-perfect-selector-mask');
       const isInGame = document.body.classList.contains('in-game-match');
 
-      // 核心自愈：如果在局外，但原生掼蛋大厅容器突然跑出来了，瞬间将其抹平并拉起主控舱
       const gdLobby = document.getElementById('guandan-lobby-container');
       if (gdLobby && gdLobby.style.display !== 'none' && gdLobby.offsetWidth > 0 && !isInGame) {
-        console.log("[自愈雷达] 捕捉到老版掼蛋大厅意外露头，正在强行修正...");
         gdLobby.style.setProperty('display', 'none', 'important');
         window.renderAppCentralLobby();
         return;
       }
 
-      // 常规免密登录后覆舱逻辑
       if ((!loginBox || loginBox.style.display === 'none' || loginBox.offsetWidth === 0) && !isInGame) {
         if (!mask || mask.style.display === 'none') {
           window.renderAppCentralLobby();
@@ -287,6 +288,7 @@
   });
 
   window.backToCentralLobby = () => {
+    window.selectedGameId = 'guandan';
     document.body.classList.remove('in-game-match');
     const mask = document.getElementById('app-perfect-selector-mask');
     if (mask) mask.style.setProperty('display', 'flex', 'important');
