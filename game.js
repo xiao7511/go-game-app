@@ -335,6 +335,57 @@
   };
 
   // =========================================================================
+  // 🧼 【围棋破除幽灵残留】模式切换全清场洗刷器
+  // =========================================================================
+  function clearGoBoardResidual() {
+    console.log("[围棋引擎] 正在暴力清洗上局棋盘残留，防幽灵棋子污染...");
+
+    // 1. 强清原厂围棋的核心状态矩阵（根据你系统里的变量名调整，这里做全量防空兜底）
+    if (window.goGameState) {
+      window.goGameState.board = [];
+      window.goGameState.history = [];
+      window.goGameState.currentTurn = 1; // 恢复黑棋先手
+    }
+    
+    if (window.goBoard && typeof window.goBoard.clear === 'function') {
+      window.goBoard.clear(); // 调用原厂对象的自带清空
+    } else {
+      // 降级策略：如果原厂是用全局数组存储
+      if (window.boardMatrix) window.boardMatrix = Array(19).fill(0).map(() => Array(19).fill(0));
+      if (window.chessPieces) window.chessPieces = [];
+    }
+
+    // 2. 物理洗刷 Canvas 画面，防止渲染层残留
+    const goCanvas = document.getElementById('go-canvas') || 
+                      document.querySelector('.go-board-canvas') || 
+                      document.querySelector('#weiqi-container canvas');
+                      
+    if (goCanvas) {
+      const ctx = goCanvas.getContext('2d');
+      if (ctx) {
+        ctx.clearRect(0, 0, goCanvas.width, goCanvas.height); // 擦除所有棋子
+        console.log("[围棋引擎] Canvas 画布已纯净擦除。");
+      }
+    }
+
+    // 3. 触发原厂的重绘棋盘格线逻辑（不带棋子）
+    if (typeof window.drawGoBoard === 'function') {
+      window.drawGoBoard();
+    } else if (window.goBoard && typeof window.goBoard.render === 'function') {
+      window.goBoard.render();
+    }
+  }
+
+  // =========================================================================
+  // 🔄 挂载到大厅切换行为中（伪代码示范，请将 clearGoBoardResidual() 塞入你的模式切换按钮事件中）
+  // =========================================================================
+  // 例如在点击“围棋单机版”或“围棋联机版”的按钮点击事件首行执行：
+  // document.getElementById('btn-go-single').addEventListener('click', () => {
+  //     clearGoBoardResidual(); // 先洗盘
+  //     startGoSingleGame();    // 后开局
+  // });
+
+  // =========================================================================
   // 4. 全域高频【退局重定向守卫】与【状态自愈雷达】
   // =========================================================================
   function initEventListeners() {
@@ -445,6 +496,18 @@
     if (gameParam === 'guandan' && modeParam === 'NET' && roomParam) {
       console.log(`[路由雷达] 发现掼蛋联机专属房: ${roomParam}。启动深度大厅物理隔离...`);
       
+      // 🧼【核心注入】直连掼蛋前，暴力洗刷围棋可能残留的棋盘内存与 Canvas 幽灵棋子
+      if (typeof window.clearGoBoardResidual === 'function') {
+        window.clearGoBoardResidual();
+      } else {
+        // 如果该清洗函数挂载在别的文件，这里做个兜底的安全级手动洗刷
+        if (window.goGameState) { window.goGameState.board = []; window.goGameState.history = []; }
+        if (window.boardMatrix) window.boardMatrix = Array(19).fill(0).map(() => Array(19).fill(0));
+        const goCanvas = document.getElementById('go-canvas') || document.querySelector('.go-board-canvas');
+        if (goCanvas) { const ctx = goCanvas.getContext('2d'); if (ctx) ctx.clearRect(0, 0, goCanvas.width, goCanvas.height); }
+        console.log(`[路由雷达] 围棋残留状态已完成自愈式清场。`);
+      }
+
       window.selectedGameId = 'guandan';
       if (window.state) window.state.gameMode = 'NET_BATTLE';
 
@@ -467,7 +530,7 @@
 
       setTimeout(() => clearInterval(enforcementTimer), 3000);
 
-      // 延迟 20 毫秒，紧跟原厂初始化步伐，交权给网络对战引擎
+      // 延迟 40 毫秒，紧跟原厂初始化步伐，交权给网络对战引擎
       setTimeout(() => {
         if (window.GD_MP && typeof window.GD_MP.startNetMatch === 'function') {
           window.GD_MP.startNetMatch(roomParam);

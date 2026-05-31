@@ -359,7 +359,7 @@
   // =========================================================================
   // 📌 掼蛋天际线内聚横幅嵌入
   // =========================================================================
-  function injectBannerIntoGuandan() {
+ /* function injectBannerIntoGuandan() {
     const oldGlobalBanner = document.getElementById('gd-mp-status-banner');
     if (oldGlobalBanner) oldGlobalBanner.remove();
 
@@ -411,6 +411,81 @@
       <span>当前玩家: <strong>${count}/4</strong> 人</span>
       ${countdownHtml}
       <button onclick="window.GD_MP.copyRoomLink()" style="margin-left:5px; padding:5px 14px; background:#22c55e; color:#fff; border:none; border-radius:15px; font-size:12px; font-weight:bold; cursor:pointer; box-shadow:0 2px 5px rgba(0,0,0,0.2);">🔗 复制邀请链接</button>
+    `;
+  }*/
+  // =========================================================================
+  // 📌 【极致缩进版】掼蛋天际线极简悬浮窗（绝不遮挡对家与发牌区）
+  // =========================================================================
+  function injectBannerIntoGuandan() {
+    const oldGlobalBanner = document.getElementById('gd-mp-status-banner');
+    if (oldGlobalBanner) oldGlobalBanner.remove();
+
+    let parentContainer = document.getElementById('guandan-game-container') || 
+                          document.getElementById('game-container') || 
+                          document.querySelector('.game-board');
+    if (!parentContainer) parentContainer = document.body;
+
+    let banner = document.getElementById('guandan-inner-mp-banner');
+    if (!banner) {
+      banner = document.createElement('div');
+      banner.id = 'guandan-inner-mp-banner';
+      parentContainer.appendChild(banner);
+    }
+    
+    // 🎨 变换布局：由中央悬浮改为【右上角极简胶囊】形态，PC和移动端均不挡视线
+    Object.assign(banner.style, {
+      position: 'absolute', 
+      top: '10px', 
+      right: '15px', 
+      left: 'auto',
+      transform: 'none',
+      padding: '6px 14px', 
+      background: 'rgba(15, 23, 42, 0.85)', // 提高透明度，隐入背景
+      border: '1px solid rgba(34, 197, 94, 0.5)',
+      color: '#ffffff', 
+      borderRadius: '8px', 
+      fontSize: '12px', // 缩小字号
+      zIndex: '999999',
+      boxShadow: '0 4px 12px rgba(0,0,0,0.3)', 
+      fontWeight: 'normal', 
+      textAlign: 'right',
+      display: 'flex', 
+      flexDirection: 'column', // 纵向排列紧凑组件
+      alignItems: 'flex-end',
+      gap: '4px',
+      pointerEvents: 'auto'
+    });
+    
+    updateMpBannerText();
+  }
+
+  function updateMpBannerText() {
+    const banner = document.getElementById('guandan-inner-mp-banner');
+    if (!banner) return;
+    const count = mpState.seats.filter(Boolean).length;
+    
+    const mins = Math.floor(mpState.countdownSeconds / 60);
+    const secs = mpState.countdownSeconds % 60;
+    const timeStr = mpState.countdownSeconds > 0 ? `${mins}:${secs < 10 ? '0' : ''}${secs}` : '结束';
+
+    let countdownHtml = mpState.countdownSeconds > 0 && count < 4
+      ? `⏳ AI代打倒计时: <span style="color:#f59e0b; font-weight:bold;">${timeStr}</span>`
+      : `<span style="color:#ef4444; font-weight:bold;">🤖 AI代打中</span>`;
+      
+    if (count === 4 && mpState.countdownSeconds > 0) {
+      countdownHtml = `<span style="color:#10b981; font-weight:bold;">✨ 真人对局</span>`;
+    }
+
+    // 采用双行极简微缩排版，空出天际线中央
+    banner.innerHTML = `
+      <div style="display:flex; gap:10px; align-items:center;">
+        <span>♣️ 房号: <strong style="color:#22c55e;">${mpState.roomCode || '...'}</strong></span>
+        <span>(${count}/4人)</span>
+      </div>
+      <div style="display:flex; gap:8px; align-items:center; margin-top:2px;">
+        ${countdownHtml}
+        <button onclick="window.GD_MP.copyRoomLink()" style="padding:2px 8px; background:#22c55e; color:#fff; border:none; border-radius:4px; font-size:11px; font-weight:bold; cursor:pointer; box-shadow:0 1px 3px rgba(0,0,0,0.2);">🔗 复制</button>
+      </div>
     `;
   }
 
