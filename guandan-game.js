@@ -1275,14 +1275,27 @@
       };
     }
 
-    // 按钮2：互联网多端对战模式
+    // =========================================================================
+    // 按钮2：互联网多端对战模式 —— 🚀 完美升级：穿透直连 Supabase 实时广播联机舱
+    // =========================================================================
     const netBtn = lobby.querySelector('#gd-btn-lobby-net-trigger');
     if (netBtn) {
       netBtn.onclick = (e) => {
         e.preventDefault();
-        state.gameMode = 'NET_BATTLE';
         playGDSound('click');
-        alert(`进入互联网对战联机大厅：\n正在为玩家【${getUserNickname()}】寻找云服务器可用房间端口... \n目前联机对决需结合线上 Supabase 实时流，正在排队中！`);
+        
+        // 熔断老旧的模拟单机版模式
+        state.gameMode = 'NET_BATTLE'; 
+        
+        // 开启联机引擎自愈接管
+        if (window.GD_MP && typeof window.GD_MP.startNetMatch === 'function') {
+          // 隐藏初始选择大厅
+          lobby.style.setProperty('display', 'none', 'important');
+          // 拉起联机匹配舱
+          window.GD_MP.startNetMatch();
+        } else {
+          alert("检测到联机数据包 guandan-mp-ext.js 尚未装载，请先在 game.html 中补充引入！");
+        }
       };
     }
   }
