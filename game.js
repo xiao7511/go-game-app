@@ -435,39 +435,59 @@
   // =========================================================================
   // 🧭 【核心注入】掼蛋参数直连自愈引导雷达
   // =========================================================================
-  window.addEventListener('DOMContentLoaded', () => {
-    // 延迟 600ms 等待宿主主控舱基础资产与 Supabase 全局实例加载就绪
-    setTimeout(() => {
+// =========================================================================
+  // 🧭 【终极防反弹】掼蛋参数直连自愈引导雷达（强力压制游戏选择大厅版）
+  // =========================================================================
+    window.addEventListener('DOMContentLoaded', () => {
       const urlParams = new URLSearchParams(window.location.search);
       const gameParam = urlParams.get('game');
       const modeParam = urlParams.get('mode');
       const roomParam = urlParams.get('room');
 
+      // 只要识别到是掼蛋联机专属链接，开启无情压制
       if (gameParam === 'guandan' && modeParam === 'NET' && roomParam) {
-        console.log(`[路由雷达] 拦截到掼蛋联机专属邀请。房间号: ${roomParam}。正在打通游戏战场沙盒...`);
+        console.log(`[路由雷达] 锁定掼蛋联机目标房: ${roomParam}。正在启动大厅防御劫持...`);
         
-        // 1. 修正主控舱当前选中游戏
+        // 1. 预先修正全局选定状态，断了大厅加载默认游戏的后路
         window.selectedGameId = 'guandan';
-        
-        // 2. 物理清除主大厅遮罩与残留模态框阻挡
-        document.body.classList.add('in-game-match');
-        const mask = document.getElementById('app-perfect-selector-mask');
-        if (mask) mask.style.setProperty('display', 'none', 'important');
-        
-        const intermediateGarbage = ['#confirm-modal', '.modal-backdrop', '#guandan-lobby-container', '#login-container'];
-        intermediateGarbage.forEach(selector => {
-          document.querySelectorAll(selector).forEach(el => el.style.setProperty('display', 'none', 'important'));
-        });
-
-        // 3. 直接调用掼蛋联机引擎加入对应房间
-        if (window.GD_MP && typeof window.GD_MP.startNetMatch === 'function') {
-          window.GD_MP.startNetMatch(roomParam);
-        } else {
-          console.error("检测到 guandan-mp-ext.js 依赖加载滞后，请检查引入顺序。");
+        if (window.state) {
+          window.state.gameMode = 'NET_BATTLE';
         }
+
+        // 2. 【核心注入】：建立一个高频定时器，在 2 秒内持续压制并隐藏游戏选择界面和大厅
+        let enforcementTimer = setInterval(() => {
+          // 持续剥夺大厅、游戏选择菜单、模态框的可见性
+          const lobbySelectors = [
+            '#game-selection', '.lobby', '#guandan-lobby-container', 
+            '#app-perfect-selector-mask', '#login-container', '.modal-backdrop', '#confirm-modal'
+          ];
+          
+          lobbySelectors.forEach(selector => {
+            document.querySelectorAll(selector).forEach(el => {
+              el.style.setProperty('display', 'none', 'important');
+            });
+          });
+
+          // 持续确保游戏对局状态激活
+          document.body.classList.add('in-game-match');
+        }, 50); // 每 50 毫秒高频清洗一次，任何大厅初始化脚本刚把界面露出来就会被立刻掐灭
+
+        // 3. 2.5秒后清除定时器，释放 CPU 压力
+        setTimeout(() => {
+          clearInterval(enforcementTimer);
+          console.log(`[路由雷达] 大厅压制期结束，战场环境已稳固。`);
+        }, 2500);
+
+        // 4. 延迟 600ms 等待基础 Canvas 容器组装完毕后，精准打入房间
+        setTimeout(() => {
+          if (window.GD_MP && typeof window.GD_MP.startNetMatch === 'function') {
+            window.GD_MP.startNetMatch(roomParam);
+          } else {
+            console.error("⛔ [致命] 掼蛋联机核心依赖包未就绪，请检查 HTML 脚本引入顺序！");
+          }
+        }, 600);
       }
-    }, 600);
-  });
+    });
 
   window.backToCentralLobby = () => {
     if (window.isLoggingOut) return;
