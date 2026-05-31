@@ -498,72 +498,95 @@
     // =========================================================================
   // 🧭 【网络层安全对齐版】掼蛋直连拦截雷达
   // =========================================================================
+  // =========================================================================
+  // 🧭 【总大厅物理隔离穿透版】掼蛋参数一键直连雷达
+  // =========================================================================
   window.addEventListener('DOMContentLoaded', () => {
     const urlParams = new URLSearchParams(window.location.search);
     const gameParam = urlParams.get('game');
     const modeParam = urlParams.get('mode');
     const roomParam = urlParams.get('room');
 
-    // 清洗围棋缓存
+    // 只要系统加载，先尝试洗刷一次围棋，防止大厅默认带入上局状态
     if (typeof window.clearGoBoardResidual === 'function') {
       window.clearGoBoardResidual();
     }
 
     if (gameParam === 'guandan' && modeParam === 'NET' && roomParam) {
-      console.log(`[路由雷达] 发现目标联机房: ${roomParam}。正在锁死底层环境...`);
+      console.log(`[路由雷达] 拦截到掼蛋联机专属请求，房间号: ${roomParam}。正在物理蒸发总大厅...`);
       
+      // 1. 锁定全局状态机与游戏ID
       window.selectedGameId = 'guandan';
       if (window.state) {
         window.state.gameMode = 'NET_BATTLE';
         if (!window.state.uid) window.state.uid = 'net_' + Math.random().toString(36).substr(2, 6);
       }
 
-      // 阉割原厂大厅抢跑
+      // 2. ✂️ 阉割原厂大厅及总游戏选择舱的干扰
       if (window.GD) {
-        window.GD.init = () => { console.log("[雷达拦截] 拦截原厂单机干扰成功。"); };
+        // 阻止原厂 guandan-game.js 的默认二级大厅复辟
+        window.GD.init = () => { console.log("[雷达拦截] 已阻止掼蛋自带二级大厅渲染。"); };
         if (window.gdAutoStartTimer) clearTimeout(window.gdAutoStartTimer);
       }
 
-      // 高频物理压制大厅 DOM
+      // 3. 【核心修复】：建立 4 秒超强物理清洗流，直接蒸发截图中的“选择游戏”总大厅
       let enforcementTimer = setInterval(() => {
         const lobbySelectors = [
           '#game-selection', '.lobby', '#guandan-lobby-container', 
-          '#app-perfect-selector-mask', '#login-container', '.modal-backdrop', '#confirm-modal'
+          '#app-perfect-selector-mask', '#login-container', '.modal-backdrop', 
+          '#confirm-modal', '.main-lobby', '.game-select-panel', '.center-box'
         ];
+        
+        // 隐藏所有可能的大厅层
         lobbySelectors.forEach(selector => {
           document.querySelectorAll(selector).forEach(el => el.style.setProperty('display', 'none', 'important'));
         });
 
+        // 强行把掼蛋对局画布以及联机横幅拉起来
         document.querySelectorAll('#guandan-game-container, #game-container, .game-board').forEach(el => {
           el.style.setProperty('display', 'block', 'important');
         });
         document.body.classList.add('in-game-match');
-      }, 50);
+      }, 30);
 
-      setTimeout(() => clearInterval(enforcementTimer), 3500);
+      // 4 秒后清除物理清洗定时器
+      setTimeout(() => clearInterval(enforcementTimer), 4000);
 
-      // 轮询自检 Supabase 网关环境
+      // 4. 🧭 轮询催熟 Supabase 网关与掼蛋画布本体
       let retryCount = 0;
-      const tryLaunch = () => {
-        const isReady = !!(window.getSupabaseClient || window.supabase || (window.GD_MP && window.GD_MP.startNetMatch));
-        if (isReady && window.GD_MP && typeof window.GD_MP.startNetMatch === 'function') {
-          // 彻底对齐房间号，去除不可见的多余空格
+      const maxRetries = 40; 
+
+      const tryLaunchNetMatch = () => {
+        // 检查全局变量、联机扩展包、以及掼蛋游戏画布引擎是否全部就绪
+        const isSupabaseReady = !!(window.getSupabaseClient || window.supabase);
+        const isGDEngineReady = !!(window.GD && typeof window.GD.initGameMatch === 'function');
+        const isMpReady = !!(window.GD_MP && typeof window.GD_MP.startNetMatch === 'function');
+
+        if (isSupabaseReady && isGDEngineReady && isMpReady) {
+          console.log(`[穿透成功] 所有组件加载完毕！强行启动掼蛋战场并打入联机房间。`);
+          
+          // 💡 第一步：强行拉起掼蛋核心对局桌案，初始化玩家座位和画布
+          window.GD.initGameMatch(); 
+          
+          // 💡 第二步：联机引擎接管信道，开始跟房东/客军进行握手状态同步
           window.GD_MP.startNetMatch(roomParam.trim());
-        } else if (retryCount < 40) {
+          
+        } else if (retryCount < maxRetries) {
           retryCount++;
-          setTimeout(tryLaunch, 150);
+          console.warn(`[网关自检] 等待组件点亮... 第 ${retryCount} 次重试`);
+          setTimeout(tryLaunchNetMatch, 150); 
         } else {
-          // 最终兜底强开
-          if (window.GD_MP && typeof window.GD_MP.startNetMatch === 'function') {
-            window.GD_MP.startNetMatch(roomParam.trim());
-          }
+          console.error("⛔ [致命] 联机环境初始化超时，尝试进行兜底强开...");
+          if (window.GD && typeof window.GD.initGameMatch === 'function') window.GD.initGameMatch();
+          if (window.GD_MP && typeof window.GD_MP.startNetMatch === 'function') window.GD_MP.startNetMatch(roomParam.trim());
         }
       };
 
-      setTimeout(tryLaunch, 100);
+      // 启动自检锁
+      setTimeout(tryLaunchNetMatch, 100);
     }
 
-    // 恢复原厂 20ms 初始化
+    // 恢复原系统 20ms 事件初始化逻辑
     setTimeout(initEventListeners, 20);
   });
 
