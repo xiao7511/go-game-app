@@ -1,8 +1,8 @@
 /**
  * Modified Date: 2026-05-30
- * Description: 游戏对局主控舱 - 异步阻塞清空与全域复位版
- * 1. 【完美修复】：修复刷新后由于 Supabase 异步注销未完成导致二次自动免密登录主控舱的顽疾。
- * 2. 强力清障：显式使用 await 等待注销回调，且全方位深度抹除本地 localStorage/sessionStorage 凭证残留。
+ * Description: 游戏对局主控舱 - 空间置换与物理腾退直退版
+ * 1. 【完美修复】：彻底放弃会触发原厂自动登录记忆的 reload 机制。
+ * 2. 空间置换：点击退出系统时，物理粉碎销毁主控舱 DOM，封死自愈雷达，强行将原厂老旧大厅雪藏，并将老版登录框绝对内置置顶。
  */
 (() => {
   'use strict';
@@ -34,7 +34,7 @@
         background: #090d16 !important; 
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       }
-      /* 【绝对物理压制】非局内匹配且未注销状态下，强行雪藏原厂所有老旧大厅外观和弹窗 */
+      /* 🔒【核心样式控制】：当且仅当未注销状态下，强行雪藏原厂所有老旧大厅外观 */
       body:not(.app-system-logged-out) .app, 
       body:not(.app-system-logged-out) .main-layout, 
       body:not(.app-system-logged-out) #confirm-modal, 
@@ -44,6 +44,19 @@
       body:not(.app-system-logged-out) .lobby {
         display: none !important;
       }
+      
+      /* 🚨【关键修复】：当已注销时，确保老版登录框具备绝对统治级的置顶层级，且背景黑化遮罩 */
+      body.app-system-logged-out #login-container {
+        display: block !important;
+        visibility: visible !important;
+        position: fixed !important;
+        inset: 0 !important;
+        z-index: 999999999 !important;
+        background: #0f1720 !important;
+        width: 100vw !important;
+        height: 100vh !important;
+      }
+      
       #app-perfect-selector-mask {
         position: fixed !important; inset: 0 !important; 
         width: 100vw !important; height: 100vh !important;
@@ -227,42 +240,53 @@
     document.getElementById('perfect-go-solo').onclick = () => window.launchMatchGame('SINGLE');
     document.getElementById('perfect-go-net').onclick = () => window.launchMatchGame('NET');
 
-    // ⚡【核心深度修复】：退出系统 - 强力同步清除
+    // ⚡【核心重构】：退出系统 - 内存级空间置换，拒绝刷新
     document.getElementById('app-global-signout-trigger').onclick = async (e) => {
       e.stopPropagation();
-      console.log("[主控舱终极退场] 开始高强度脱敏和同步清理...");
+      console.log("[主控舱终极退场] 启动非刷新空间腾退逻辑...");
       
-      // 激活全局熔断锁，让所有雷达和判定立即失效
-      window.isLoggingOut = true;
+      // 1. 永久断开雷达和自动登录代理
+      window.isLoggingOut = true; 
+      document.body.classList.remove('in-game-match');
       document.body.classList.add('app-system-logged-out');
 
-      // 1. 💥 深度清洗整个 localStorage 和 sessionStorage，断绝一切 Token 残留
+      // 2. 从 DOM 中彻底物理粉碎、卸载主控舱本身，防止任何残留
+      if (mask) {
+        mask.remove(); 
+      }
+
+      // 3. 彻底洗掉本地浏览器缓存，确保无法再走自动通过
       try {
-        // 全量抹除本地浏览器存储，这是消灭刷新后免密自动重登录的杀手锏
         localStorage.clear();
         sessionStorage.clear();
-        console.log("[本地缓存] 浏览器 localStorage/sessionStorage 全量清洗完成。");
-      } catch (ex) {
-        console.error("清洗本地底层缓存异常:", ex);
-      }
+      } catch (ex) {}
 
-      // 2. ⚡ 异步阻塞调用 Supabase 安全登出
+      // 4. 静默向 Supabase 发送登出通告
       const client = window.getSupabaseClient();
       if (client && client.auth && typeof client.auth.signOut === 'function') {
-        try {
-          // 显式使用 await 确保远程服务器端解绑完成后再走下一步
-          await client.auth.signOut();
-          console.log("[Supabase Auth] 线上云端会话注销响应完成。");
-        } catch (err) {
-          console.error("Supabase 远端登出异常:", err);
-        }
+        try { client.auth.signOut(); } catch (err) {}
       }
 
-      // 3. 🏁 彻底斩断一切连环调用，执行最终物理重定向
-      console.log("[主控舱终极退场] 全域安全阻断完毕。开始物理复位...");
-      
-      // 强制去干净路径重新装载（去除一切锚点和请求参数，彻底还原到纯净的最初状态）
-      window.location.href = window.location.origin + window.location.pathname;
+      // 5. 🚨【物理接管】：把隐藏的老版登录框强制唤醒，并初始化其内部状态
+      const loginBox = document.getElementById('login-container');
+      if (loginBox) {
+        // 解除任何原厂可能附带的隐藏属性
+        loginBox.style.setProperty('display', 'block', 'important');
+        loginBox.style.setProperty('visibility', 'visible', 'important');
+        
+        // 如果有登录按钮，把可能由于刚才处于“登录中...”的禁用状态强行复位
+        const loginBtn = loginBox.querySelector('button');
+        if (loginBtn) {
+          loginBtn.disabled = false;
+          if (loginBtn.innerText.includes('中')) {
+            loginBtn.innerText = '登 录';
+          }
+        }
+        console.log("[空间置换成功] 原厂登录框已强制绝对置顶接管视窗。");
+      } else {
+        // 绝境降级：若连登录框节点都没捞到，强行重定向到根路径
+        window.location.href = window.location.origin + window.location.pathname;
+      }
     };
   };
 
@@ -271,9 +295,9 @@
   // =========================================================================
   function initEventListeners() {
     window.setLoggedIn = function(val, userInfo) {
-      // 💥 关键点：如果熔断锁已开启，永久拒绝重设登录态
+      // 💥 如果注销熔断锁已开启，永远拦截丢弃任何企图重新登录或拉回主控舱的后门调用
       if (window.isLoggingOut) {
-        console.log("[主控舱防御拦截] 捕获到注销期间的顽固 setLoggedIn 干扰调用，已成功拦截并丢弃。");
+        console.log("[拦截干扰] 成功截获并丢弃注销后的残留登录回调。");
         return; 
       }
 
@@ -327,7 +351,6 @@
       const mask = document.getElementById('app-perfect-selector-mask');
       const isInGame = document.body.classList.contains('in-game-match');
 
-      // 如果有明确的登录框展现在屏幕上，禁止拉起主控舱
       if (loginBox && loginBox.style.display !== 'none' && loginBox.offsetWidth > 0) {
         if (mask && mask.style.display !== 'none') {
           mask.style.setProperty('display', 'none', 'important');
