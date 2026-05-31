@@ -337,44 +337,52 @@
   // =========================================================================
   // 🧼 【围棋破除幽灵残留】模式切换全清场洗刷器
   // =========================================================================
-  function clearGoBoardResidual() {
-    console.log("[围棋引擎] 正在暴力清洗上局棋盘残留，防幽灵棋子污染...");
+  // =========================================================================
+  // 🧼 【毁灭级清洗】彻底根除围棋单机/联机切换的幽灵棋子残留
+  // =========================================================================
+  window.clearGoBoardResidual = function() {
+    console.log("[围棋引擎] 正在执行全量内存解构与画布擦除...");
 
-    // 1. 强清原厂围棋的核心状态矩阵（根据你系统里的变量名调整，这里做全量防空兜底）
-    if (window.goGameState) {
-      window.goGameState.board = [];
-      window.goGameState.history = [];
-      window.goGameState.currentTurn = 1; // 恢复黑棋先手
-    }
-    
-    if (window.goBoard && typeof window.goBoard.clear === 'function') {
-      window.goBoard.clear(); // 调用原厂对象的自带清空
-    } else {
-      // 降级策略：如果原厂是用全局数组存储
-      if (window.boardMatrix) window.boardMatrix = Array(19).fill(0).map(() => Array(19).fill(0));
-      if (window.chessPieces) window.chessPieces = [];
-    }
-
-    // 2. 物理洗刷 Canvas 画面，防止渲染层残留
-    const goCanvas = document.getElementById('go-canvas') || 
-                      document.querySelector('.go-board-canvas') || 
-                      document.querySelector('#weiqi-container canvas');
-                      
-    if (goCanvas) {
-      const ctx = goCanvas.getContext('2d');
-      if (ctx) {
-        ctx.clearRect(0, 0, goCanvas.width, goCanvas.height); // 擦除所有棋子
-        console.log("[围棋引擎] Canvas 画布已纯净擦除。");
+    // 1. 深度清洗原厂可能存在的各种全局状态变量
+    const goKeys = ['goGameState', 'goBoard', 'boardMatrix', 'chessPieces', 'goHistory', 'currentGoMove'];
+    goKeys.forEach(key => {
+      if (window[key]) {
+        if (Array.isArray(window[key])) window[key] = [];
+        else if (typeof window[key] === 'object') {
+          // 针对对象型状态，清空其内部数组或调用其自带的 clear/reset 方法
+          if (typeof window[key].clear === 'function') window[key].clear();
+          if (typeof window[key].reset === 'function') window[key].reset();
+          if (window[key].board) window[key].board = Array(19).fill(0).map(() => Array(19).fill(0));
+          if (window[key].history) window[key].history = [];
+          if (window[key].steps) window[key].steps = 0;
+        }
       }
-    }
+    });
 
-    // 3. 触发原厂的重绘棋盘格线逻辑（不带棋子）
-    if (typeof window.drawGoBoard === 'function') {
-      window.drawGoBoard();
-    } else if (window.goBoard && typeof window.goBoard.render === 'function') {
-      window.goBoard.render();
-    }
-  }
+    // 兜底重置最基础的 19x19 二维阵列
+    window.boardMatrix = Array(19).fill(0).map(() => Array(19).fill(0));
+    window.goHistory = [];
+
+    // 2. 强力擦除物理 Canvas 节点
+    const goSelectors = ['#go-canvas', '.go-board-canvas', '#weiqi-container canvas', 'canvas'];
+    goSelectors.forEach(selector => {
+      document.querySelectorAll(selector).forEach(canvas => {
+        // 确保这个 canvas 是围棋的容器内的
+        if (canvas.closest('#weiqi-container') || canvas.id.includes('go')) {
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+          }
+        }
+      });
+    });
+
+    // 3. 强制触发一次原厂的“纯净棋盘格线条”重绘
+    if (typeof window.drawGoBoard === 'function') window.drawGoBoard();
+    else if (window.goBoard && typeof window.goBoard.render === 'function') window.goBoard.render();
+    
+    console.log("[围棋引擎] 内存与物理画布已洗刷一新。");
+  };
 
   // =========================================================================
   // 🔄 挂载到大厅切换行为中（伪代码示范，请将 clearGoBoardResidual() 塞入你的模式切换按钮事件中）
@@ -485,7 +493,7 @@
     setTimeout(initEventListeners, 20);
   });*/
   // =========================================================================
-  // 🧭 【刺穿直连】掼蛋参数一键注入引导雷达（全速交权给联机引擎）
+  // 🧭 【引导雷达】
   // =========================================================================
   window.addEventListener('DOMContentLoaded', () => {
     const urlParams = new URLSearchParams(window.location.search);
@@ -493,25 +501,17 @@
     const modeParam = urlParams.get('mode');
     const roomParam = urlParams.get('room');
 
-    if (gameParam === 'guandan' && modeParam === 'NET' && roomParam) {
-      console.log(`[路由雷达] 发现掼蛋联机专属房: ${roomParam}。启动深度大厅物理隔离...`);
-      
-      // 🧼【核心注入】直连掼蛋前，暴力洗刷围棋可能残留的棋盘内存与 Canvas 幽灵棋子
-      if (typeof window.clearGoBoardResidual === 'function') {
-        window.clearGoBoardResidual();
-      } else {
-        // 如果该清洗函数挂载在别的文件，这里做个兜底的安全级手动洗刷
-        if (window.goGameState) { window.goGameState.board = []; window.goGameState.history = []; }
-        if (window.boardMatrix) window.boardMatrix = Array(19).fill(0).map(() => Array(19).fill(0));
-        const goCanvas = document.getElementById('go-canvas') || document.querySelector('.go-board-canvas');
-        if (goCanvas) { const ctx = goCanvas.getContext('2d'); if (ctx) ctx.clearRect(0, 0, goCanvas.width, goCanvas.height); }
-        console.log(`[路由雷达] 围棋残留状态已完成自愈式清场。`);
-      }
+    // 只要系统加载，先尝试洗刷一次围棋，防止大厅默认带入上局状态
+    if (typeof window.clearGoBoardResidual === 'function') {
+      window.clearGoBoardResidual();
+    }
 
+    if (gameParam === 'guandan' && modeParam === 'NET' && roomParam) {
+      console.log(`[路由雷达] 发现掼蛋联机专属房: ${roomParam}。物理压制大厅中...`);
+      
       window.selectedGameId = 'guandan';
       if (window.state) window.state.gameMode = 'NET_BATTLE';
 
-      // 建立高频定时器，在 3 秒内疯狂隐藏大厅，确保掼蛋 Canvas 战场顺利露头
       let enforcementTimer = setInterval(() => {
         const lobbySelectors = [
           '#game-selection', '.lobby', '#guandan-lobby-container', 
@@ -521,7 +521,6 @@
           document.querySelectorAll(selector).forEach(el => el.style.setProperty('display', 'none', 'important'));
         });
 
-        // 强拉掼蛋战场可见性
         document.querySelectorAll('#guandan-game-container, #game-container, .game-board').forEach(el => {
           el.style.setProperty('display', 'block', 'important');
         });
@@ -530,7 +529,6 @@
 
       setTimeout(() => clearInterval(enforcementTimer), 3000);
 
-      // 延迟 40 毫秒，紧跟原厂初始化步伐，交权给网络对战引擎
       setTimeout(() => {
         if (window.GD_MP && typeof window.GD_MP.startNetMatch === 'function') {
           window.GD_MP.startNetMatch(roomParam);
