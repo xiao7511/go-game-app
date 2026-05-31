@@ -429,9 +429,9 @@
       }
   });
 
-  /*window.addEventListener('DOMContentLoaded', () => {
+  window.addEventListener('DOMContentLoaded', () => {
     setTimeout(initEventListeners, 20);
-  });*/
+  });
   // =========================================================================
   // 🧭 【核心注入】掼蛋参数直连自愈引导雷达
   // =========================================================================
@@ -441,7 +441,7 @@
     // =========================================================================
   // 🧭 【终极合体版】掼蛋参数直连自愈引导雷达（防原系统清场、强拉对局版）
   // =========================================================================
-  window.addEventListener('DOMContentLoaded', () => {
+  /*window.addEventListener('DOMContentLoaded', () => {
     const urlParams = new URLSearchParams(window.location.search);
     const gameParam = urlParams.get('game');
     const modeParam = urlParams.get('mode');
@@ -503,7 +503,7 @@
       setTimeout(launchMatch, 600);   // 第一波尝试
       setTimeout(launchMatch, 1200);  // 第二波兜底（防登录异步脚本过慢导致的第一波失效）
     }
-  });
+  });*/
 
   window.backToCentralLobby = () => {
     if (window.isLoggingOut) return;
