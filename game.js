@@ -169,7 +169,7 @@
   // =========================================================================
   // 🎯 2. 穿透直通车路由（已完美融合掼蛋一键刺穿联机网关）
   // =========================================================================
-  window.launchMatchGame = function(mode) {
+ /* window.launchMatchGame = function(mode) {
     if (window.isLoggingOut) return;
     console.log(`[主控舱直通车] 正在强切对局 -> 游戏: ${window.selectedGameId}, 模式: ${mode}`);
 
@@ -241,7 +241,7 @@
       const rawGoLobby = document.getElementById('game-selection') || document.querySelector('.lobby');
       if (rawGoLobby) rawGoLobby.style.setProperty('display', 'none', 'important');
     }
-  };
+  };*/
 
   // ==========================================
   // 3. 渲染构建游戏对局主控舱
@@ -472,6 +472,84 @@
       }
     }, 100);
   }
+
+// 备份原厂的 launchMatchGame（以防单机模式还需要使用）
+  const _rawLaunchMatchGame = window.launchMatchGame;
+
+  window.launchMatchGame = function(mode) {
+    if (window.isLoggingOut) return;
+    console.log(`[主控舱直通车] 触发深度劫持 -> 游戏: ${window.selectedGameId}, 模式: ${mode}`);
+
+    // 🚀【核心熔断】：如果是掼蛋且是联机模式，彻底接管，绝不放行后续原厂逻辑
+    if (window.selectedGameId === 'guandan' && mode === 'NET') {
+      console.log("[熔断机制] 侦测到掼蛋联机，正在执行物理强切，强制终止原厂后续大厅生成！");
+      
+      // 1. 锁死状态机
+      if (window.state) {
+        window.state.gameMode = 'NET_BATTLE';
+        if (!window.state.uid) window.state.uid = 'net_' + Math.random().toString(36).substr(2, 6);
+      }
+
+      // 2. 物理清除、吞噬大厅干扰源
+      document.body.classList.add('in-game-match');
+      
+      const mask = document.getElementById('app-perfect-selector-mask');
+      if (mask) mask.style.setProperty('display', 'none', 'important');
+
+      // 强力移除截图中黑黄相间的总选单容器（根据原厂动态生成的特性进行物理 removal）
+      const lobbySelectors = [
+        '#game-selection', '.lobby', '#guandan-lobby-container', 
+        '.main-lobby', '.game-select-panel', '.center-box', '.modal-backdrop'
+      ];
+      lobbySelectors.forEach(selector => {
+        document.querySelectorAll(selector).forEach(el => el.remove());
+      });
+
+      // 3. 强行让掼蛋舞台画布直接外露
+      document.querySelectorAll('#guandan-game-container, #game-container, .game-board').forEach(el => {
+        el.style.setProperty('display', 'block', 'important');
+        el.style.setProperty('visibility', 'visible', 'important');
+        el.style.setProperty('opacity', '1', 'important');
+      });
+
+      // 4. 生成或同步房号（如果是发起人，生成新房号并挂载）
+      let roomCode = new URLSearchParams(window.location.search).get('room');
+      if (!roomCode) {
+        // 如果是点击“联机版”按钮主动发起的，就地生成一个全新房号并直接塞给引擎
+        roomCode = 'GD' + Math.floor(1000 + Math.random() * 9000);
+        console.log(`[房东开房] 主动创建房间，生成房号: ${roomCode}`);
+      }
+
+      // 5. 催熟原厂游戏战场上下文，拉起扑克牌桌案
+      if (window.GD && typeof window.GD.initGameMatch === 'function') {
+        try {
+          window.GD.initGameMatch();
+        } catch(e) {
+          console.warn("[画布初始化] 顺发兼容跳过:", e);
+        }
+      }
+
+      // 6. 唤醒云端并线引擎（带 500ms 高频无线电握手功能，解决房间不存在与倒计时不同步）
+      if (window.GD_MP && typeof window.GD_MP.startNetMatch === 'function') {
+        window.GD_MP.startNetMatch(roomCode);
+      } else {
+        console.error("⛔ [致命] 联机包 guandan-mp-ext.js 尚未加载完成！");
+      }
+
+      // 🚨【终极熔断】：直接返回！打死也不让原厂代码执行后面弹大厅的逻辑！
+      return;
+    }
+
+    // 如果是单机模式或者其他游戏，原封不动地还给原厂执行流
+    if (typeof _rawLaunchMatchGame === 'function') {
+      _rawLaunchMatchGame(mode);
+    }
+  };
+
+  console.log("[系统监控] launchMatchGame 熔断网关已成功挂载。");
+
+
+
 
   // ==========================================
   // 5. 状态机通信网关代理
