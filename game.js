@@ -495,87 +495,77 @@
   // =========================================================================
   // 🧭 【自愈网关版】掼蛋参数一键直连雷达（带依赖催熟与重试机制）
   // =========================================================================
-    window.addEventListener('DOMContentLoaded', () => {
-      const urlParams = new URLSearchParams(window.location.search);
-      const gameParam = urlParams.get('game');
-      const modeParam = urlParams.get('mode');
-      const roomParam = urlParams.get('room');
+    // =========================================================================
+  // 🧭 【网络层安全对齐版】掼蛋直连拦截雷达
+  // =========================================================================
+  window.addEventListener('DOMContentLoaded', () => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const gameParam = urlParams.get('game');
+    const modeParam = urlParams.get('mode');
+    const roomParam = urlParams.get('room');
 
-      // 只要系统加载，先尝试洗刷一次围棋，防止大厅默认带入上局状态
-      if (typeof window.clearGoBoardResidual === 'function') {
-        window.clearGoBoardResidual();
+    // 清洗围棋缓存
+    if (typeof window.clearGoBoardResidual === 'function') {
+      window.clearGoBoardResidual();
+    }
+
+    if (gameParam === 'guandan' && modeParam === 'NET' && roomParam) {
+      console.log(`[路由雷达] 发现目标联机房: ${roomParam}。正在锁死底层环境...`);
+      
+      window.selectedGameId = 'guandan';
+      if (window.state) {
+        window.state.gameMode = 'NET_BATTLE';
+        if (!window.state.uid) window.state.uid = 'net_' + Math.random().toString(36).substr(2, 6);
       }
 
-      if (gameParam === 'guandan' && modeParam === 'NET' && roomParam) {
-        console.log(`[路由雷达] 拦截到掼蛋联机专属请求，房间号: ${roomParam}。正在阻止原厂单机大厅...`);
-        
-        // 1. 强力锁死全局状态机
-        window.selectedGameId = 'guandan';
-        if (window.state) {
-          window.state.gameMode = 'NET_BATTLE';
-          if (!window.state.uid) window.state.uid = 'net_' + Math.random().toString(36).substr(2, 6);
-        }
+      // 阉割原厂大厅抢跑
+      if (window.GD) {
+        window.GD.init = () => { console.log("[雷达拦截] 拦截原厂单机干扰成功。"); };
+        if (window.gdAutoStartTimer) clearTimeout(window.gdAutoStartTimer);
+      }
 
-        // 2. ✂️ 直接阉割原厂 guandan-game.js 的自启动与初始化能力
-        if (window.GD) {
-          window.GD.init = () => { console.log("[雷达拦截] 成功阻止原厂单机大厅复辟。"); };
-          if (window.gdAutoStartTimer) clearTimeout(window.gdAutoStartTimer);
-        }
+      // 高频物理压制大厅 DOM
+      let enforcementTimer = setInterval(() => {
+        const lobbySelectors = [
+          '#game-selection', '.lobby', '#guandan-lobby-container', 
+          '#app-perfect-selector-mask', '#login-container', '.modal-backdrop', '#confirm-modal'
+        ];
+        lobbySelectors.forEach(selector => {
+          document.querySelectorAll(selector).forEach(el => el.style.setProperty('display', 'none', 'important'));
+        });
 
-        // 3. 建立 3 秒高频清洗弹幕，物理蒸发单机大厅 DOM
-        let enforcementTimer = setInterval(() => {
-          const lobbySelectors = [
-            '#game-selection', '.lobby', '#guandan-lobby-container', 
-            '#app-perfect-selector-mask', '#login-container', '.modal-backdrop', '#confirm-modal'
-          ];
-          lobbySelectors.forEach(selector => {
-            document.querySelectorAll(selector).forEach(el => el.style.setProperty('display', 'none', 'important'));
-          });
+        document.querySelectorAll('#guandan-game-container, #game-container, .game-board').forEach(el => {
+          el.style.setProperty('display', 'block', 'important');
+        });
+        document.body.classList.add('in-game-match');
+      }, 50);
 
-          // 强行把掼蛋战场对局容器拉起来
-          document.querySelectorAll('#guandan-game-container, #game-container, .game-board').forEach(el => {
-            el.style.setProperty('display', 'block', 'important');
-          });
-          document.body.classList.add('in-game-match');
-        }, 50);
+      setTimeout(() => clearInterval(enforcementTimer), 3500);
 
-        setTimeout(() => clearInterval(enforcementTimer), 3000);
-
-        // 4. 🧭【核心修复】：智能轮询催熟 Supabase 网关，直到其加载就绪再放行连接
-        let retryCount = 0;
-        const maxRetries = 30; // 最多等待 6 秒 (30 * 200ms)
-
-        const tryLaunchNetMatch = () => {
-          // 检查全局变量或方法是否已经挂载就绪
-          const isSupabaseReady = !!(
-            window.getSupabaseClient || 
-            window.supabase || 
-            (window.GD_MP && mpState?.client)
-          );
-
-          if (isSupabaseReady && window.GD_MP && typeof window.GD_MP.startNetMatch === 'function') {
-            console.log(`[网关就绪] 历时 ${retryCount * 200}ms，成功捕获 Supabase 依赖！正在打入对局...`);
-            window.GD_MP.startNetMatch(roomParam);
-          } else if (retryCount < maxRetries) {
-            retryCount++;
-            console.warn(`[网关未就绪] 正在等待基础网络组件加载... 第 ${retryCount} 次重试 (200ms后)`);
-            setTimeout(tryLaunchNetMatch, 200); // 没准备好就每隔 200 毫秒重试一次
-          } else {
-            console.error("⛔ [致命] 超过 6 秒未检测到 Supabase 网络环境，请检查页面 HTML 的 script 标签是否包含 supabase-js！");
-            // 兜底强制拉起，让其内部的备用机制去尝试重构
-            if (window.GD_MP && typeof window.GD_MP.startNetMatch === 'function') {
-              window.GD_MP.startNetMatch(roomParam);
-            }
+      // 轮询自检 Supabase 网关环境
+      let retryCount = 0;
+      const tryLaunch = () => {
+        const isReady = !!(window.getSupabaseClient || window.supabase || (window.GD_MP && window.GD_MP.startNetMatch));
+        if (isReady && window.GD_MP && typeof window.GD_MP.startNetMatch === 'function') {
+          // 彻底对齐房间号，去除不可见的多余空格
+          window.GD_MP.startNetMatch(roomParam.trim());
+        } else if (retryCount < 40) {
+          retryCount++;
+          setTimeout(tryLaunch, 150);
+        } else {
+          // 最终兜底强开
+          if (window.GD_MP && typeof window.GD_MP.startNetMatch === 'function') {
+            window.GD_MP.startNetMatch(roomParam.trim());
           }
-        };
+        }
+      };
 
-        // 启动轮询检查锁
-        setTimeout(tryLaunchNetMatch, 100);
-      }
+      setTimeout(tryLaunch, 100);
+    }
 
-      // 恢复原系统 20ms 事件初始化逻辑
-      setTimeout(initEventListeners, 20);
-    });
+    // 恢复原厂 20ms 初始化
+    setTimeout(initEventListeners, 20);
+  });
 
   window.backToCentralLobby = () => {
     if (window.isLoggingOut) return;
