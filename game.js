@@ -429,81 +429,55 @@
       }
   });
 
+  /*
   window.addEventListener('DOMContentLoaded', () => {
     setTimeout(initEventListeners, 20);
-  });
+  });*/
   // =========================================================================
-  // 🧭 【核心注入】掼蛋参数直连自愈引导雷达
+  // 🧭 【刺穿直连】掼蛋参数一键注入引导雷达（全速交权给联机引擎）
   // =========================================================================
-// =========================================================================
-  // 🧭 【终极防反弹】掼蛋参数直连自愈引导雷达（强力压制游戏选择大厅版）
-  // =========================================================================
-    // =========================================================================
-  // 🧭 【终极合体版】掼蛋参数直连自愈引导雷达（防原系统清场、强拉对局版）
-  // =========================================================================
-  /*window.addEventListener('DOMContentLoaded', () => {
+  window.addEventListener('DOMContentLoaded', () => {
     const urlParams = new URLSearchParams(window.location.search);
     const gameParam = urlParams.get('game');
     const modeParam = urlParams.get('mode');
     const roomParam = urlParams.get('room');
 
     if (gameParam === 'guandan' && modeParam === 'NET' && roomParam) {
-      console.log(`[路由雷达] 锁定掼蛋目标房: ${roomParam}。启动深度防清场劫持...`);
+      console.log(`[路由雷达] 发现掼蛋联机专属房: ${roomParam}。启动深度大厅物理隔离...`);
       
-      // 1. 深度锁定状态，防止异步登录回调重置它
       window.selectedGameId = 'guandan';
-      if (window.state) {
-        window.state.gameMode = 'NET_BATTLE';
-      }
+      if (window.state) window.state.gameMode = 'NET_BATTLE';
 
-      // 2. 高频持续压制大厅 + 持续强拉掼蛋游戏主界面
+      // 建立高频定时器，在 3 秒内疯狂隐藏大厅，确保掼蛋 Canvas 战场顺利露头
       let enforcementTimer = setInterval(() => {
-        // A. 斩断大厅/登录/选择界面的生路
         const lobbySelectors = [
           '#game-selection', '.lobby', '#guandan-lobby-container', 
           '#app-perfect-selector-mask', '#login-container', '.modal-backdrop', '#confirm-modal'
         ];
         lobbySelectors.forEach(selector => {
-          document.querySelectorAll(selector).forEach(el => {
-            el.style.setProperty('display', 'none', 'important');
-          });
+          document.querySelectorAll(selector).forEach(el => el.style.setProperty('display', 'none', 'important'));
         });
 
-        // B. 【核心补丁】：如果原系统脚本把掼蛋的游戏战场容器隐藏了，我们强行把它拉起来！
-        const guandanGameSelectors = ['#guandan-game-container', '#game-container', '.game-board'];
-        guandanGameSelectors.forEach(selector => {
-          document.querySelectorAll(selector).forEach(el => {
-            el.style.setProperty('display', 'block', 'important'); // 确保掼蛋主界面是可见的
-          });
+        // 强拉掼蛋战场可见性
+        document.querySelectorAll('#guandan-game-container, #game-container, .game-board').forEach(el => {
+          el.style.setProperty('display', 'block', 'important');
         });
-
-        // C. 保持对局激活状态
         document.body.classList.add('in-game-match');
       }, 50);
 
-      // 3. 2.5秒后释放定时器
+      setTimeout(() => clearInterval(enforcementTimer), 3000);
+
+      // 延迟 20 毫秒，紧跟原厂初始化步伐，交权给网络对战引擎
       setTimeout(() => {
-        clearInterval(enforcementTimer);
-        console.log(`[路由雷达] 环境稳固，停止压制。`);
-      }, 2500);
-
-      // 4. 【双保险唤醒机制】：由于涉及到登录成功后的时间差，我们在 600ms 和 1200ms 各精准打入一次房间
-      const launchMatch = () => {
         if (window.GD_MP && typeof window.GD_MP.startNetMatch === 'function') {
-          console.log(`[路由雷达] 正在向掼蛋联机引擎下达对局接入指令...`);
           window.GD_MP.startNetMatch(roomParam);
-          
-          // 强行补充调用一次原厂 Canvas 重绘，击碎原系统的初始化白屏
-          if (typeof window.renderGameBoard === 'function') {
-            setTimeout(window.renderGameBoard, 100);
-          }
         }
-      };
-
-      setTimeout(launchMatch, 600);   // 第一波尝试
-      setTimeout(launchMatch, 1200);  // 第二波兜底（防登录异步脚本过慢导致的第一波失效）
+      }, 40);
     }
-  });*/
+
+    // 恢复原系统 20ms 事件初始化逻辑
+    setTimeout(initEventListeners, 20);
+  });
 
   window.backToCentralLobby = () => {
     if (window.isLoggingOut) return;
