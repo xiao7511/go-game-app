@@ -1,16 +1,17 @@
 /**
  * Modified Date: 2026-05-30
- * Description: 游戏对局主控舱 - 移动端全自适应与全面退场版
- * 1. 【新增注销】：舱内右上角增设“退出系统”按钮，点击后清除状态，秒级调用 Supabase 登出并安全切回登录界面。
- * 2. 【移动端响应式优化】：完美适配高矮屏及手机端，微对手牌与布局进行视口比例缩放，防止组件挤压溢出。
- * 3. 状态隔离：保持原有绿色高亮逻辑，退场时深层清洗 window.selectedGameId 内存残留。
+ * Description: 游戏对局主控舱 - 智能自愈与雷达熔断版
+ * 1. 【完美修复】：彻底解决点击“退出系统”时登录框闪现后又被主控舱强制拉回的死循环 Bug。
+ * 2. 状态熔断：引入 window.isLoggingOut 全局锁，注销时彻底切断 setInterval 雷达，确保顺畅退至登录页。
+ * 3. 免密兼容：优化了针对原生 login-container 状态的判定阈值，防止时序冲突。
  */
 (() => {
   'use strict';
 
-  // 全局核心状态机初始化（默认聚焦掼蛋）
+  // 全局核心状态机初始化
   window.selectedGameId = 'guandan';
   window.state = window.state || {};
+  window.isLoggingOut = false; // 🔒 退出系统熔断锁，防止自愈雷达无限回拉
 
   let supabaseInstance = null;
   let isInitializing = false;
@@ -34,8 +35,14 @@
         background: #090d16 !important; 
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       }
-      /* 🔒【绝对物理压制】非局内匹配状态下，强行雪藏原厂所有老旧大厅外观和弹窗 */
-      .app, .main-layout, #confirm-modal, .modal-backdrop, #guandan-lobby-container, #lobby-container, .lobby {
+      /* 🔒【绝对物理压制】非局内匹配且未注销状态下，强行雪藏原厂所有老旧大厅外观和弹窗 */
+      body:not(.app-system-logged-out) .app, 
+      body:not(.app-system-logged-out) .main-layout, 
+      body:not(.app-system-logged-out) #confirm-modal, 
+      body:not(.app-system-logged-out) .modal-backdrop, 
+      body:not(.app-system-logged-out) #guandan-lobby-container, 
+      body:not(.app-system-logged-out) #lobby-container, 
+      body:not(.app-system-logged-out) .lobby {
         display: none !important;
       }
       #app-perfect-selector-mask {
@@ -58,7 +65,6 @@
         overflow-y: auto;
       }
       
-      /* ✨【新功能】主控舱独立右上角系统退出注销键 */
       .app-system-logout-btn {
         position: absolute; top: 20px; right: 20px;
         background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.4);
@@ -87,7 +93,6 @@
       .app-btn-primary { background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); color: white; box-shadow: 0 8px 20px rgba(37,99,235,0.3); }
       .app-btn-success { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: white; box-shadow: 0 8px 20px rgba(217,119,6,0.3); }
       
-      /* 🔓 【局内真视窗释放锁】仅在局内时释放原厂容器 */
       body.in-game-match .app, body.in-game-match .main-layout { 
         display: grid !important; 
       }
@@ -98,9 +103,6 @@
         display: none !important; 
       }
 
-      /* ==========================================
-       * 📱 移动端小屏极速高保真自适应响应断点
-       * ========================================== */
       @media (max-width: 640px) {
         .app-lobby-box { padding: 30px 20px; border-radius: 18px; }
         .app-system-logout-btn { position: relative; top: 0; right: 0; display: inline-flex; margin-bottom: 20px; }
@@ -118,13 +120,13 @@
   }
 
   // =========================================================================
-  // 🎯 2. 穿透直通车路由：强行抹平原生菜单，进入真实棋盘/牌桌对局
+  // 🎯 2. 穿透直通车路由：进入真实棋盘/牌桌对局
   // =========================================================================
   window.launchMatchGame = function(mode) {
-    console.log(`[主控舱直通车] 正在强切对局 -> 当前选择游戏ID: ${window.selectedGameId}, 模式: ${mode}`);
+    if (window.isLoggingOut) return;
+    console.log(`[主控舱直通车] 正在强切对局 -> 游戏: ${window.selectedGameId}, 模式: ${mode}`);
 
     document.body.classList.add('in-game-match');
-
     const mask = document.getElementById('app-perfect-selector-mask');
     if (mask) mask.style.setProperty('display', 'none', 'important');
     
@@ -139,7 +141,6 @@
       if (window.GD) {
         const gdLobby = document.getElementById('guandan-lobby-container');
         if (gdLobby) gdLobby.style.setProperty('display', 'none', 'important');
-        
         if (typeof window.GD.initGameMatch === 'function') {
           window.GD.initGameMatch();
         } else if (typeof window.GD.init === 'function') {
@@ -162,7 +163,6 @@
           if (typeof window.MP.createRoom === 'function') window.MP.createRoom();
         }
       }
-      
       const rawGoLobby = document.getElementById('game-selection') || document.querySelector('.lobby');
       if (rawGoLobby) rawGoLobby.style.setProperty('display', 'none', 'important');
     }
@@ -172,10 +172,11 @@
   // 3. 渲染构建游戏对局主控舱
   // ==========================================
   window.renderAppCentralLobby = function() {
-    window.selectedGameId = 'guandan';
-    console.log("[主控舱状态强洗] 选择舱渲染，已强设内存 window.selectedGameId = 'guandan'");
+    // 如果正在注销状态中，永久熔断禁止重新拉起主控舱
+    if (window.isLoggingOut) return;
 
-    document.body.classList.remove('in-game-match');
+    window.selectedGameId = 'guandan';
+    document.body.classList.remove('in-game-match', 'app-system-logged-out');
     injectCentralAppStyles();
 
     let mask = document.getElementById('app-perfect-selector-mask');
@@ -215,7 +216,6 @@
       </div>
     `;
 
-    // 绑定项目选择逻辑
     const items = mask.querySelectorAll('.app-game-item');
     items.forEach(item => {
       item.onclick = (e) => {
@@ -223,24 +223,28 @@
         items.forEach(i => i.classList.remove('active-selected'));
         item.classList.add('active-selected');
         window.selectedGameId = item.getAttribute('data-id');
-        console.log(`[主控舱动态切换] 用户手动切换游戏项目为: ${window.selectedGameId}`);
       };
     });
 
-    // 模式直连绑定
     document.getElementById('perfect-go-solo').onclick = () => window.launchMatchGame('SINGLE');
     document.getElementById('perfect-go-net').onclick = () => window.launchMatchGame('NET');
 
-    // ⚡ 核心逻辑：物理拦截并执行系统真正登出注销流程
+    // 🚪 点击“退出系统”核心逻辑升级版
     document.getElementById('app-global-signout-trigger').onclick = async (e) => {
       e.stopPropagation();
-      console.log("[主控舱核心退场] 用户触发退出系统，开始执行物理注销...");
+      console.log("[主控舱核心退场] 启动物理熔断锁，正在安全移交控制权给原生登录页...");
       
-      // 1. 隐藏主控舱遮罩层
-      mask.style.setProperty('display', 'none', 'important');
-      document.body.classList.remove('in-game-match');
+      // ✨【关键修复 1】：激活熔断锁，让后台 setInterval 雷达瞬间失效，不再干扰退舱进程
+      window.isLoggingOut = true;
 
-      // 2. 清理全局可能残留的运行期单机定时器与对局状态
+      // 释放样式压制锁
+      document.body.classList.remove('in-game-match');
+      document.body.classList.add('app-system-logged-out');
+
+      // 销毁主控舱 DOM 视窗
+      if (mask) mask.style.setProperty('display', 'none', 'important');
+
+      // 清除游戏内所有运行状态、定时器和全局用户信息
       if (typeof window.clearBlink === 'function') window.clearBlink();
       if (window.state) {
         window.state.isInRoom = false;
@@ -250,24 +254,24 @@
       }
       if (window.GD && typeof window.GD.destroy === 'function') window.GD.destroy();
 
-      // 3. 调用真正的 Supabase Auth 登出服务注销凭证会话
+      // 调用 Supabase 注销线上 Session 会话
       const client = window.getSupabaseClient();
       if (client && client.auth && typeof client.auth.signOut === 'function') {
         try {
           await client.auth.signOut();
-          console.log("[Supabase Auth] 线上登录会话已成功销毁断开。");
+          console.log("[Supabase Auth] 线上登录凭证已安全注销。");
         } catch (err) {
-          console.error("Supabase 会话清理时抛出异常:", err);
+          console.error("Supabase 注销异常:", err);
         }
       }
 
-      // 4. 重定向或唤醒最初始的原生登录视窗界面
+      // 展现原生游戏登录视窗
       const loginBox = document.getElementById('login-container');
       if (loginBox) {
         loginBox.style.setProperty('display', 'block', 'important');
         loginBox.style.setProperty('visibility', 'visible', 'important');
       } else {
-        // 如果是在 iframe 结构或需要强制刷新页面回初始登录状态：
+        // 全量安全降级：若未找到登录节点则直接刷新页面切回初始未登录态
         window.location.reload();
       }
     };
@@ -277,10 +281,12 @@
   // 4. 全域高频【退局重定向守卫】与【状态自愈雷达】
   // =========================================================================
   function initEventListeners() {
-    console.log("[主控舱防御雷达] 系统就绪。全向监控跨端响应状态...");
+    console.log("[主控舱防御雷达] 防御系统就绪...");
 
     window.setLoggedIn = function(val, userInfo) {
       if (val === true) {
+        // ✨【关键修复 2】：如果用户重新登录成功，解除注销熔断锁
+        window.isLoggingOut = false; 
         window.state = window.state || {};
         if (userInfo) {
           window.state.uid = userInfo.uid;
@@ -290,8 +296,10 @@
       }
     };
 
-    // 退局动作深度劫持
+    // 退局动作拦截
     document.addEventListener('click', (e) => {
+      if (window.isLoggingOut) return; // 熔断期间不拦截任何点击
+
       const target = e.target;
       if (!target) return;
 
@@ -303,7 +311,6 @@
         target.id === 'gd-btn-lobby-return';
 
       if (isQuitAction) {
-        console.log("[主控舱防御机制] 捕捉到退局信号，启动数据脱敏与状态硬清洗...");
         document.body.classList.remove('in-game-match');
         window.selectedGameId = 'guandan';
         
@@ -321,13 +328,15 @@
       }
     }, true);
 
-    // 🔒【物理防回头雷达】：监控大厅及登录弹窗时序
+    // 🔒【物理防回头雷达升级版】
     setInterval(() => {
+      // ✨【关键修复 3】：若检测到熔断锁开启（正在登出），雷达全面停摆，绝不执行任何恢复主控舱的判定
+      if (window.isLoggingOut) return;
+
       const loginBox = document.getElementById('login-container') || document.querySelector('iframe');
       const mask = document.getElementById('app-perfect-selector-mask');
       const isInGame = document.body.classList.contains('in-game-match');
 
-      // 核心自愈修正：如果老掼蛋大厅意外弹出来并且既不处在局内也不在主控舱内，立刻抹平它
       const gdLobby = document.getElementById('guandan-lobby-container');
       if (gdLobby && gdLobby.style.display !== 'none' && gdLobby.offsetWidth > 0 && !isInGame) {
         gdLobby.style.setProperty('display', 'none', 'important');
@@ -335,7 +344,7 @@
         return;
       }
 
-      // 如果当前登录界面是可见的（即未登录或刚刚执行了退出注销），严禁拉起主控舱
+      // 如果有明确的登录框展现在屏幕上，禁止强拉主控舱
       if (loginBox && loginBox.style.display !== 'none' && loginBox.offsetWidth > 0) {
         if (mask && mask.style.display !== 'none') {
           mask.style.setProperty('display', 'none', 'important');
@@ -343,7 +352,6 @@
         return;
       }
 
-      // 常规免密登录后覆舱逻辑
       if ((!loginBox || loginBox.style.display === 'none' || loginBox.offsetWidth === 0) && !isInGame) {
         if (!mask || mask.style.display === 'none') {
           window.renderAppCentralLobby();
@@ -372,6 +380,7 @@
   });
 
   window.backToCentralLobby = () => {
+    if (window.isLoggingOut) return;
     window.selectedGameId = 'guandan';
     document.body.classList.remove('in-game-match');
     const mask = document.getElementById('app-perfect-selector-mask');
