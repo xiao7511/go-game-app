@@ -1,9 +1,9 @@
 /**
  * Modified Date: 2026-05-30
- * Description: 游戏对局主控舱 - 旗舰版（带全量退局路由拦截锁）
- * 1. 【核心功能】：物理劫持并穿透 `#quit-game-btn`，点击后秒级安全断开并返回新版主控舱。
- * 2. 状态机物理重置：穿透分流时自动清理原厂残留大厅状态，100% 唤棋盘/牌桌。
- * 3. 登录退场雷达：完美应对所有 null 值的时序冲突。
+ * Description: 游戏对局主控舱 - 旗舰自愈版
+ * 1. 【完美修复】：彻底解决掼蛋游戏结束、返回大厅时无法跳回新版选择界面的硬伤。
+ * 2. 物理劫持：利用捕获流深度拦截全网页的 `#quit-game-btn` 以及掼蛋专属退出返回动作。
+ * 3. 状态自愈：双重守护雷达，发现老旧大厅死灰复燃时自动平滑切回主控舱。
  */
 (() => {
   'use strict';
@@ -34,7 +34,7 @@
         background: #090d16 !important; 
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       }
-      /* 🔒【绝对物理压制】非局内匹配状态下，强行雪藏原厂围棋大厅外观、掼蛋容器和所有中间弹窗 */
+      /* 🔒【绝对物理压制】非局内匹配状态下，强行雪藏原厂所有老旧大厅外观和弹窗 */
       .app, .main-layout, #confirm-modal, .modal-backdrop, #guandan-lobby-container, #lobby-container, .lobby {
         display: none !important;
       }
@@ -67,9 +67,13 @@
       .app-btn-primary { background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); color: white; box-shadow: 0 8px 20px rgba(37,99,235,0.3); }
       .app-btn-success { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: white; box-shadow: 0 8px 20px rgba(217,119,6,0.3); }
       
-      /* 🔓 【局内真视窗释放锁】只有激活该类名时，才解禁原厂游戏画布的底层布局展现 */
+      /* 🔓 【局内真视窗释放锁】仅在局内时释放原厂容器 */
       body.in-game-match .app, body.in-game-match .main-layout { 
         display: grid !important; 
+      }
+      /* 蛋游戏特殊画布容器释放 */
+      body.in-game-match #guandan-game-container {
+        display: block !important;
       }
       body.in-game-match #app-perfect-selector-mask { 
         display: none !important; 
@@ -100,7 +104,13 @@
       if (window.GD) {
         const gdLobby = document.getElementById('guandan-lobby-container');
         if (gdLobby) gdLobby.style.setProperty('display', 'none', 'important');
-        if (typeof window.GD.initGameMatch === 'function') window.GD.initGameMatch();
+        
+        // 强行启动掼蛋局内初始化
+        if (typeof window.GD.initGameMatch === 'function') {
+          window.GD.initGameMatch();
+        } else if (typeof window.GD.init === 'function') {
+          window.GD.init();
+        }
       }
     } 
     else if (window.selectedGameId === 'go') {
@@ -179,10 +189,10 @@
   };
 
   // =========================================================================
-  // 4. 全域高频【登录检测】与【退局 quit-game-btn 全域劫持拦截锁】
+  // 4. 全域高频【退局重定向守卫】与【状态自愈雷达】
   // =========================================================================
   function initEventListeners() {
-    console.log("[主控舱防御雷达] 系统就绪。正在监控原厂组件与退局动作...");
+    console.log("[主控舱防御雷达] 系统就绪。全向拦截退局动作与大厅重定向...");
 
     window.setLoggedIn = function(val, userInfo) {
       if (val === true) {
@@ -195,41 +205,60 @@
       }
     };
 
-    // ⚡【退局核心拦截锁】：利用捕获流（Capture Phase）深度拦截 quit-game-btn 的点击事件
+    // ⚡【退局动作深度拦截】：全向劫持掼蛋和围棋内所有的返回大厅/退出按钮
     document.addEventListener('click', (e) => {
       const target = e.target;
-      // 兼容 ID 精确命中或通过 class/组件冒泡检索
-      const isQuitBtn = target.id === 'quit-game-btn' || target.closest('#quit-game-btn') || target.classList.contains('quit-game-btn');
-      
-      if (isQuitBtn) {
-        console.log("[主控舱核心反截获] 检测到用户按下 `quit-game-btn`，正在无缝执行退局归舱操作...");
+      if (!target) return;
+
+      // 命中标准退出键，或掼蛋结算弹窗里写有 "返回大厅"、"离开" 等字样的按钮
+      const isQuitAction = 
+        target.id === 'quit-game-btn' || 
+        target.closest('#quit-game-btn') || 
+        target.classList.contains('quit-game-btn') ||
+        (target.tagName === 'BUTTON' && target.textContent.includes('返回大厅')) ||
+        target.id === 'gd-btn-lobby-return'; // 预防掼蛋原生遗留返回键
+
+      if (isQuitAction) {
+        console.log("[主控舱防御机制] 拦截到退出或返回大厅动作，正在平滑收置状态机...");
         
-        // 1. 物理移除局内显示权限类名，令底层 CSS 强行关闭围棋画布
+        // 拔掉局内特异样式权限
         document.body.classList.remove('in-game-match');
         
-        // 2. 清理围棋可能残留的闪烁高光定时器或单机线程
+        // 执行重置与环境清理
         if (typeof window.clearBlink === 'function') window.clearBlink();
         if (window.state) {
           window.state.isInRoom = false;
           window.state.gameMode = null;
         }
-
-        // 3. 如果是掼蛋对局，调用对应的销毁清理钩子
         if (window.GD && typeof window.GD.destroy === 'function') {
           window.GD.destroy();
         }
-        
-        // 4. 强制重新渲染并拉起新版选择主控舱，完美封死原厂老旧大厅
+
+        // 强行雪藏可能弹出的老掼蛋大厅
+        const gdLobby = document.getElementById('guandan-lobby-container');
+        if (gdLobby) gdLobby.style.setProperty('display', 'none', 'important');
+
+        // 一键安全归舱
         window.renderAppCentralLobby();
       }
-    }, true); // 使用 true 激活捕获流，确保优先于任何原厂底层逻辑运行
+    }, true);
 
-    // 🔒 登录雷达：发现登录完毕且玩家不处在局内时，自动拉起主控舱覆盖老选单
+    // 🔒【物理防回头雷达】：每100ms扫描一次，防止掼蛋底层逻辑在结算后强制将老版大厅设为可见
     setInterval(() => {
       const loginBox = document.getElementById('login-container') || document.querySelector('iframe');
       const mask = document.getElementById('app-perfect-selector-mask');
       const isInGame = document.body.classList.contains('in-game-match');
 
+      // 核心自愈：如果在局外，但原生掼蛋大厅容器突然跑出来了，瞬间将其抹平并拉起主控舱
+      const gdLobby = document.getElementById('guandan-lobby-container');
+      if (gdLobby && gdLobby.style.display !== 'none' && gdLobby.offsetWidth > 0 && !isInGame) {
+        console.log("[自愈雷达] 捕捉到老版掼蛋大厅意外露头，正在强行修正...");
+        gdLobby.style.setProperty('display', 'none', 'important');
+        window.renderAppCentralLobby();
+        return;
+      }
+
+      // 常规免密登录后覆舱逻辑
       if ((!loginBox || loginBox.style.display === 'none' || loginBox.offsetWidth === 0) && !isInGame) {
         if (!mask || mask.style.display === 'none') {
           window.renderAppCentralLobby();
