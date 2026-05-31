@@ -478,81 +478,92 @@
     if (!window._backupRawLaunchMatchGame) {
       window._backupRawLaunchMatchGame = window.launchMatchGame;
     }
-
-    window.launchMatchGame = function(mode) {
+    let _rawLaunchFn = null;
+    window.proxyLaunchMatchGame = function(mode) {
       if (window.isLoggingOut) return;
+
+    const currentMode = String(mode).trim().toUpperCase();
+    const currentGameId = String(window.selectedGameId).trim();
+
+    console.log(`[主控舱分流器] 动态核心捕获 -> 游戏: ${currentGameId}, 模式: ${currentMode}`);
+
+    // 🚀【唯一拦截闸门】：仅在掼蛋联机模式下切入直通车
+    if (currentGameId === 'guandan' && currentMode === 'NET') {
+      console.log("[分流器] 触发掼蛋联机专属直通通道，强制熔断后置大厅。");
       
-      // 安全容错：将传入的 mode 转换为字符串处理
-      const currentMode = String(mode).trim().toUpperCase();
-      const currentGameId = String(window.selectedGameId).trim();
-
-      console.log(`[主控舱分流器] 当前检测 -> 游戏: ${currentGameId}, 模式: ${currentMode}`);
-
-      // 🚀【唯一拦截闸门】：只有当 选中的是掼蛋 且 明确是联机版(NET) 时，才触发物理直通车
-      if (currentGameId === 'guandan' && currentMode === 'NET') {
-        console.log("[分流器] 触发掼蛋联机专属直通通道，强制熔断后置大厅。");
-        
-        // 状态机锁死
-        if (window.state) {
-          window.state.gameMode = 'NET_BATTLE';
-          if (!window.state.uid) window.state.uid = 'net_' + Math.random().toString(36).substr(2, 6);
-        }
-
-        document.body.classList.add('in-game-match');
-        
-        const mask = document.getElementById('app-perfect-selector-mask');
-        if (mask) mask.style.setProperty('display', 'none', 'important');
-
-        // 物理移除掼蛋专属的干扰大厅 DOM 树
-        const lobbySelectors = [
-          '#game-selection', '.lobby', '#guandan-lobby-container', 
-          '.main-lobby', '.game-select-panel', '.center-box', '.modal-backdrop'
-        ];
-        lobbySelectors.forEach(selector => {
-          document.querySelectorAll(selector).forEach(el => el.remove());
-        });
-
-        // 展现掼蛋战场
-        document.querySelectorAll('#guandan-game-container, #game-container, .game-board').forEach(el => {
-          el.style.setProperty('display', 'block', 'important');
-          el.style.setProperty('visibility', 'visible', 'important');
-          el.style.setProperty('opacity', '1', 'important');
-        });
-
-        // 获取或派发房号
-        let roomCode = new URLSearchParams(window.location.search).get('room');
-        if (!roomCode) {
-          roomCode = 'GD' + Math.floor(1000 + Math.random() * 9000);
-        }
-
-        // 初始化画布
-        if (window.GD && typeof window.GD.initGameMatch === 'function') {
-          try { window.GD.initGameMatch(); } catch(e) { console.warn(e); }
-        }
-
-        // 激活并线引擎
-        if (window.GD_MP && typeof window.GD_MP.startNetMatch === 'function') {
-          window.GD_MP.startNetMatch(roomCode);
-        }
-
-        // 🚨 执行熔断，不让掼蛋联机往下走原厂的选单渲染
-        return;
+      if (window.state) {
+        window.state.gameMode = 'NET_BATTLE';
+        if (!window.state.uid) window.state.uid = 'net_' + Math.random().toString(36).substr(2, 6);
       }
 
-      // =========================================================================
-      // 🟢【安全绿色通道】：非掼蛋联机模式，无条件将执行权 100% 奉还给原厂底层
-      // =========================================================================
-      console.log(`[分流器放行] 正在将控制权交回原厂 -> 引导进入原生模式: ${mode}`);
-      if (typeof window._backupRawLaunchMatchGame === 'function') {
-        window._backupRawLaunchMatchGame(mode);
-      } else {
-        console.error("⛔ [严重] 未能探测到原厂基础 launchMatchGame 逻辑，请检查代码加载顺序！");
+      document.body.classList.add('in-game-match');
+      
+      const mask = document.getElementById('app-perfect-selector-mask');
+      if (mask) mask.style.setProperty('display', 'none', 'important');
+
+      // 物理剥离大厅组件
+      const lobbySelectors = [
+        '#game-selection', '.lobby', '#guandan-lobby-container', 
+        '.main-lobby', '.game-select-panel', '.center-box', '.modal-backdrop'
+      ];
+      lobbySelectors.forEach(selector => {
+        document.querySelectorAll(selector).forEach(el => el.remove());
+      });
+
+      // 撑开真实的掼蛋画布
+      document.querySelectorAll('#guandan-game-container, #game-container, .game-board').forEach(el => {
+        el.style.setProperty('display', 'block', 'important');
+        el.style.setProperty('visibility', 'visible', 'important');
+        el.style.setProperty('opacity', '1', 'important');
+      });
+
+      let roomCode = new URLSearchParams(window.location.search).get('room');
+      if (!roomCode) {
+        roomCode = 'GD' + Math.floor(1000 + Math.random() * 9000);
       }
-    };
+
+      if (window.GD && typeof window.GD.initGameMatch === 'function') {
+        try { window.GD.initGameMatch(); } catch(e) { console.warn(e); }
+      }
+
+      if (window.GD_MP && typeof window.GD_MP.startNetMatch === 'function') {
+        window.GD_MP.startNetMatch(roomCode);
+      }
+
+      return; // 掼蛋联机安全熔断
+    }
+
+    // 🟢【安全通道】：非掼蛋联机，无条件原封不动交还给原厂
+    if (typeof _rawLaunchFn === 'function') {
+      _rawLaunchFn(mode);
+    } else {
+      console.error("⛔ [系统级阻塞] 原厂 launchMatchGame 仍未加载，无法放行其他模式！");
+    }
+  };
 
     console.log("[系统监控] 沙箱分流网关已加固，其他游戏通道已全部复活。");
 
+  // 2. 🔥【核心黑科技】：使用 defineProperty 监听 window.launchMatchGame 的赋值动作
+    // 无论原厂脚本是提前运行、同时运行还是滞后 5 秒运行，只要它一赋值，立刻被捕获
+    Object.defineProperty(window, 'launchMatchGame', {
+      configurable: true,
+      enumerable: true,
+      get: () => proxyLaunchMatchGame, // 外部不管是点击还是调用，统一返回我们的沙箱代理
+      set: (latestValue) => {
+        // 防止原厂脚本反复覆盖导致我们自己陷入死循环
+        if (latestValue !== proxyLaunchMatchGame) {
+          console.log("[雷达捕获] 成功捕获并内嵌原厂基础 launchMatchGame 逻辑句柄。");
+          _rawLaunchFn = latestValue; // 将原厂真正的函数悄悄备份到内存里
+        }
+      }
+    });
 
+    // 3. 【兜底扫描】如果此时原厂脚本碰巧已经加载过了，主动提取一次快照
+    if (window.launchMatchGame && window.launchMatchGame !== proxyLaunchMatchGame) {
+      _rawLaunchFn = window.launchMatchGame;
+      window.launchMatchGame = proxyLaunchMatchGame; 
+      console.log("[雷达兜底] 检测到原厂脚本已提前就绪，已完成静态收编。");
+    }
 
 
   // ==========================================
