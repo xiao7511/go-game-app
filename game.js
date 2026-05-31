@@ -169,7 +169,7 @@
   // =========================================================================
   // 🎯 2. 穿透直通车路由（已完美融合掼蛋一键刺穿联机网关）
   // =========================================================================
- /* window.launchMatchGame = function(mode) {
+  window.launchMatchGame = function(mode) {
     if (window.isLoggingOut) return;
     console.log(`[主控舱直通车] 正在强切对局 -> 游戏: ${window.selectedGameId}, 模式: ${mode}`);
 
@@ -241,7 +241,7 @@
       const rawGoLobby = document.getElementById('game-selection') || document.querySelector('.lobby');
       if (rawGoLobby) rawGoLobby.style.setProperty('display', 'none', 'important');
     }
-  };*/
+  };
 
   // ==========================================
   // 3. 渲染构建游戏对局主控舱
@@ -473,99 +473,7 @@
     }, 100);
   }
 
-  // 1. 严格备份原厂的 launchMatchGame，确保原厂逻辑的完整引用
-    // 如果之前已经备份过，优先使用最原始的备份，防止遭遇二次包裹死循环
-    if (!window._backupRawLaunchMatchGame) {
-      window._backupRawLaunchMatchGame = window.launchMatchGame;
-    }
-    let _rawLaunchFn = null;
-    window.proxyLaunchMatchGame = function(mode) {
-      if (window.isLoggingOut) return;
-
-    const currentMode = String(mode).trim().toUpperCase();
-    const currentGameId = String(window.selectedGameId).trim();
-
-    console.log(`[主控舱分流器] 动态核心捕获 -> 游戏: ${currentGameId}, 模式: ${currentMode}`);
-
-    // 🚀【唯一拦截闸门】：仅在掼蛋联机模式下切入直通车
-    if (currentGameId === 'guandan' && currentMode === 'NET') {
-      console.log("[分流器] 触发掼蛋联机专属直通通道，强制熔断后置大厅。");
-      
-      if (window.state) {
-        window.state.gameMode = 'NET_BATTLE';
-        if (!window.state.uid) window.state.uid = 'net_' + Math.random().toString(36).substr(2, 6);
-      }
-
-      document.body.classList.add('in-game-match');
-      
-      const mask = document.getElementById('app-perfect-selector-mask');
-      if (mask) mask.style.setProperty('display', 'none', 'important');
-
-      // 物理剥离大厅组件
-      const lobbySelectors = [
-        '#game-selection', '.lobby', '#guandan-lobby-container', 
-        '.main-lobby', '.game-select-panel', '.center-box', '.modal-backdrop'
-      ];
-      lobbySelectors.forEach(selector => {
-        document.querySelectorAll(selector).forEach(el => el.remove());
-      });
-
-      // 撑开真实的掼蛋画布
-      document.querySelectorAll('#guandan-game-container, #game-container, .game-board').forEach(el => {
-        el.style.setProperty('display', 'block', 'important');
-        el.style.setProperty('visibility', 'visible', 'important');
-        el.style.setProperty('opacity', '1', 'important');
-      });
-
-      let roomCode = new URLSearchParams(window.location.search).get('room');
-      if (!roomCode) {
-        roomCode = 'GD' + Math.floor(1000 + Math.random() * 9000);
-      }
-
-      if (window.GD && typeof window.GD.initGameMatch === 'function') {
-        try { window.GD.initGameMatch(); } catch(e) { console.warn(e); }
-      }
-
-      if (window.GD_MP && typeof window.GD_MP.startNetMatch === 'function') {
-        window.GD_MP.startNetMatch(roomCode);
-      }
-
-      return; // 掼蛋联机安全熔断
-    }
-
-    // 🟢【安全通道】：非掼蛋联机，无条件原封不动交还给原厂
-    if (typeof _rawLaunchFn === 'function') {
-      _rawLaunchFn(mode);
-    } else {
-      console.error("⛔ [系统级阻塞] 原厂 launchMatchGame 仍未加载，无法放行其他模式！");
-    }
-  };
-
-    console.log("[系统监控] 沙箱分流网关已加固，其他游戏通道已全部复活。");
-
-  // 2. 🔥【核心黑科技】：使用 defineProperty 监听 window.launchMatchGame 的赋值动作
-    // 无论原厂脚本是提前运行、同时运行还是滞后 5 秒运行，只要它一赋值，立刻被捕获
-    Object.defineProperty(window, 'launchMatchGame', {
-      configurable: true,
-      enumerable: true,
-      get: () => proxyLaunchMatchGame, // 外部不管是点击还是调用，统一返回我们的沙箱代理
-      set: (latestValue) => {
-        // 防止原厂脚本反复覆盖导致我们自己陷入死循环
-        if (latestValue !== proxyLaunchMatchGame) {
-          console.log("[雷达捕获] 成功捕获并内嵌原厂基础 launchMatchGame 逻辑句柄。");
-          _rawLaunchFn = latestValue; // 将原厂真正的函数悄悄备份到内存里
-        }
-      }
-    });
-
-    // 3. 【兜底扫描】如果此时原厂脚本碰巧已经加载过了，主动提取一次快照
-    if (window.launchMatchGame && window.launchMatchGame !== proxyLaunchMatchGame) {
-      _rawLaunchFn = window.launchMatchGame;
-      window.launchMatchGame = proxyLaunchMatchGame; 
-      console.log("[雷达兜底] 检测到原厂脚本已提前就绪，已完成静态收编。");
-    }
-
-
+  
   // ==========================================
   // 5. 状态机通信网关代理
   // ==========================================
