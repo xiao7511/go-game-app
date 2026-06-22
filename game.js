@@ -281,6 +281,12 @@
             <h4 style="margin: 0; font-size: 18px; color: #ffffff;">经典围棋</h4>
             <span style="font-size: 11px; opacity: 0.6; display:block; margin-top:6px;">19x19 矩阵免密版</span>
           </div>
+          <!-- CS1.6 游戏大厅卡片 -->
+            <div class='app-game-item' data-id='cs16'>
+            <div style='font-size: 50px; margin-bottom: 12px;'>🔫</div>
+            <h4 style='margin: 0; font-size: 18px; color: #ffffff;'>CS1.6</h4>
+            <span style='font-size: 11px; opacity: 0.6; display:block; margin-top:6px;'>经典射击游戏</span>
+            </div>
         </div>
         
         <div class="app-btn-container">
@@ -590,6 +596,17 @@
     // 恢复原系统 20ms 事件初始化逻辑
     setTimeout(initEventListeners, 20);
   });
+
+  document.getElementById('launch-cs16').addEventListener('click', function() {
+        const mode = document.getElementById('cs16-mode').value;
+        fetch('/api/games/cs16/launch-config?mode=' + mode)
+            .then(response => response.json())
+            .then(data => {
+                console.log('launch URL:', data.launchUrl);
+                // 处理启动逻辑，比如执行自动启动游戏或显示消息
+            })
+            .catch(error => console.error('Error:', error));
+    });
 
   window.backToCentralLobby = () => {
     if (window.isLoggingOut) return;
