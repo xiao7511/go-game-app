@@ -1,8 +1,6 @@
 /**
- * Modified Date: 2026-05-30
- * Description: 游戏对局主控舱 - 多页面物理退场复位版
- * 1. 【完美修复】：修复由于单页面混淆导致找不到登录节点、重载后仍停留在 game.html 回流主控舱的恶性死循环。
- * 2. 清障跨页：点击退出时，全量清洗浏览器残留 Token 缓存，并强制将上下文物理重定向至原厂“login.html”登录专页。
+ * Modified Date: 2026-06-22
+ * Description: 游戏对局主控舱 - 完美集成 CS1.6 免密协议启动版
  */
 (() => {
   'use strict';
@@ -34,7 +32,6 @@
         background: #090d16 !important; 
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       }
-      /* 🔒【绝对物理压制】非局内匹配状态下，强行雪藏原厂所有老旧大厅外观 */
       body:not(.app-system-logged-out) .app, 
       body:not(.app-system-logged-out) .main-layout, 
       body:not(.app-system-logged-out) #confirm-modal, 
@@ -119,79 +116,53 @@
   }
 
   // =========================================================================
-  // 🎯 2. 穿透直通车路由
-  // =========================================================================
- /* window.launchMatchGame = function(mode) {
-    if (window.isLoggingOut) return;
-    console.log(`[主控舱直通车] 正在强切对局 -> 游戏: ${window.selectedGameId}, 模式: ${mode}`);
-
-    document.body.classList.add('in-game-match');
-    const mask = document.getElementById('app-perfect-selector-mask');
-    if (mask) mask.style.setProperty('display', 'none', 'important');
-    
-    const intermediateGarbage = [
-      '#confirm-modal', '.modal-backdrop', '#guandan-lobby-container', '#login-container', 'iframe'
-    ];
-    intermediateGarbage.forEach(selector => {
-      document.querySelectorAll(selector).forEach(el => el.style.setProperty('display', 'none', 'important'));
-    });
-
-    if (window.selectedGameId === 'guandan') {
-      if (window.GD) {
-        const gdLobby = document.getElementById('guandan-lobby-container');
-        if (gdLobby) gdLobby.style.setProperty('display', 'none', 'important');
-        if (typeof window.GD.initGameMatch === 'function') {
-          window.GD.initGameMatch();
-        } else if (typeof window.GD.init === 'function') {
-          window.GD.init();
-        }
-      }
-    } 
-    else if (window.selectedGameId === 'go') {
-      if (typeof window.applyImmersiveState === 'function') window.applyImmersiveState(true);
-      if (typeof window.updateUI === 'function') window.updateUI();
-
-      if (window.MP) {
-        if (mode === 'SINGLE') {
-          if (typeof window.MP.startAIGame === 'function') {
-            window.MP.startAIGame();
-          } else if (typeof window.startAIGame === 'function') {
-            window.startAIGame();
-          }
-        } else {
-          if (typeof window.MP.createRoom === 'function') window.MP.createRoom();
-        }
-      }
-      const rawGoLobby = document.getElementById('game-selection') || document.querySelector('.lobby');
-      if (rawGoLobby) rawGoLobby.style.setProperty('display', 'none', 'important');
-    }
-  };*/
-  // =========================================================================
-  // 🎯 2. 穿透直通车路由（已完美融合掼蛋一键刺穿联机网关）
+  // 🎯 2. 穿透直通车路由（已完美集成 CS1.6 自定义协议拉起）
   // =========================================================================
   window.launchMatchGame = function(mode) {
     if (window.isLoggingOut) return;
     console.log(`[主控舱直通车] 正在强切对局 -> 游戏: ${window.selectedGameId}, 模式: ${mode}`);
 
-    // 🚀【核心改造】：如果选中的是掼蛋且点击的是联机版（NET），直接穿透刺入 Supabase 实时联机引擎
+    // 🚀【CS1.6 核心穿透分支】
+    if (window.selectedGameId === 'cs16') {
+      // 转换参数格式以迎合后端路由逻辑
+      const apiMode = (mode === 'SINGLE') ? 'single' : 'multiplayer';
+      console.log(`[CS1.6 启动器] 正在请求拉起配置，模式: ${apiMode}`);
+      
+      fetch(`/api/games/cs16/launch-config?mode=${apiMode}`)
+        .then(response => response.json())
+        .then(data => {
+          if (data && data.url) {
+            console.log('[CS1.6 启动器] 成功获取协议 URL:', data.url);
+            // 通过修改 location.href 唤醒本地免安装客户端
+            window.location.href = data.url;
+          } else {
+            alert('获取 CS1.6 启动配置失败，后端未返回有效 URL');
+          }
+        })
+        .catch(error => {
+          console.error('[CS1.6 启动器] 请求发生错误:', error);
+          alert('无法连接到大厅后端，请确保后端服务已启动！');
+        });
+      return; // 拦截熔断，不需要走下方网页前端的切页逻辑
+    }
+
+    // 🚀 如果选中的是掼蛋且点击的是联机版（NET），直接穿透刺入 Supabase 实时联机引擎
     if (window.selectedGameId === 'guandan' && mode === 'NET') {
       document.body.classList.add('in-game-match');
       const mask = document.getElementById('app-perfect-selector-mask');
       if (mask) mask.style.setProperty('display', 'none', 'important');
 
-      // 清除可能产生干扰的弹窗与遮罩
       const intermediateGarbage = ['#confirm-modal', '.modal-backdrop', '#guandan-lobby-container', '#login-container', 'iframe'];
       intermediateGarbage.forEach(selector => {
         document.querySelectorAll(selector).forEach(el => el.style.setProperty('display', 'none', 'important'));
       });
 
-      // 强力拉起掼蛋实时联机引擎
       if (window.GD_MP && typeof window.GD_MP.startNetMatch === 'function') {
         window.GD_MP.startNetMatch();
       } else {
         alert("检测到联机数据包 guandan-mp-ext.js 尚未就绪，请检查引入顺序！");
       }
-      return; // 🔥 熔断拦截，不进入下方的常规单机/二级大厅逻辑
+      return; 
     }
 
     // ==========================================
@@ -210,9 +181,7 @@
 
     if (window.selectedGameId === 'guandan') {
       if (window.GD) {
-        // 进入单机模式，确保状态标记为 SOLO
         if (window.state) window.state.gameMode = 'SOLO';
-        
         const gdLobby = document.getElementById('guandan-lobby-container');
         if (gdLobby) gdLobby.style.setProperty('display', 'none', 'important');
         
@@ -281,12 +250,11 @@
             <h4 style="margin: 0; font-size: 18px; color: #ffffff;">经典围棋</h4>
             <span style="font-size: 11px; opacity: 0.6; display:block; margin-top:6px;">19x19 矩阵免密版</span>
           </div>
-          <!-- CS1.6 游戏大厅卡片 -->
-            <div class='app-game-item' data-id='cs16'>
-            <div style='font-size: 50px; margin-bottom: 12px;'>🔫</div>
-            <h4 style='margin: 0; font-size: 18px; color: #ffffff;'>CS1.6</h4>
-            <span style='font-size: 11px; opacity: 0.6; display:block; margin-top:6px;'>经典射击游戏</span>
-            </div>
+          <div class="app-game-item" data-id="cs16">
+            <div style="font-size: 50px; margin-bottom: 12px;">🔫</div>
+            <h4 style="margin: 0; font-size: 18px; color: #ffffff;">CS 1.6</h4>
+            <span style="font-size: 11px; color: #f59e0b; display:block; margin-top:6px; font-weight:bold;">免安装零碎版</span>
+          </div>
         </div>
         
         <div class="app-btn-container">
@@ -309,53 +277,33 @@
     document.getElementById('perfect-go-solo').onclick = () => window.launchMatchGame('SINGLE');
     document.getElementById('perfect-go-net').onclick = () => window.launchMatchGame('NET');
 
-    // ⚡【核心改造】：退出系统 - 跨多页面硬重定向
     document.getElementById('app-global-signout-trigger').onclick = async (e) => {
       e.stopPropagation();
-      console.log("[主控舱跨页退场] 正在执行全域脱敏与物理切页...");
-      
-      // 开启熔断锁
       window.isLoggingOut = true; 
       document.body.classList.add('app-system-logged-out');
 
-      // 1. 高强度抹除本域下的所有本地缓存令牌，彻底掐断回流根基
       try {
         localStorage.clear();
         sessionStorage.clear();
-        console.log("[本地存储] 缓存洗净成功。");
       } catch (ex) {}
 
-      // 2. 异步阻塞向云端 Supabase 宣告登出注销
       const client = window.getSupabaseClient();
       if (client && client.auth && typeof client.auth.signOut === 'function') {
-        try { 
-          await client.auth.signOut(); 
-          console.log("[Supabase Auth] 云端会话注销完毕。");
-        } catch (err) {}
+        try { await client.auth.signOut(); } catch (err) {}
       }
-
-      // 3. 🚀【物理跨页跳转】：彻底离开 game.html，硬切回专职的登录框界面 login.html
-      console.log("[跨页重定向] 正在精准驶向登录专页...");
       window.location.replace("login.html");
     };
   };
 
   // =========================================================================
-  // 🧼 【围棋破除幽灵残留】模式切换全清场洗刷器
-  // =========================================================================
-  // =========================================================================
   // 🧼 【毁灭级清洗】彻底根除围棋单机/联机切换的幽灵棋子残留
   // =========================================================================
   window.clearGoBoardResidual = function() {
-    console.log("[围棋引擎] 正在执行全量内存解构与画布擦除...");
-
-    // 1. 深度清洗原厂可能存在的各种全局状态变量
     const goKeys = ['goGameState', 'goBoard', 'boardMatrix', 'chessPieces', 'goHistory', 'currentGoMove'];
     goKeys.forEach(key => {
       if (window[key]) {
         if (Array.isArray(window[key])) window[key] = [];
         else if (typeof window[key] === 'object') {
-          // 针对对象型状态，清空其内部数组或调用其自带的 clear/reset 方法
           if (typeof window[key].clear === 'function') window[key].clear();
           if (typeof window[key].reset === 'function') window[key].reset();
           if (window[key].board) window[key].board = Array(19).fill(0).map(() => Array(19).fill(0));
@@ -365,48 +313,29 @@
       }
     });
 
-    // 兜底重置最基础的 19x19 二维阵列
     window.boardMatrix = Array(19).fill(0).map(() => Array(19).fill(0));
     window.goHistory = [];
 
-    // 2. 强力擦除物理 Canvas 节点
     const goSelectors = ['#go-canvas', '.go-board-canvas', '#weiqi-container canvas', 'canvas'];
     goSelectors.forEach(selector => {
       document.querySelectorAll(selector).forEach(canvas => {
-        // 确保这个 canvas 是围棋的容器内的
         if (canvas.closest('#weiqi-container') || canvas.id.includes('go')) {
           const ctx = canvas.getContext('2d');
-          if (ctx) {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-          }
+          if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
         }
       });
     });
 
-    // 3. 强制触发一次原厂的“纯净棋盘格线条”重绘
     if (typeof window.drawGoBoard === 'function') window.drawGoBoard();
     else if (window.goBoard && typeof window.goBoard.render === 'function') window.goBoard.render();
-    
-    console.log("[围棋引擎] 内存与物理画布已洗刷一新。");
   };
-
-  // =========================================================================
-  // 🔄 挂载到大厅切换行为中（伪代码示范，请将 clearGoBoardResidual() 塞入你的模式切换按钮事件中）
-  // =========================================================================
-  // 例如在点击“围棋单机版”或“围棋联机版”的按钮点击事件首行执行：
-  // document.getElementById('btn-go-single').addEventListener('click', () => {
-  //     clearGoBoardResidual(); // 先洗盘
-  //     startGoSingleGame();    // 后开局
-  // });
 
   // =========================================================================
   // 4. 全域高频【退局重定向守卫】与【状态自愈雷达】
   // =========================================================================
   function initEventListeners() {
     window.setLoggedIn = function(val, userInfo) {
-      // 💥 如果熔断锁已开启，永久屏蔽并丢弃任何干扰调用
       if (window.isLoggingOut) return; 
-
       if (val === true) {
         window.state = window.state || {};
         if (userInfo) {
@@ -417,7 +346,6 @@
       }
     };
 
-    // 退局动作拦截
     document.addEventListener('click', (e) => {
       if (window.isLoggingOut) return;
 
@@ -449,7 +377,6 @@
       }
     }, true);
 
-    // 🔒【物理防回头雷达】
     setInterval(() => {
       if (window.isLoggingOut) return;
 
@@ -479,7 +406,6 @@
     }, 100);
   }
 
-  
   // ==========================================
   // 5. 状态机通信网关代理
   // ==========================================
@@ -495,16 +421,6 @@
       }
   });
 
-  /*
-  window.addEventListener('DOMContentLoaded', () => {
-    setTimeout(initEventListeners, 20);
-  });*/
-  // =========================================================================
-  // 🧭 【自愈网关版】掼蛋参数一键直连雷达（带依赖催熟与重试机制）
-  // =========================================================================
-    // =========================================================================
-  // 🧭 【网络层安全对齐版】掼蛋直连拦截雷达
-  // =========================================================================
   // =========================================================================
   // 🧭 【总大厅物理隔离穿透版】掼蛋参数一键直连雷达
   // =========================================================================
@@ -514,29 +430,22 @@
     const modeParam = urlParams.get('mode');
     const roomParam = urlParams.get('room');
 
-    // 只要系统加载，先尝试洗刷一次围棋，防止大厅默认带入上局状态
     if (typeof window.clearGoBoardResidual === 'function') {
       window.clearGoBoardResidual();
     }
 
     if (gameParam === 'guandan' && modeParam === 'NET' && roomParam) {
-      console.log(`[路由雷达] 拦截到掼蛋联机专属请求，房间号: ${roomParam}。正在物理蒸发总大厅...`);
-      
-      // 1. 锁定全局状态机与游戏ID
       window.selectedGameId = 'guandan';
       if (window.state) {
         window.state.gameMode = 'NET_BATTLE';
         if (!window.state.uid) window.state.uid = 'net_' + Math.random().toString(36).substr(2, 6);
       }
 
-      // 2. ✂️ 阉割原厂大厅及总游戏选择舱的干扰
       if (window.GD) {
-        // 阻止原厂 guandan-game.js 的默认二级大厅复辟
-        window.GD.init = () => { console.log("[雷达拦截] 已阻止掼蛋自带二级大厅渲染。"); };
+        window.GD.init = () => {};
         if (window.gdAutoStartTimer) clearTimeout(window.gdAutoStartTimer);
       }
 
-      // 3. 【核心修复】：建立 4 秒超强物理清洗流，直接蒸发截图中的“选择游戏”总大厅
       let enforcementTimer = setInterval(() => {
         const lobbySelectors = [
           '#game-selection', '.lobby', '#guandan-lobby-container', 
@@ -544,69 +453,43 @@
           '#confirm-modal', '.main-lobby', '.game-select-panel', '.center-box'
         ];
         
-        // 隐藏所有可能的大厅层
         lobbySelectors.forEach(selector => {
           document.querySelectorAll(selector).forEach(el => el.style.setProperty('display', 'none', 'important'));
         });
 
-        // 强行把掼蛋对局画布以及联机横幅拉起来
         document.querySelectorAll('#guandan-game-container, #game-container, .game-board').forEach(el => {
           el.style.setProperty('display', 'block', 'important');
         });
         document.body.classList.add('in-game-match');
       }, 30);
 
-      // 4 秒后清除物理清洗定时器
       setTimeout(() => clearInterval(enforcementTimer), 4000);
 
-      // 4. 🧭 轮询催熟 Supabase 网关与掼蛋画布本体
       let retryCount = 0;
       const maxRetries = 40; 
 
       const tryLaunchNetMatch = () => {
-        // 检查全局变量、联机扩展包、以及掼蛋游戏画布引擎是否全部就绪
         const isSupabaseReady = !!(window.getSupabaseClient || window.supabase);
         const isGDEngineReady = !!(window.GD && typeof window.GD.initGameMatch === 'function');
         const isMpReady = !!(window.GD_MP && typeof window.GD_MP.startNetMatch === 'function');
 
         if (isSupabaseReady && isGDEngineReady && isMpReady) {
-          console.log(`[穿透成功] 所有组件加载完毕！强行启动掼蛋战场并打入联机房间。`);
-          
-          // 💡 第一步：强行拉起掼蛋核心对局桌案，初始化玩家座位和画布
           window.GD.initGameMatch(); 
-          
-          // 💡 第二步：联机引擎接管信道，开始跟房东/客军进行握手状态同步
           window.GD_MP.startNetMatch(roomParam.trim());
-          
         } else if (retryCount < maxRetries) {
           retryCount++;
-          console.warn(`[网关自检] 等待组件点亮... 第 ${retryCount} 次重试`);
           setTimeout(tryLaunchNetMatch, 150); 
         } else {
-          console.error("⛔ [致命] 联机环境初始化超时，尝试进行兜底强开...");
           if (window.GD && typeof window.GD.initGameMatch === 'function') window.GD.initGameMatch();
           if (window.GD_MP && typeof window.GD_MP.startNetMatch === 'function') window.GD_MP.startNetMatch(roomParam.trim());
         }
       };
 
-      // 启动自检锁
       setTimeout(tryLaunchNetMatch, 100);
     }
 
-    // 恢复原系统 20ms 事件初始化逻辑
     setTimeout(initEventListeners, 20);
   });
-
-  document.getElementById('launch-cs16').addEventListener('click', function() {
-        const mode = document.getElementById('cs16-mode').value;
-        fetch('/api/games/cs16/launch-config?mode=' + mode)
-            .then(response => response.json())
-            .then(data => {
-                console.log('launch URL:', data.launchUrl);
-                // 处理启动逻辑，比如执行自动启动游戏或显示消息
-            })
-            .catch(error => console.error('Error:', error));
-    });
 
   window.backToCentralLobby = () => {
     if (window.isLoggingOut) return;
