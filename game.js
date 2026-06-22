@@ -250,11 +250,20 @@
             <h4 style="margin: 0; font-size: 18px; color: #ffffff;">经典围棋</h4>
             <span style="font-size: 11px; opacity: 0.6; display:block; margin-top:6px;">19x19 矩阵免密版</span>
           </div>
+          // 在 game.js 里的模板字符串中找到 cs16 卡片部分，替换为以下代码：
           <div class="app-game-item" data-id="cs16">
-            <div style="font-size: 50px; margin-bottom: 12px;">🔫</div>
-            <h4 style="margin: 0; font-size: 18px; color: #ffffff;">CS 1.6</h4>
-            <span style="font-size: 11px; color: #f59e0b; display:block; margin-top:6px; font-weight:bold;">免安装零碎版</span>
-          </div>
+          <div style="font-size: 50px; margin-bottom: 12px;">🔫</div>
+          <h4 style="margin: 0; font-size: 18px; color: #ffffff;">CS 1.6</h4>
+          <span style="font-size: 11px; color: #f59e0b; display:block; margin-top:6px; font-weight:bold;">免密 VBS 唤醒版</span>  
+          <div style="margin-top: 10px; padding: 4px; background: rgba(0,0,0,0.2); border-radius: 8px;">
+           <a href="/downloads/cs16_launcher.zip" download 
+             style="color: #3b82f6; font-size: 12px; text-decoration: underline; font-weight: bold; display: block;" 
+             onclick="event.stopPropagation();">
+              📥 首次游玩点此下载启动器
+            </a>
+          <span style="color: #9ca3af; font-size: 10px; display: block; margin-top: 2px;">(解压后运行 bind_protocol.bat)</span>
+            </div>
+            </div>
         </div>
         
         <div class="app-btn-container">

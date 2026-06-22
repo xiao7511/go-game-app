@@ -13,3 +13,5 @@ config.local.js
 .env
 .env.local
 .env.*.local
+
+downloads/cs16_green.zip
