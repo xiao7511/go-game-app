@@ -1,6 +1,6 @@
 /**
- * Modified Date: 2026-06-22
- * Description: 游戏对局主控舱 - 完美集成 CS1.6 免密协议启动版
+ * Modified Date: 2026-06-23
+ * Description: 游戏对局主控舱 - 多页面物理退场复位版 (融合免密VBS CS1.6路由)
  */
 (() => {
   'use strict';
@@ -116,37 +116,48 @@
   }
 
   // =========================================================================
-  // 🎯 2. 穿透直通车路由（已完美集成 CS1.6 自定义协议拉起）
+  // 🎯 2. 穿透直通车路由（完美融合掼蛋一键刺穿联机与 CS1.6 免密协议拉起）
   // =========================================================================
   window.launchMatchGame = function(mode) {
     if (window.isLoggingOut) return;
     console.log(`[主控舱直通车] 正在强切对局 -> 游戏: ${window.selectedGameId}, 模式: ${mode}`);
 
-    // 🚀【CS1.6 核心穿透分支】
+    // -------------------------------------------------------------
+    // ⚔️ 专属分支 A：CS1.6 智能重定向隔离区
+    // -------------------------------------------------------------
     if (window.selectedGameId === 'cs16') {
-      // 转换参数格式以迎合后端路由逻辑
       const apiMode = (mode === 'SINGLE') ? 'single' : 'multiplayer';
-      console.log(`[CS1.6 启动器] 正在请求拉起配置，模式: ${apiMode}`);
-      
-      fetch(`/api/games/cs16/launch-config?mode=${apiMode}`)
-        .then(response => response.json())
-        .then(data => {
-          if (data && data.url) {
-            console.log('[CS1.6 启动器] 成功获取协议 URL:', data.url);
-            // 通过修改 location.href 唤醒本地免安装客户端
-            window.location.href = data.url;
-          } else {
-            alert('获取 CS1.6 启动配置失败，后端未返回有效 URL');
-          }
-        })
-        .catch(error => {
-          console.error('[CS1.6 启动器] 请求发生错误:', error);
-          alert('无法连接到大厅后端，请确保后端服务已启动！');
-        });
-      return; // 拦截熔断，不需要走下方网页前端的切页逻辑
+      console.log(`[CS1.6 调度器] 正在走免密 VBS 路由拉起游戏, 模式: ${apiMode}`);
+
+      if (apiMode === 'single') {
+        // 单机版直接通过本地 VBS 唤起，不需要依赖后端联机 IP
+        window.location.href = "cs16://";
+      } else {
+        // 联机版去请求 Go 后端获取联机房主的 IP 与端口
+        fetch(`/api/games/cs16/launch-config?mode=${apiMode}`)
+          .then(response => {
+            if (!response.ok) throw new Error("Backend return non-200 status");
+            return response.json();
+          })
+          .then(data => {
+            if (data && data.launchUrl) {
+              console.log('[CS1.6 调度器] 成功获取公网对战协议:', data.launchUrl);
+              window.location.href = data.launchUrl; // 唤醒格式如：cs16://connect/47.100.x.x:27015
+            } else {
+              // 兜底：如果后端没有给 IP，拉起单机客户端自行手动加房
+              window.location.href = "cs16://";
+            }
+          })
+          .catch(error => {
+            console.error('[CS1.6 启动异常]', error);
+            alert("无法连接到大厅联机后端，已为你自动降级拉起本地单机版客户端！");
+            window.location.href = "cs16://";
+          });
+      }
+      return; // 🔥 强力熔断，不允许执行下面原厂页面的 DOM 雪藏动作
     }
 
-    // 🚀 如果选中的是掼蛋且点击的是联机版（NET），直接穿透刺入 Supabase 实时联机引擎
+    // 🚀 专属分支 B：如果选中的是掼蛋且点击的是联机版（NET），直接穿透刺入 Supabase 实时联机引擎
     if (window.selectedGameId === 'guandan' && mode === 'NET') {
       document.body.classList.add('in-game-match');
       const mask = document.getElementById('app-perfect-selector-mask');
@@ -165,9 +176,9 @@
       return; 
     }
 
-    // ==========================================
-    // 常规对局切入路径（单机版或围棋对局流程）
-    // ==========================================
+    // -------------------------------------------------------------
+    // 常规对局切入路径（掼蛋单机版或围棋对局流程）
+    // -------------------------------------------------------------
     document.body.classList.add('in-game-match');
     const mask = document.getElementById('app-perfect-selector-mask');
     if (mask) mask.style.setProperty('display', 'none', 'important');
@@ -250,20 +261,19 @@
             <h4 style="margin: 0; font-size: 18px; color: #ffffff;">经典围棋</h4>
             <span style="font-size: 11px; opacity: 0.6; display:block; margin-top:6px;">19x19 矩阵免密版</span>
           </div>
-          // 在 game.js 里的模板字符串中找到 cs16 卡片部分，替换为以下代码：
+          
           <div class="app-game-item" data-id="cs16">
-          <div style="font-size: 50px; margin-bottom: 12px;">🔫</div>
-          <h4 style="margin: 0; font-size: 18px; color: #ffffff;">CS 1.6</h4>
-          <span style="font-size: 11px; color: #f59e0b; display:block; margin-top:6px; font-weight:bold;">免密 VBS 唤醒版</span>  
-          <div style="margin-top: 10px; padding: 4px; background: rgba(0,0,0,0.2); border-radius: 8px;">
-           <a href="/downloads/cs16_launcher.zip" download 
-             style="color: #3b82f6; font-size: 12px; text-decoration: underline; font-weight: bold; display: block;" 
-             onclick="event.stopPropagation();">
-              📥 首次游玩点此下载启动器
-            </a>
-          <span style="color: #9ca3af; font-size: 10px; display: block; margin-top: 2px;">(解压后运行 bind_protocol.bat)</span>
+            <div style="font-size: 50px; margin-bottom: 12px;">🔫</div>
+            <h4 style="margin: 0; font-size: 18px; color: #ffffff;">CS 1.6</h4>
+            <span style="font-size: 11px; color: #f59e0b; display:block; margin-top:6px; font-weight:bold;">免密 VBS 唤醒版</span>
+            <div style="margin-top: 10px; padding: 4px; background: rgba(0,0,0,0.2); border-radius: 8px;">
+              <a href="/downloads/cs16_launcher.zip" download 
+                 style="color: #3b82f6; font-size: 11px; text-decoration: underline; font-weight: bold; display: block;" 
+                 onclick="event.stopPropagation();">
+                 📥 下载一键启动器
+              </a>
             </div>
-            </div>
+          </div>
         </div>
         
         <div class="app-btn-container">
@@ -286,6 +296,7 @@
     document.getElementById('perfect-go-solo').onclick = () => window.launchMatchGame('SINGLE');
     document.getElementById('perfect-go-net').onclick = () => window.launchMatchGame('NET');
 
+    // ⚡退出系统 - 跨多页面硬重定向
     document.getElementById('app-global-signout-trigger').onclick = async (e) => {
       e.stopPropagation();
       window.isLoggingOut = true; 
@@ -345,6 +356,7 @@
   function initEventListeners() {
     window.setLoggedIn = function(val, userInfo) {
       if (window.isLoggingOut) return; 
+
       if (val === true) {
         window.state = window.state || {};
         if (userInfo) {
@@ -357,7 +369,6 @@
 
     document.addEventListener('click', (e) => {
       if (window.isLoggingOut) return;
-
       const target = e.target;
       if (!target) return;
 
@@ -397,6 +408,12 @@
         if (mask && mask.style.display !== 'none') {
           mask.style.setProperty('display', 'none', 'important');
         }
+        return;
+      }
+
+      // 如果当前高亮是 CS1.6 且没在对局内，绝对不要让掼蛋大厅死灰复燃
+      if (window.selectedGameId === 'cs16' && !isInGame) {
+        if (mask && mask.style.display === 'none') window.renderAppCentralLobby();
         return;
       }
 
@@ -493,7 +510,6 @@
           if (window.GD_MP && typeof window.GD_MP.startNetMatch === 'function') window.GD_MP.startNetMatch(roomParam.trim());
         }
       };
-
       setTimeout(tryLaunchNetMatch, 100);
     }
 
