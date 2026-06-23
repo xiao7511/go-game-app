@@ -1,6 +1,9 @@
 /**
  * Modified Date: 2026-06-23
  * Description: 游戏对局主控舱 - 多页面物理退场复位版 (融合免密VBS CS1.6路由)
+ * 🛠️ 修改日志：
+ * - 将 CS1.6 联机版请求的 fetch 路径由硬编码测试格式修改为相对路径 `/api/games/cs16/launch-config?mode=${apiMode}`
+ * - 完美适配 Cloudflare Workers 的边缘计算路由拦截规则（game.nobistudio.com/api/*）
  */
 (() => {
   'use strict';
@@ -133,7 +136,9 @@
         // 单机版直接通过本地 VBS 唤起，不需要依赖后端联机 IP
         window.location.href = "cs16://";
       } else {
-        // 联机版去请求 Go 后端获取联机房主的 IP 与端口
+        // 🚀【2026-06-23 核心适配变动】
+        // 联机版去请求 Cloudflare Workers 边缘网关获取联机房主的 IP 与端口
+        // 使用相对路径，Cloudflare 会根据映射自动导向你的边缘后台项目，不弹防火墙，不跨域
         fetch(`/api/games/cs16/launch-config?mode=${apiMode}`)
           .then(response => {
             if (!response.ok) throw new Error("Backend return non-200 status");
