@@ -143,8 +143,8 @@
 // fetch(`/api/games/cs16/launch-config?mode=${apiMode}`)
 
 // 🚀 修改后（直接精准刺穿到你的专属 Worker 域名，彻底无视主域名的 404 路由故障）：
-        fetch(`https://go-game-app.xiao-ye751111.workers.dev/api/games/cs16/launch-config?mode=${apiMode}`)
-        //fetch(`/api/games/cs16/launch-config?mode=${apiMode}`)
+        window.location.href = "cs16://connect/119.29.51.127:27015";
+        /*fetch(`/api/games/cs16/launch-config?mode=${apiMode}`)
           .then(response => {
             if (!response.ok) throw new Error("Backend return non-200 status");
             return response.json();
@@ -162,7 +162,7 @@
             console.error('[CS1.6 启动异常]', error);
             alert("无法连接到大厅联机后端，已为你自动降级拉起本地单机版客户端！");
             window.location.href = "cs16://";
-          });
+          });*/
       }
       return; // 🔥 强力熔断，不允许执行下面原厂页面的 DOM 雪藏动作
     }
