@@ -139,7 +139,12 @@
         // 🚀【2026-06-23 核心适配变动】
         // 联机版去请求 Cloudflare Workers 边缘网关获取联机房主的 IP 与端口
         // 使用相对路径，Cloudflare 会根据映射自动导向你的边缘后台项目，不弹防火墙，不跨域
-        fetch(`/api/games/cs16/launch-config?mode=${apiMode}`)
+        // 🛑 修改前：
+// fetch(`/api/games/cs16/launch-config?mode=${apiMode}`)
+
+// 🚀 修改后（直接精准刺穿到你的专属 Worker 域名，彻底无视主域名的 404 路由故障）：
+        fetch(`https://go-game-app.xiao-ye751111.workers.dev/api/games/cs16/launch-config?mode=${apiMode}`)
+        //fetch(`/api/games/cs16/launch-config?mode=${apiMode}`)
           .then(response => {
             if (!response.ok) throw new Error("Backend return non-200 status");
             return response.json();
