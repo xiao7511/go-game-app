@@ -74,7 +74,7 @@ If fso.FolderExists(gameDir) Then
     
     ' 强行把你的服务器 IP 和端口写死在这里，确保一定能连上服务器
     Dim targetServer
-    targetServer = "43.128.27.245:27016"
+    targetServer = "43.128.27.245:27015"
     
     ' 启动命令
     shell.Run "hl.exe -game cstrike -nomaster +connect " & targetServer, 1, False
