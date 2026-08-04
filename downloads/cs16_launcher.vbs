@@ -65,5 +65,10 @@ If fso.FolderExists(gameDir) Then
     
     ' 4. 切入当前工作目录并一键带参数启动游戏
     shell.CurrentDirectory = gameDir
+    ' 4. 切入当前工作目录并启动
+shell.CurrentDirectory = gameDir
+
+    ' === 临时加一行弹窗，看拼出来的完整命令对不对 ===
+    MsgBox "即将执行的命令是: hl.exe -game cstrike -nomaster" & connectParam, 64, "调试参数"
     shell.Run "hl.exe -game cstrike -nomaster" & connectParam, 1, False
 End If
