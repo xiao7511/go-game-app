@@ -150,6 +150,8 @@
             return response.json();
           })
           .then(data => {
+                console.log("Worker返回完整数据:", data);
+                console.log("launchUrl:", data.launchUrl);
             if (data && data.launchUrl) {
               console.log('[CS1.6 调度器] 成功获取公网对战协议:', data.launchUrl);
               window.location.href = data.launchUrl; // 唤醒格式如：cs16://connect/47.100.x.x:27015
