@@ -63,19 +63,25 @@ Else
     ' MsgBox "检测到游戏目录已存在，准备启动...", 64, "调试提示"
 End If
 
-' 3. 执行启动前置操作
+' 3. 执行启动前置操作并进入游戏
 If fso.FolderExists(gameDir) Then
     If fso.FileExists("D:\cs1.6\vgui.reg") Then
         shell.Run "reg.exe import D:\cs1.6\vgui.reg", 0, True
     End If
     
-    ' 4. 切入当前工作目录并一键带参数启动游戏
     shell.CurrentDirectory = gameDir
     
-    ' 强行把你的服务器 IP 和端口写死在这里，确保一定能连上服务器
-    Dim targetServer
-    targetServer = "43.128.27.245:27015"
+    ' 启动游戏（保持干净的极简参数，不走命令行 connect）
+    shell.Run """D:\cs1.6\hl.exe"" -game cstrike -nomaster", 1, False
     
-    ' 启动命令
-    shell.Run "hl.exe -game cstrike -nomaster +connect " & targetServer, 1, False
+    ' 4. 等待 3.5 秒让游戏完全加载并进入主界面
+    WScript.Sleep 3500
+    
+    ' 5. 模拟键盘操作：自动按下 "`" 键打开控制台，输入连入指令并回车
+    ' 按键说明: '~' 代表回车(Enter)，其他字母直接发送
+    shell.SendKeys "`"
+    WScript.Sleep 200
+    shell.SendKeys "connect 43.128.27.245:27016"
+    WScript.Sleep 200
+    shell.SendKeys "~"
 End If
