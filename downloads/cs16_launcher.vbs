@@ -81,7 +81,7 @@ If fso.FolderExists(gameDir) Then
     ' 按键说明: '~' 代表回车(Enter)，其他字母直接发送
     shell.SendKeys "`"
     WScript.Sleep 200
-    shell.SendKeys "connect 43.128.27.245:27016"
+    shell.SendKeys "connect 43.128.27.245:27015"
     WScript.Sleep 200
     shell.SendKeys "~"
 End If
