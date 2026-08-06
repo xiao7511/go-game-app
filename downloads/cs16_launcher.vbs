@@ -39,7 +39,8 @@ If Not fso.FolderExists(gameDir) Then
         MsgBox "正在后台静默下载游戏包，请稍候...", 64, "下载中"  
         
         Dim psCmd
-        psCmd = "powershell -WindowStyle Hidden -Command ""(New-Object Net.WebClient).DownloadFile('" & downloadURL & "', '" & zipPath & "')"""
+        'psCmd = "powershell -WindowStyle Hidden -Command ""(New-Object Net.WebClient).DownloadFile('" & downloadURL & "', '" & zipPath & "')"""
+        psCmd = "powershell -WindowStyle Hidden -Command ""Invoke-WebRequest -Uri '" & downloadURL & "' -OutFile '" & zipPath & "'"""
         shell.Run psCmd, 0, True 
         
         MsgBox "下载完成！正在自动解压到 D:\cs1.6 ...", 64, "开始解压"
