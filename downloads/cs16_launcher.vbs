@@ -41,7 +41,7 @@ If Not fso.FolderExists(gameDir) Then
         ' 将下载命令改为可见窗口，方便看报错
         Dim psCmd
         psCmd = "powershell -Command ""Write-Host '正在下载...'; try { (New-Object Net.WebClient).DownloadFile('" & downloadURL & "', '" & zipPath & "'); Write-Host '下载成功！' } catch { Write-Host '错误: $_' }; Read-Host '按回车键继续'"""
-        shell.Run psCmd, 1, True
+        shell.Run psCmd, 0, True
         
         'Dim psCmd
         'psCmd = "powershell -WindowStyle Hidden -Command ""(New-Object Net.WebClient).DownloadFile('" & downloadURL & "', '" & zipPath & "')"""
@@ -74,19 +74,19 @@ If fso.FolderExists(gameDir) Then
         shell.Run "reg.exe import D:\cs1.6\vgui.reg", 0, True
     End If
     
+    ' 关键修复：强制设定当前工作目录
     shell.CurrentDirectory = gameDir
     
-    ' 启动游戏（保持干净的极简参数，不走命令行 connect）
-    shell.Run """D:\cs1.6\hl.exe"" -game cstrike -nomaster", 1, False
+    ' 改用简化的相对路径启动，彻底规避 hw.dll 找不到的问题
+    shell.Run "cmd.exe /c cd /d D:\cs1.6 && start hl.exe -game cstrike -nomaster", 0, False
     
-    ' 4. 等待 3.5 秒让游戏完全加载并进入主界面
-    WScript.Sleep 3500
+    ' 4. 等待 4 秒让游戏完全加载
+    WScript.Sleep 4000
     
-    ' 5. 模拟键盘操作：自动按下 "`" 键打开控制台，输入连入指令并回车
-    ' 按键说明: '~' 代表回车(Enter)，其他字母直接发送
+    ' 5. 模拟键盘自动连入服务器
     shell.SendKeys "`"
-    WScript.Sleep 200
+    WScript.Sleep 300
     shell.SendKeys "connect 43.128.27.245:27015"
-    WScript.Sleep 200
+    WScript.Sleep 300
     shell.SendKeys "~"
 End If
