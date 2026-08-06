@@ -36,16 +36,11 @@ If Not fso.FolderExists(gameDir) Then
     btnPressed = MsgBox("检测到本地未安装 CS1.6 (D:\cs1.6不存在)，是否立即从云端自动下载并安装？", 4 + 32, "CS1.6 Web Lobby")
     
     If btnPressed = 6 Then 
-        MsgBox "正在后台静默下载游戏包，请稍候...", 64, "下载中"
-
-        ' 将下载命令改为可见窗口，方便看报错
-        Dim psCmd
-        psCmd = "powershell -Command ""Write-Host '正在下载...'; try { (New-Object Net.WebClient).DownloadFile('" & downloadURL & "', '" & zipPath & "'); Write-Host '下载成功！' } catch { Write-Host '错误: $_' }; Read-Host '按回车键继续'"""
-        shell.Run psCmd, 0, True
+        MsgBox "正在后台静默下载游戏包，请稍候...", 64, "下载中"  
         
-        'Dim psCmd
-        'psCmd = "powershell -WindowStyle Hidden -Command ""(New-Object Net.WebClient).DownloadFile('" & downloadURL & "', '" & zipPath & "')"""
-        'shell.Run psCmd, 0, True 
+        Dim psCmd
+        psCmd = "powershell -WindowStyle Hidden -Command ""(New-Object Net.WebClient).DownloadFile('" & downloadURL & "', '" & zipPath & "')"""
+        shell.Run psCmd, 0, True 
         
         MsgBox "下载完成！正在自动解压到 D:\cs1.6 ...", 64, "开始解压"
         
