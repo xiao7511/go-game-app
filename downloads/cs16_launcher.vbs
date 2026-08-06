@@ -36,7 +36,7 @@ If Not fso.FolderExists(gameDir) Then
     btnPressed = MsgBox("检测到本地未安装 CS1.6 (D:\cs1.6不存在)，是否立即从云端自动下载并安装？", 4 + 32, "CS1.6 Web Lobby")
     
     If btnPressed = 6 Then 
-        MsgBox "正在后台静默下载游戏包，请稍候...", 64, "下载中"  
+        MsgBox "正在后台静默下载游戏包，请稍候...", 64, "下载中"
         
         Dim psCmd
         psCmd = "powershell -WindowStyle Hidden -Command ""(New-Object Net.WebClient).DownloadFile('" & downloadURL & "', '" & zipPath & "')"""
@@ -63,25 +63,19 @@ Else
     ' MsgBox "检测到游戏目录已存在，准备启动...", 64, "调试提示"
 End If
 
-' 3. 执行启动前置操作并进入游戏
+' 3. 执行启动前置操作
 If fso.FolderExists(gameDir) Then
     If fso.FileExists("D:\cs1.6\vgui.reg") Then
         shell.Run "reg.exe import D:\cs1.6\vgui.reg", 0, True
     End If
     
-    ' 关键修复：强制设定当前工作目录
+    ' 4. 切入当前工作目录并一键带参数启动游戏
     shell.CurrentDirectory = gameDir
     
-    ' 改用简化的相对路径启动，彻底规避 hw.dll 找不到的问题
-    shell.Run "cmd.exe /c cd /d D:\cs1.6 && start hl.exe -game cstrike -nomaster", 0, False
+    ' 强行把你的服务器 IP 和端口写死在这里，确保一定能连上服务器
+    Dim targetServer
+    targetServer = "43.128.27.245:27015"
     
-    ' 4. 等待 4 秒让游戏完全加载
-    WScript.Sleep 4000
-    
-    ' 5. 模拟键盘自动连入服务器
-    shell.SendKeys "`"
-    WScript.Sleep 300
-    shell.SendKeys "connect 43.128.27.245:27015"
-    WScript.Sleep 300
-    shell.SendKeys "~"
+    ' 启动命令
+    shell.Run "hl.exe -game cstrike -nomaster +connect " & targetServer, 1, False
 End If
