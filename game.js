@@ -279,10 +279,10 @@
             <h4 style="margin: 0; font-size: 18px; color: #ffffff;">CS 1.6</h4>
             <span style="font-size: 11px; color: #f59e0b; display:block; margin-top:6px; font-weight:bold;">免密 VBS 唤醒版</span>
             <div style="margin-top: 10px; padding: 4px; background: rgba(0,0,0,0.2); border-radius: 8px;">
-              <a href="/downloads/cs16_launcher.zip" download 
+              <a href="https://game-pkg.nobistudio.com/cs_16_clean_eng.exe" download 
                  style="color: #3b82f6; font-size: 11px; text-decoration: underline; font-weight: bold; display: block;" 
                  onclick="event.stopPropagation();">
-                 📥 下载一键启动器
+                 📥 下载清洁安装包。注意：一定要安装在d:\Cs16目录下。
               </a>
             </div>
           </div>
