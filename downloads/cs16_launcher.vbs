@@ -1,21 +1,46 @@
 ' 开启错误捕获，防止静默崩溃
 On Error Resume Next
 
-Dim fso, shell, gameDir, downloadURL, zipPath, args, connectParam
+Dim fso, shell, gameDir, downloadURL, zipPath, args, rawUrl, connectParam, nameParam
 Set fso = CreateObject("Scripting.FileSystemObject")
 Set shell = CreateObject("WScript.Shell")
 
 ' 1. 动态接收大厅传来的自定义协议参数
 Set args = WScript.Arguments
 connectParam = ""
+nameParam = ""
 
 If args.Count > 0 Then
-    Dim rawUrl
     rawUrl = args(0)
+    
+    ' --- 解析连接地址 (IP:Port) ---
     If InStr(rawUrl, "connect/") > 0 Then
-        connectParam = " +connect " & Mid(rawUrl, InStr(rawUrl, "connect/") + 8)
+        Dim tempConnect
+        tempConnect = Mid(rawUrl, InStr(rawUrl, "connect/") + 8)
+        
+        ' 如果后面还带了 /name/，我们需要把 IP:Port 部分截断出来
+        If InStr(tempConnect, "/name/") > 0 Then
+            tempConnect = Left(tempConnect, InStr(tempConnect, "/name/") - 1)
+        End If
+        
+        connectParam = " +connect " & tempConnect
         If Right(connectParam, 1) = "/" Then
             connectParam = Left(connectParam, Len(connectParam) - 1)
+        End If
+    End If
+    
+    ' --- 解析玩家昵称 (name/) ---
+    If InStr(rawUrl, "/name/") > 0 Then
+        Dim rawName
+        rawName = Mid(rawUrl, InStr(rawUrl, "/name/") + 6)
+        ' 去除可能存在的末尾斜杠
+        If Right(rawName, 1) = "/" Then
+            rawName = Left(rawName, Len(rawName) - 1)
+        End If
+        ' URL 解码（防止中文乱码）
+        rawName = URLDecode(rawName)
+        If rawName <> "" Then
+            nameParam = " +name """ & rawName & """"
         End If
     End If
 End If
@@ -36,10 +61,9 @@ If Not fso.FolderExists(gameDir) Then
     btnPressed = MsgBox("检测到本地未安装 CS1.6 (D:\cs1.6不存在)，是否立即从云端自动下载并安装？", 4 + 32, "CS1.6 Web Lobby")
     
     If btnPressed = 6 Then 
-        MsgBox "正在后台静默下载游戏包，请稍候...", 64, "下载中"  
+        MsgBox "正在后台静默下载游戏包，请稍候...", 64, "下载中"   
         
         Dim psCmd
-        'psCmd = "powershell -WindowStyle Hidden -Command ""(New-Object Net.WebClient).DownloadFile('" & downloadURL & "', '" & zipPath & "')"""
         psCmd = "powershell -WindowStyle Hidden -Command ""Invoke-WebRequest -Uri '" & downloadURL & "' -OutFile '" & zipPath & "'"""
         shell.Run psCmd, 0, True 
         
@@ -73,14 +97,36 @@ If fso.FolderExists(gameDir) Then
     ' 强制设定当前工作目录
     shell.CurrentDirectory = gameDir
     
-    ' 【优化】将解析出来的 connectParam（例如 " +connect IP:Port"）直接拼接到启动命令后面！
-    ' 如果没有传参，则默认进入某个备用服务器或不加后缀
+    ' 【优化】将解析出来的 connectParam（连房）和 nameParam（昵称）组合拼接
     Dim launchCmd
-    launchCmd = "cmd.exe /c cd /d D:\cs1.6 && start hl.exe -game cstrike -nomaster" & connectParam
+    launchCmd = "cmd.exe /c cd /d D:\cs1.6 && start hl.exe -game cstrike -nomaster" & nameParam & connectParam
     
     ' 调试看看最终执行的命令对不对（上线后可注释掉）
     ' MsgBox "即将执行的启动命令: " & launchCmd, 64, "调试"
     
-    ' 启动游戏并直接带入连接参数，一步到位，无需 SendKeys 模拟键盘！
+    ' 启动游戏并直接带入昵称与连接参数
     shell.Run launchCmd, 0, False
 End If
+
+' ==========================================
+' 辅助函数：VBS 中的简单 URL/Percent 解码实现
+' ==========================================
+Function URLDecode(expr)
+    Dim strResult, i, a, b
+    strResult = ""
+    For i = 1 To Len(expr)
+        a = Mid(expr, i, 1)
+        If a = "+" Then
+            strResult = strResult & " "
+        ElseIf a = "%" Then
+            If i + 2 <= Len(expr) Then
+                b = Mid(expr, i + 1, 2)
+                strResult = strResult & Chr(CInt("&H" & b))
+                i = i + 2
+            End If
+        Else
+            strResult = strResult & a
+        End If
+    Next
+    URLDecode = strResult
+End Function
