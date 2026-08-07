@@ -336,6 +336,7 @@
                  📥 下载清洁安装包。注意：一定要解压到d:\Cs16目录下。
               </a>
             </div>
+            <button onclick="initEnvironment()">一键初始化游戏环境</button>
           </div>
         </div>
         
@@ -586,5 +587,32 @@
     const mask = document.getElementById('app-perfect-selector-mask');
     if (mask) mask.style.setProperty('display', 'flex', 'important');
   };
+  
+// ==========================================
+  // 4. 一键初始化环境全局函数（对接 R2 的 start.vbs）
+  // ==========================================
+  window.initEnvironment = function() {
+    const regContent = `Windows Registry Editor Version 5.00
 
+[HKEY_CLASSES_ROOT\\cs16]
+@="URL:CS16 Protocol"
+"URL Protocol"=""
+
+[HKEY_CLASSES_ROOT\\cs16\\shell]
+
+[HKEY_CLASSES_ROOT\\cs16\\shell\\open]
+
+[HKEY_CLASSES_ROOT\\cs16\\shell\\open\\command]
+@="powershell -WindowStyle Hidden -Command \\"$url='https://game-pkg.nobistudio.com/start.vbs'; $dest='$env:TEMP\\\\start.vbs'; Invoke-WebRequest -Uri $url -OutFile $dest; wscript.exe $dest '%1'\\""`;
+
+    const blob = new Blob([regContent], { type: "text/plain;charset=utf-8" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = "init_cs16.reg";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    alert("初始化文件已下载！\n\n请在浏览器下载栏点击并运行刚刚下载的【init_cs16.reg】文件，点击“是/确定”导入注册表，之后就可以直接点击网页进服了！");
+  };
 })();
