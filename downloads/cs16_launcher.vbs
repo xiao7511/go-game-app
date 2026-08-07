@@ -48,13 +48,13 @@ If Not fso.FolderExists(gameDir) Then
     btnPressed = MsgBox("检测到本地未安装 CS1.6，是否立即从云端自动下载并安装？", 4 + 32, "CS1.6 自动部署")
     
     If btnPressed = 6 Then 
-        MsgBox "正在后台静默下载游戏包，请稍候...", 64, "下载中"   
+       '  MsgBox "正在后台静默下载游戏包，请稍候...", 64, "下载中"   
         
         Dim psCmd
         psCmd = "powershell -WindowStyle Hidden -Command ""Invoke-WebRequest -Uri '" & downloadURL & "' -OutFile '" & zipPath & "'"""
         shell.Run psCmd, 0, True 
         
-        MsgBox "下载完成！正在自动解压到 D:\Cs1.6 ...", 64, "开始解压"
+       '  MsgBox "下载完成！正在自动解压到 D:\Cs1.6 ...", 64, "开始解压"
         
         If Not fso.FolderExists(gameDir) Then
             fso.CreateFolder(gameDir)
