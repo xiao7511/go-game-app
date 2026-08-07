@@ -599,22 +599,25 @@
   };
   
 // ==========================================
-// 4. 一键初始化环境全局函数（已修复路径拼写错误）
+// 4. 一键初始化环境全局函数（已适配当前用户权限、修复路径与斜杠）
 // ==========================================
 window.initEnvironment = function() {
   const regContent = `Windows Registry Editor Version 5.00
 
-[HKEY_CURRENT_USER\Software\Classes\cs16]
+[-HKEY_CURRENT_USER\\Software\\Classes\\cs16]
+
+[HKEY_CURRENT_USER\\Software\\Classes\\cs16]
 @="URL:CS16 Protocol"
 "URL Protocol"=""
 
-[HKEY_CURRENT_USER\Software\Classes\cs16\shell]
+[HKEY_CURRENT_USER\\Software\\Classes\\cs16\\shell]
 
-[HKEY_CURRENT_USER\Software\Classes\cs16\shell\open]
+[HKEY_CURRENT_USER\\Software\\Classes\\cs16\\shell\\open]
 
-[HKEY_CURRENT_USER\Software\Classes\cs16\shell\open\command]
-@="powershell -WindowStyle Hidden -Command \\"if(!(Test-Path 'D:\\\\Cs16')) { New-Item -ItemType Directory -Force -Path 'D:\\\\Cs16' }; $url='https://game-pkg.nobistudio.com/start.vbs'; $dest='D:\\\\Cs16\\\\start.vbs'; Invoke-WebRequest -Uri $url -OutFile $dest -UseBasicParsing; wscript.exe $dest '%1'\\""`;
-  const blob = new Blob([regContent], { type: "text/plain;charset=utf-8" });
+[HKEY_CURRENT_USER\\Software\\Classes\\cs16\\shell\\open\\command]
+@="powershell -WindowStyle Hidden -Command \\"$url='https://game-pkg.nobistudio.com/start.vbs'; $dest='D:\\\\Cs16\\\\start.vbs'; if(!(Test-Path 'D:\\\\Cs16')) { New-Item -ItemType Directory -Force -Path 'D:\\\\Cs16' }; Invoke-WebRequest -Uri $url -OutFile $dest -UseBasicParsing; wscript.exe $dest '%1'\\""`;
+
+  const blob = new Blob([regContent], { type: "text/plain;charset=utf-8" };
   const link = document.createElement("a");
   link.href = URL.createObjectURL(blob);
   link.download = "init_cs16.reg";
@@ -622,6 +625,6 @@ window.initEnvironment = function() {
   link.click();
   document.body.removeChild(link);
 
-  alert("初始化文件已重新生成并下载！\n\n请点击刚刚下载的【init_cs16.reg】导入注册表，之后就可以完美拉起游戏了！");
+  alert("针对当前用户的注册表文件已更新！\n\n请直接双击运行下载的【init_cs16.reg】点击“是”导入，这次就能完美无误地将脚本釋放到 D:\\Cs16\\start.vbs 并拉起游戏了！");
 };
 })();
