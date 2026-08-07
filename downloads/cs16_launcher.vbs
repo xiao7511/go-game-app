@@ -81,10 +81,11 @@ If fso.FolderExists(gameDir) Then
     End If
     
     shell.CurrentDirectory = gameDir
-    shell.Run """" & gameDir & "\hl.exe"" -game cstrike -nomaster", 1, False
+    ' shell.Run """" & gameDir & "\hl.exe"" -game cstrike -nomaster", 1, False
+    shell.Run """" & gameDir & "\hl.exe"" -game cstrike -console +connect " & targetServer, 1, False
     
     ' 等待 6 秒确保游戏完全加载到主界面
-    WScript.Sleep 6000
+    WScript.Sleep 10000
     
     ' 模拟键盘敲控制台设置昵称并登录服务器
     shell.SendKeys "`"
