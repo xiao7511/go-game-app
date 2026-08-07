@@ -133,40 +133,73 @@
       console.log(`[CS1.6 调度器] 正在走免密 VBS 路由拉起游戏, 模式: ${apiMode}`);
 
       if (apiMode === 'single') {
-        // 单机版直接通过本地 VBS 唤起，不需要依赖后端联机 IP
+        // 单机版直接通过本地 VBS 唤起
         window.location.href = "cs16://";
       } else {
-        // 🚀【2026-06-23 核心适配变动】
-        // 联机版去请求 Cloudflare Workers 边缘网关获取联机房主的 IP 与端口
-        // 使用相对路径，Cloudflare 会根据映射自动导向你的边缘后台项目，不弹防火墙，不跨域
-        // 🛑 修改前：
-// fetch(`/api/games/cs16/launch-config?mode=${apiMode}`)
-
-// 🚀 修改后（直接精准刺穿到你的专属 Worker 域名，彻底无视主域名的 404 路由故障）：
-        //window.location.href = "cs16://connect/119.29.51.127:27015";
-        fetch(`/api/games/cs16/launch-config?mode=${apiMode}`)
-          .then(response => {
-            if (!response.ok) throw new Error("Backend return non-200 status");
-            return response.json();
-          })
-          .then(data => {
-                console.log("Worker返回完整数据:", data);
-                console.log("launchUrl:", data.launchUrl);
-            if (data && data.launchUrl) {
-              console.log('[CS1.6 调度器] 成功获取公网对战协议:', data.launchUrl);
-              window.location.href = data.launchUrl; // 唤醒格式如：cs16://connect/47.100.x.x:27015
-            } else {
-              // 兜底：如果后端没有给 IP，拉起单机客户端自行手动加房
-              window.location.href = "cs16://";
+        // 🚀【核心升级】联机版：先获取当前登录用户的昵称，再请求 Worker 联机 IP
+        const supabase = window.getSupabaseClient && window.getSupabaseClient();
+        
+        // 1. 尝试从 Supabase Auth 或用户表获取当前玩家昵称
+        let userNickname = "Player";
+        
+        (async () => {
+          try {
+            if (supabase) {
+              const { data: { user } } = await supabase.auth.getUser();
+              if (user) {
+                // 尝试从你的 profiles 或 users 表中获取绑定昵称
+                const { data: profile } = await supabase
+                  .from('profiles')
+                  .select('nickname')
+                  .eq('id', user.id)
+                  .single();
+                  
+                if (profile && profile.nickname) {
+                  userNickname = profile.nickname;
+                } else if (user.user_metadata && user.user_metadata.nickname) {
+                  userNickname = user.user_metadata.nickname;
+                }
+              }
             }
-          })
-          .catch(error => {
-            console.error('[CS1.6 启动异常]', error);
-            alert("无法连接到大厅联机后端，已为你自动降级拉起本地单机版客户端！");
-            window.location.href = "cs16://";
-          });
+          } catch (e) {
+            console.warn("[CS1.6 昵称获取提示] 使用默认昵称", e);
+          }
+
+          // 2. 请求 Cloudflare Workers 边缘网关获取联机房主的 IP 与端口
+          fetch(`/api/games/cs16/launch-config?mode=${apiMode}`)
+            .then(response => {
+              if (!response.ok) throw new Error("Backend return non-200 status");
+              return response.json();
+            })
+            .then(data => {
+              console.log("Worker返回完整数据:", data);
+              if (data && data.launchUrl) {
+                // data.launchUrl 假设后端返回的是形如：cs16://connect/47.100.x.x:27015
+                // 我们在这里把动态查到的昵称用 /name/ 拼接到协议后面
+                let finalUrl = data.launchUrl;
+                
+                // 如果后端返回的协议没带昵称，我们在后面追加
+                if (!finalUrl.includes('name/')) {
+                  // 去除末尾斜杠
+                  if (finalUrl.endsWith('/')) finalUrl = finalUrl.slice(0, -1);
+                  finalUrl = `${finalUrl}/name/${encodeURIComponent(userNickname)}`;
+                }
+                
+                console.log('[CS1.6 调度器] 成功获取带昵称的公网对战协议:', finalUrl);
+                window.location.href = finalUrl; 
+              } else {
+                // 兜底：无 IP 时降级拉起单机客户端并带上昵称
+                window.location.href = `cs16://name/${encodeURIComponent(userNickname)}`;
+              }
+            })
+            .catch(error => {
+              console.error('[CS1.6 启动异常]', error);
+              alert("无法连接到大厅联机后端，已为你自动降级拉起带有你昵称的本地单机版客户端！");
+              window.location.href = `cs16://name/${encodeURIComponent(userNickname)}`;
+            });
+        })();
       }
-      return; // 🔥 强力熔断，不允许执行下面原厂页面的 DOM 雪藏动作
+      return; // 🔥 强力熔断
     }
 
     // 🚀 专属分支 B：如果选中的是掼蛋且点击的是联机版（NET），直接穿透刺入 Supabase 实时联机引擎
