@@ -70,19 +70,17 @@ If fso.FolderExists(gameDir) Then
         shell.Run "reg.exe import D:\cs1.6\vgui.reg", 0, True
     End If
     
-    ' 关键修复：强制设定当前工作目录
+    ' 强制设定当前工作目录
     shell.CurrentDirectory = gameDir
     
-    ' 改用简化的相对路径启动，彻底规避 hw.dll 找不到的问题
-    shell.Run "cmd.exe /c cd /d D:\cs1.6 && start hl.exe -game cstrike -nomaster", 0, False
+    ' 【优化】将解析出来的 connectParam（例如 " +connect IP:Port"）直接拼接到启动命令后面！
+    ' 如果没有传参，则默认进入某个备用服务器或不加后缀
+    Dim launchCmd
+    launchCmd = "cmd.exe /c cd /d D:\cs1.6 && start hl.exe -game cstrike -nomaster" & connectParam
     
-    ' 4. 等待 4 秒让游戏完全加载
-    WScript.Sleep 4000
+    ' 调试看看最终执行的命令对不对（上线后可注释掉）
+    ' MsgBox "即将执行的启动命令: " & launchCmd, 64, "调试"
     
-    ' 5. 模拟键盘自动连入服务器
-    shell.SendKeys "`"
-    WScript.Sleep 300
-    shell.SendKeys "connect 43.128.27.245:27015"
-    WScript.Sleep 300
-    shell.SendKeys "~"
+    ' 启动游戏并直接带入连接参数，一步到位，无需 SendKeys 模拟键盘！
+    shell.Run launchCmd, 0, False
 End If
