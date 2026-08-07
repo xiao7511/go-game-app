@@ -102,7 +102,7 @@ If fso.FolderExists(gameDir) Then
     launchCmd = "cmd.exe /c cd /d D:\cs1.6 && start hl.exe -game cstrike -nomaster" & nameParam & connectParam
     
     ' 调试看看最终执行的命令对不对（上线后可注释掉）
-    ' MsgBox "即将执行的启动命令: " & launchCmd, 64, "调试"
+    MsgBox "即将执行的启动命令: " & launchCmd, 64, "调试"
     
     ' 启动游戏并直接带入昵称与连接参数
     shell.Run launchCmd, 0, False
