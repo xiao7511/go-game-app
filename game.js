@@ -329,14 +329,23 @@
             <div style="font-size: 50px; margin-bottom: 12px;">🔫</div>
             <h4 style="margin: 0; font-size: 18px; color: #ffffff;">CS 1.6</h4>
             <span style="font-size: 11px; color: #f59e0b; display:block; margin-top:6px; font-weight:bold;">免密 VBS 唤醒版</span>
-            <div style="margin-top: 10px; padding: 4px; background: rgba(0,0,0,0.2); border-radius: 8px;">
-              <a href="https://game-pkg.nobistudio.com/cs16_green.zip" download 
-                 style="color: #3b82f6; font-size: 11px; text-decoration: underline; font-weight: bold; display: block;" 
-                 onclick="event.stopPropagation();">
-                 📥 下载清洁安装包。注意：一定要解压到d:\Cs16目录下。
-              </a>
-            </div>
-            <button onclick="initEnvironment()">一键初始化游戏环境</button>
+           <!-- 统一风格的下载与初始化按钮组 -->
+            <div style="margin-top: 10px; display: flex; flex-direction: column; gap: 8px;">
+              <div style="padding: 4px; background: rgba(0,0,0,0.2); border-radius: 8px;">
+                <a href="https://game-pkg.nobistudio.com/cs16_green.zip" download 
+                   style="color: #3b82f6; font-size: 11px; text-decoration: underline; font-weight: bold; display: block;" 
+                   onclick="event.stopPropagation();">
+                   📥 下载清洁安装包（解压到 d:\Cs16）
+                </a>
+              </div>
+              
+              <div style="padding: 4px; background: rgba(0,0,0,0.2); border-radius: 8px;">
+                <a href="javascript:void(0);" 
+                   style="color: #3b82f6; font-size: 11px; text-decoration: underline; font-weight: bold; display: block;" 
+                   onclick="event.stopPropagation(); window.initEnvironment();">
+                   ⚙️ 一键初始化环境（首次必点）
+                </a>
+              </div>
           </div>
         </div>
         
