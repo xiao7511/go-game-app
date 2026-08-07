@@ -147,17 +147,35 @@
             if (supabase) {
               const { data: { user } } = await supabase.auth.getUser();
               if (user) {
-                // 尝试从你的 profiles 或 users 表中获取绑定昵称
-                const { data: profile } = await supabase
+                let profile = null;
+            
+                // 1. 尝试从 profiles 表中获取昵称
+                const { data: profileData } = await supabase
                   .from('profiles')
                   .select('nickname')
                   .eq('id', user.id)
-                  .single();
-                  
-                if (profile && profile.nickname) {
-                  userNickname = profile.nickname;
-                } else if (user.user_metadata && user.user_metadata.nickname) {
-                  userNickname = user.user_metadata.nickname;
+                  .maybeSingle();
+            
+                if (profileData && profileData.nickname) {
+                  userNickname = profileData.nickname;
+                } else {
+                  // 2. 如果 profiles 里没有，尝试去你的 custom users 表中查一下（或者用邮箱前缀兜底）
+                  const { data: userData } = await supabase
+                    .from('users')
+                    .select('*')
+                    .eq('id', user.id)
+                    .maybeSingle();
+            
+                  if (userData && userData.email) {
+                    // 用邮箱@前面的部分当做临时昵称
+                    userNickname = userData.email.split('@')[0];
+                  } else if (user.user_metadata && user.user_metadata.nickname) {
+                    // 3. 兜底：尝试从 auth 的 metadata 获取
+                    userNickname = user.user_metadata.nickname;
+                  } else {
+                    // 4. 终极兜底：生成一个默认玩家名
+                    userNickname = "玩家_" + user.id.slice(0, 6);
+                  }
                 }
               }
             }
