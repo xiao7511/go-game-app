@@ -1,15 +1,16 @@
 ' 开启错误捕获，防止静默崩溃
 On Error Resume Next
 
-Dim fso, shell, gameDir, downloadURL, zipPath, args, rawUrl, connectParam, nameParam
+Dim fso, shell, gameDir, downloadURL, zipPath, args, rawUrl, targetServer, rawName
 Set fso = CreateObject("Scripting.FileSystemObject")
 Set shell = CreateObject("WScript.Shell")
 
+' 默认兜底服务器 IP
+targetServer = "43.128.27.245:27015"
+rawName = ""
+
 ' 1. 动态接收大厅传来的自定义协议参数
 Set args = WScript.Arguments
-connectParam = ""
-nameParam = ""
-
 If args.Count > 0 Then
     rawUrl = args(0)
     
@@ -18,30 +19,27 @@ If args.Count > 0 Then
         Dim tempConnect
         tempConnect = Mid(rawUrl, InStr(rawUrl, "connect/") + 8)
         
-        ' 如果后面还带了 /name/，我们需要把 IP:Port 部分截断出来
         If InStr(tempConnect, "/name/") > 0 Then
             tempConnect = Left(tempConnect, InStr(tempConnect, "/name/") - 1)
         End If
         
-        connectParam = " +connect " & tempConnect
-        If Right(connectParam, 1) = "/" Then
-            connectParam = Left(connectParam, Len(connectParam) - 1)
+        If Right(tempConnect, 1) = "/" Then
+            tempConnect = Left(tempConnect, Len(tempConnect) - 1)
+        End If
+        
+        If tempConnect <> "" Then
+            targetServer = tempConnect
         End If
     End If
     
     ' --- 解析玩家昵称 (name/) ---
     If InStr(rawUrl, "/name/") > 0 Then
-        Dim rawName
-        rawName = Mid(rawUrl, InStr(rawUrl, "/name/") + 6)
-        ' 去除可能存在的末尾斜杠
-        If Right(rawName, 1) = "/" Then
-            rawName = Left(rawName, Len(rawName) - 1)
+        Dim tempName
+        tempName = Mid(rawUrl, InStr(rawUrl, "/name/") + 6)
+        If Right(tempName, 1) = "/" Then
+            tempName = Left(tempName, Len(tempName) - 1)
         End If
-        ' URL 解码（防止中文乱码）
-        rawName = URLDecode(rawName)
-        If rawName <> "" Then
-            nameParam = " +name """ & rawName & """"
-        End If
+        rawName = URLDecode(tempName)
     End If
 End If
 
@@ -67,7 +65,7 @@ If Not fso.FolderExists(gameDir) Then
         psCmd = "powershell -WindowStyle Hidden -Command ""Invoke-WebRequest -Uri '" & downloadURL & "' -OutFile '" & zipPath & "'"""
         shell.Run psCmd, 0, True 
         
-        MsgBox "下载完成！正在自动解压到 D:\cs1.6 ...", 64, "开始解压"
+        MsgBox "下载完成！正在自动解压/安装到 D:\cs1.6 ...", 64, "开始解压"
         
         If Not fso.FolderExists(gameDir) Then
             fso.CreateFolder(gameDir)
@@ -83,9 +81,6 @@ If Not fso.FolderExists(gameDir) Then
         
         MsgBox "CS1.6 客户端部署完成，即将为你进入游戏！", 64, "安装成功"
     End If
-Else
-    ' 【测试点】如果目录存在，弹个窗确认是否走到了这里
-    ' MsgBox "检测到游戏目录已存在，准备启动...", 64, "调试提示"
 End If
 
 ' 3. 执行启动前置操作并进入游戏
@@ -97,15 +92,28 @@ If fso.FolderExists(gameDir) Then
     ' 强制设定当前工作目录
     shell.CurrentDirectory = gameDir
     
-    ' 【优化】将解析出来的 connectParam（连房）和 nameParam（昵称）组合拼接
+    ' 启动游戏（只带昵称参数 -name，服务器连接改由后文控制台稳妥输入）
+    Dim nameArg
+    nameArg = ""
+    If rawName <> "" Then
+        nameArg = " -name """ & rawName & """"
+    End If
+    
     Dim launchCmd
-    launchCmd = "cmd.exe /c cd /d D:\cs1.6 && start hl.exe -game cstrike -nomaster" & nameParam & connectParam
+    launchCmd = """D:\cs1.6\hl.exe"" -game cstrike -nomaster" & nameArg
     
-    ' 调试看看最终执行的命令对不对（上线后可注释掉）
-    MsgBox "即将执行的启动命令: " & launchCmd, 64, "调试"
+    ' 启动游戏进程
+    shell.Run launchCmd, 1, False
     
-    ' 启动游戏并直接带入昵称与连接参数
-    shell.Run launchCmd, 0, False
+    ' 4. 等待 4 秒让游戏完全加载并进入主界面
+    WScript.Sleep 4000
+    
+    ' 5. 模拟键盘：自动按下 "`" 键打开控制台，输入动态获取的服务器 IP 并回车
+    shell.SendKeys "`"
+    WScript.Sleep 250
+    shell.SendKeys "connect " & targetServer
+    WScript.Sleep 250
+    shell.SendKeys "~"
 End If
 
 ' ==========================================
