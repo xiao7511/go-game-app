@@ -342,8 +342,8 @@
               <div style="padding: 4px; background: rgba(0,0,0,0.2); border-radius: 8px;">
                 <a href="https://game-pkg.nobistudio.com/一键初始化.bat" download 
                    style="color: #3b82f6; font-size: 11px; text-decoration: underline; font-weight: bold; display: block;" 
-                   onclick="event.stopPropagation(); window.initEnvironment();">
-                   ⚙️ 一键初始化环境（首次必点）
+                   onclick="event.stopPropagation();“>
+                   ⚙️ 一键初始化环境（首次执行）
                 </a>
               </div>
             </div>
