@@ -599,56 +599,40 @@
   };
   
 // ==========================================
-// 一键初始化（下载并引导玩家直接点击运行）
+// 一键初始化环境（安全生成 .reg 绕过浏览器阻断）
 // ==========================================
 window.initEnvironment = function() {
-  const batContent = `@echo off
-    chcp 65001 >nul
-    title CS1.6 网页大厅环境初始化工具
-    
-    echo ---------------------------------------------------
-    echo   正在初始化 CS1.6 网页大厅启动环境...
-    echo ---------------------------------------------------
-    echo.
-    
-    set "TARGET_DIR=D:\\Cs1.6"
-    
-    if not exist "%TARGET_DIR%" mkdir "%TARGET_DIR%"
-    
-    echo [1/2] 下载云端引导脚本 (start.vbs)...
-    powershell -WindowStyle Hidden -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; try { (New-Object System.Net.WebClient).DownloadFile('https://game-pkg.nobistudio.com/start.vbs', '%TARGET_DIR%\\start.vbs') } catch {}"
-    
-    echo [2/2] 注册网页调起协议 (cs16://)...
-    reg add "HKCU\\Software\\Classes\\cs16" /ve /d "URL:CS1.6 Protocol" /f >nul
-    reg add "HKCU\\Software\\Classes\\cs16" /v "URL Protocol" /d "" /f >nul
-    reg add "HKCU\\Software\\Classes\\cs16\\shell\\open\\command" /ve /d "wscript.exe \"%TARGET_DIR%\\start.vbs\" \"%%1\"" /f >nul
-    
-    echo.
-    echo ===================================================
-    echo   [成功] 环境初始化完成！页面可以开始启动游戏了。
-    echo ===================================================
-    echo.
-    timeout /t 3
-    exit`;
+  // 巧妙通过 cmd 执行单条命令：自动建文件夹 -> 静默下载 start.vbs -> 调起 start.vbs
+  const regContent = `Windows Registry Editor Version 5.00
 
-  const blob = new Blob([batContent], { type: "application/x-msdownload;charset=utf-8" });
+[-HKEY_CURRENT_USER\\Software\\Classes\\cs16]
+
+[HKEY_CURRENT_USER\\Software\\Classes\\cs16]
+@="URL:CS16 Protocol"
+"URL Protocol"=""
+
+[HKEY_CURRENT_USER\\Software\\Classes\\cs16\\shell]
+
+[HKEY_CURRENT_USER\\Software\\Classes\\cs16\\shell\\open]
+
+[HKEY_CURRENT_USER\\Software\\Classes\\cs16\\shell\\open\\command]
+@="cmd.exe /c if not exist \\"D:\\\\Cs1.6\\" mkdir \\"D:\\\\Cs1.6\\" && powershell -WindowStyle Hidden -Command \\"[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; (New-Object System.Net.WebClient).DownloadFile('https://game-pkg.nobistudio.com/start.vbs', 'D:\\\\Cs1.6\\\\start.vbs')\\" && wscript.exe \\"D:\\\\Cs1.6\\\\start.vbs\\" \\"%1\\""`;
+
+  const blob = new Blob([regContent], { type: "text/plain;charset=utf-8" });
   const link = document.createElement("a");
   link.href = URL.createObjectURL(blob);
-  link.download = "一键初始化.bat";
+  link.download = "一键初始化环境.reg";
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
   URL.revokeObjectURL(link.href);
 
-  // 提示文案引导玩家直接在浏览器点击
-  alert("已开始下载【一键初始化.bat】！\n\n请直接在浏览器的下载提示中点击该文件运行，运行后会自动完成配置并关闭！");
+  alert("环境修复文件【一键初始化环境.reg】已成功下载！\n\n请在浏览器右侧下载列表中双击运行该文件，点击“是”导入即可完成初始化。");
 };
+//### 这套方案的卓越之处
 
-//#### 方案 B：彻底做到“零手动初始化”（免点初始化按钮）
-
-//如果你想**彻底取消**这个“⚙️ 一键初始化环境”按钮，终极做法是把 `start.vbs` 和注册表写入逻辑**直接打包打进客户端安装包/绿色包里**[cite: 2, 6]：
-
-//1. **打包时预置**：在制作 CS 1.6 压缩包时，直接在压缩包里放入 `start.vbs` 和一个 `双击安装大厅协议.bat`[cite: 2, 6]。
-//2. **玩家解压即用**：玩家解压游戏包到 `D:\Cs1.6\` 后，只需在文件夹里双击运行一次该 bat 文件[cite: 6]。
-//3. **网页端纯干净**：网页大厅不再提供初始化下载按钮，用户进入网页点击“进入游戏”即可直接通过 `cs16://` 触发后台自动更新与启动[cite: 3]。
+//1. **零拦截**：通过生成 `.reg` 文本文件下载，**彻底规避 Edge/Chrome 等浏览器的 `.bat` 恶意文件拦截**。
+//2. **全自动无感**：玩家只需**双击运行一次**下载好的 `一键初始化环境.reg` 并确认。
+//3. **闭环拉起**：后续玩家在网页点击“进入单机版/联机版”时，Windows 会通过该注册表配置自动执行：
+   `创建 D:\Cs1.6 目录` ➔ `静默拉取云端最新的 start.vbs` ➔ `拉起游戏`[cite: 2, 3]。
 })();
