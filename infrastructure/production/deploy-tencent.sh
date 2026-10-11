@@ -1,6 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
-# Run on the authorized Shanghai host after uploading the allowlisted release and public env.
+# Run on an authorized host after uploading the allowlisted release and public env.
+site=${1:-/etc/nginx/sites-enabled/supabase-game}
+endpoint=${2:-https://supabase-game.nobistudio.com/nobi-online}
+case "$site:$endpoint" in
+  /etc/nginx/sites-enabled/supabase-game:https://supabase-game.nobistudio.com/nobi-online|/etc/nginx/conf.d/supabase-proxy.conf:https://api.nobistudio.com/nobi-online) ;;
+  *) echo 'Unsupported production site' >&2; exit 1;;
+esac
 release=/opt/nobi-online/releases/20261011-avatar-rooms
 runtime=/opt/nobi-online/node-v24.21.0-linux-x64
 sudo mkdir -p "$release" /opt/nobi-online /var/lib/nobi-online
@@ -24,10 +30,11 @@ sudo systemctl restart nobi-online
 for attempt in {1..20}; do if curl -fsS http://127.0.0.1:55480/health >/dev/null; then break; fi; sleep 1; done
 curl -fsS http://127.0.0.1:55480/health
 sudo install -m 644 "$release/infrastructure/nginx-online-location.conf" /etc/nginx/snippets/nobi-online.conf
-sudo python3 - <<'PY'
+sudo python3 - "$site" <<'PY'
 from pathlib import Path
 from datetime import datetime
-p=Path('/etc/nginx/sites-enabled/supabase-game').resolve()
+import sys
+p=Path(sys.argv[1]).resolve()
 source=p.read_text()
 directive='    include /etc/nginx/snippets/nobi-online.conf;\n'
 if directive not in source:
@@ -39,10 +46,10 @@ if directive not in source:
     Path('/opt/nobi-online/nginx-backup').write_text(str(backup))
 PY
 if ! sudo nginx -t; then
-  if [ -f /opt/nobi-online/nginx-backup ]; then sudo cp "$(cat /opt/nobi-online/nginx-backup)" /etc/nginx/sites-enabled/supabase-game; fi
+  if [ -f /opt/nobi-online/nginx-backup ]; then sudo cp "$(cat /opt/nobi-online/nginx-backup)" "$site"; fi
   exit 1
 fi
 sudo systemctl reload nginx
-curl -fsS https://supabase-game.nobistudio.com/nobi-online/health
+curl -fsS --retry 4 --retry-all-errors --retry-delay 2 "$endpoint/health"
 sudo systemctl is-active nobi-online
 rm -f /tmp/nobi-online.env

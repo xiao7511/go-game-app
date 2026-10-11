@@ -21,9 +21,10 @@ test('mobile subpages return to profile and scene controls retain keyboard focus
   const picker=await page.locator('.avatar-picker').boundingBox();
   expect(identity.y+identity.height<=links.y && links.y+links.height<=picker.y).toBe(true);
   await page.locator('[data-avatar-preset="0"]').click();
-  await expect(page.locator('[data-avatar-preset="0"]')).toHaveAttribute('aria-pressed','true');
+  await expect(page.locator('[data-avatar-preset="0"]')).toHaveAttribute('aria-pressed','false');
+  await expect(page.locator('.nobi-status')).toHaveText('请先登录后更换头像');
   await page.reload();
-  await expect(page.locator('[data-avatar-preset="0"]')).toHaveAttribute('aria-pressed','true');
+  await expect(page.locator('[data-avatar-preset="0"]')).toHaveAttribute('aria-pressed','false');
   await context.close();
 });
 

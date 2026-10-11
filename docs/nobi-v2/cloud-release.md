@@ -21,9 +21,9 @@
 - `NOBI_ROOM_DATABASE`：持久目录中的绝对 SQLite 路径。
 - `PORT`：服务监听端口，默认 8080。
 
-上海部署：`https://supabase-game.nobistudio.com/nobi-online`，复用已有 HTTPS 证书。独立 `nobi-online` 用户运行 systemd 服务，Node 24 存放 `/opt/nobi-online/runtime`，监听 `127.0.0.1:55480`，数据库 `/var/lib/nobi-online/rooms.sqlite`，权限 700。原有 Supabase 服务和数据库不迁移。
+生产入口改用香港：`https://api.nobistudio.com/nobi-online`，复用已有 HTTPS 证书。上海试部署的域名被腾讯云备案拦截，外网返回 DNSPod webblock；不能作为正式客户端入口。独立 `nobi-online` 用户运行 systemd 服务，Node 24 存放 `/opt/nobi-online/runtime`，监听 `127.0.0.1:55480`，数据库 `/var/lib/nobi-online/rooms.sqlite`，权限 700。原有 Supabase 服务和数据库不迁移；登录仍验证网站现有 Auth 环境。
 
-部署成功后访问端点下 `/health`，应有 `service: nobi-online-authority-v1`、`persistent: true`。GitHub Pages 工作流默认使用上述上海端点，可用 Actions Variables 的 `NOBI_ONLINE_URL` 覆盖（HTTPS，可带干净路径前缀，无凭据/查询参数）。移动构建与 Codemagic 使用相同变量。数据库包含真实对局私有手牌，备份应保留 WAL 一致性和访问控制。部署脚本及 nginx/systemd 模板见 `infrastructure/production/`；修改 nginx 前会保存配置备份并执行 `nginx -t`。nginx 为压缩头像后的账号令牌允许单个 16KB 请求头，SSE 禁用缓冲。
+部署成功后访问端点下 `/health`，应有 `service: nobi-online-authority-v1`、`persistent: true`。GitHub Pages 工作流默认使用上述香港端点，可用 Actions Variables 的 `NOBI_ONLINE_URL` 覆盖（HTTPS，可带干净路径前缀，无凭据/查询参数）。移动构建与 Codemagic 使用相同变量。数据库包含真实对局私有手牌，备份应保留 WAL 一致性和访问控制。部署脚本及 nginx/systemd 模板见 `infrastructure/production/`；修改 nginx 前会保存配置备份并执行 `nginx -t`。nginx 为压缩头像后的账号令牌允许单个 16KB 请求头，SSE 禁用缓冲。
 
 ## Codemagic：Windows 也可构建和签名
 

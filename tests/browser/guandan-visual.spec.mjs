@@ -22,7 +22,7 @@ for(const [name,width,height,mobile] of [['pc',1440,900,false],['mobile-landscap
       await expect(page.locator('.gd-arena')).toBeHidden();
       await page.screenshot({path:path.join(shots,`${name}.png`)});
       const before=await page.evaluate(()=>window.GD.state.players[0].hand.map(c=>c.id));
-      await page.evaluate(()=>{Object.defineProperty(screen.orientation,'lock',{configurable:true,value:undefined});document.querySelector('#guandan-game-container').requestFullscreen=undefined;});
+      await page.evaluate(()=>{Object.defineProperty(screen.orientation,'lock',{configurable:true,value:undefined});const container=document.querySelector('#guandan-game-container');container.requestFullscreen=undefined;container.webkitRequestFullscreen=undefined;});
       await page.locator('#gd-fullscreen-trigger').click();
       await expect(page.locator('[data-gd-orientation-notice]')).toContainText('请手动横向旋转手机');
       expect(await page.evaluate(()=>window.GD.state.players[0].hand.map(c=>c.id))).toEqual(before);
@@ -45,7 +45,7 @@ for(const [name,width,height,mobile] of [['pc',1440,900,false],['mobile-landscap
     expect(selection).toBe(true);
     if(!mobile){expect(geometry.center.w).toBeLessThanOrEqual(560);expect(geometry.seats.every(s=>!overlap(s,geometry.center))).toBe(true);expect(height-geometry.hand[0].bottom).toBeGreaterThan(70);expect(geometry.sideZones[0].x).toBeGreaterThan(60);}
     expect(geometry.hand.every(b=>b.y>=0&&b.bottom<=height+.5&&Math.abs(b.h/b.w-323/222)<.025)).toBe(true);
-    expect(geometry.controls.every(b=>b.w>=44&&b.h>=44&&b.x>=0&&b.right<=width+.5&&b.y>=0&&b.bottom<=height+.5)).toBe(true);
+    expect(geometry.controls.every(b=>b.w>=44&&b.h>=44&&b.x>=0&&b.right<=width+.5&&b.y>=0&&b.bottom<=height+.5),JSON.stringify(geometry.controls)).toBe(true);
     expect(geometry.controls.every(b=>geometry.hand.every(c=>!overlap(b,c)))).toBe(true);
     expect(geometry.hand.every(c=>!overlap(geometry.self,c))).toBe(true);
     expect(overlap(geometry.east,geometry.toolbar)).toBe(false);
