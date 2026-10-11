@@ -1,69 +1,46 @@
-/**
- * ============================================================================
- * config.js — Supabase 运行时配置加载器 (优化版)
- * ============================================================================
- */
-
-(async function () {
+/* Public browser configuration. URL/key are not authorization boundaries. */
+(() => {
   'use strict';
-
-  // 1. 基础配置容器
-  var finalConfig = {
-    SUPABASE_URL: '',
-    SUPABASE_ANON_KEY: '',
-  };
-
-  // 2. 尝试从后端/Worker 获取配置 (例如 Cloudflare Pages Functions)
-  try {
-    const response = await fetch('/get-config'); 
-    if (response.ok) {
-      const remoteConfig = await response.json();
-      if (remoteConfig.SUPABASE_URL) finalConfig.SUPABASE_URL = remoteConfig.SUPABASE_URL;
-      if (remoteConfig.SUPABASE_ANON_KEY) finalConfig.SUPABASE_ANON_KEY = remoteConfig.SUPABASE_ANON_KEY;
-      console.log('[Config] 已从远程接口加载配置');
+  function normalize(input = {}) {
+    const url = String(input.SUPABASE_URL || '').trim().replace(/\/rest\/v1\/?$/, '').replace(/\/+$/, '');
+    const key = String(input.SUPABASE_ANON_KEY || '').trim();
+    if (url) {
+      const parsed = new URL(url);
+      if (!['http:', 'https:'].includes(parsed.protocol) || parsed.username || parsed.password || parsed.search || parsed.hash) throw new Error('Invalid Supabase URL');
+      if (parsed.protocol === 'http:' && !['localhost', '127.0.0.1', '[::1]'].includes(parsed.hostname)) throw new Error('Supabase requires HTTPS outside localhost');
     }
-  } catch (e) {
-    console.log('[Config] 未能从远程接口获取配置，将尝试本地/注入配置');
+    if (key.startsWith('sb_secret_')) throw new Error('Secret key forbidden in browser');
+    if (key.split('.').length === 3) {
+      let payload;
+      try { payload = JSON.parse(atob(key.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))); }
+      catch (_) { throw new Error('Invalid anonymous JWT'); }
+      if (payload.role !== 'anon') throw new Error('Only anon JWT is allowed in browser');
+    }
+    return Object.freeze({ SUPABASE_URL: url, SUPABASE_ANON_KEY: key });
   }
-
-  // 3. 读取本地 config.local.js 中的配置 (由构建流程注入)
-  // 注意：变量名需与 config.local.js 中保持一致
-  var LOCAL_CONFIG = window.APP_CONFIG_LOCAL || window.LOCAL_CONFIG || {};
-
-  // 4. 合并配置 (本地/注入配置 优先级最高)
-  if (LOCAL_CONFIG.SUPABASE_URL) finalConfig.SUPABASE_URL = LOCAL_CONFIG.SUPABASE_URL;
-  if (LOCAL_CONFIG.SUPABASE_ANON_KEY) finalConfig.SUPABASE_ANON_KEY = LOCAL_CONFIG.SUPABASE_ANON_KEY;
-
-  // 5. 【核心修复】URL 自动清洗逻辑
-  // 强制删除可能存在的 /rest/v1 后缀，并去除前后空格
-  if (finalConfig.SUPABASE_URL) {
-    finalConfig.SUPABASE_URL = finalConfig.SUPABASE_URL
-      .trim()
-      .replace(/\/rest\/v1\/?$/, '')
-      .replace(/\/$/, ''); // 同时移除末尾多余的斜杠
-  }
-
-  // 6. 校验逻辑
-  function isValidUrl(value) {
-    return typeof value === 'string' && /^https?:\/\//i.test(value.trim());
-  }
-
-  if (!finalConfig.SUPABASE_URL || !finalConfig.SUPABASE_ANON_KEY) {
-    console.error(
-      '[Supabase Config] 严重错误：未找到有效配置，请检查环境变量或 config.local.js'
-    );
-  } else if (!isValidUrl(finalConfig.SUPABASE_URL)) {
-    console.error(
-      '[Supabase Config] URL 格式非法，请检查：' + finalConfig.SUPABASE_URL
-    );
-  }
-
-  // 7. 挂载到全局
-  window.APP_CONFIG = finalConfig;
-  //console.log('[Config] 全局配置已就绪:', window.APP_CONFIG);
-  
-  // 8. 发送就绪事件，通知其他业务脚本 (如 login.js, game.js)
-  setTimeout(() => {
-      window.dispatchEvent(new CustomEvent('configReady', { detail: finalConfig }));
-  }, 0);
+  const injected = { ...(window.CONFIG || {}), ...(window.LOCAL_CONFIG || {}), ...(window.APP_CONFIG_LOCAL || {}) };
+  let config = Object.freeze({ SUPABASE_URL: '', SUPABASE_ANON_KEY: '' });
+  window.NobiConfig = {
+    normalize,
+    get: () => config,
+    ready: (async () => {
+      try {
+        config = normalize(injected);
+        if ((!config.SUPABASE_URL || !config.SUPABASE_ANON_KEY) && !window.NobiPlatform?.isNative()) {
+          const controller = new AbortController();
+          const timer = setTimeout(() => controller.abort(), 3000);
+          try {
+            const response = await fetch('/get-config', { signal: controller.signal, credentials: 'same-origin' });
+            if (response.ok) config = normalize({ ...(await response.json()), ...Object.fromEntries(Object.entries(injected).filter(([, value]) => value)) });
+          } finally { clearTimeout(timer); }
+        }
+      } catch (_) {
+        config = Object.freeze({ SUPABASE_URL: '', SUPABASE_ANON_KEY: '' });
+        console.error('[Config] Configuration rejected or unavailable; no credentials logged.');
+      }
+      window.APP_CONFIG = config;
+      setTimeout(() => window.dispatchEvent(new CustomEvent('configReady', { detail: config })), 0);
+      return config;
+    })()
+  };
 })();

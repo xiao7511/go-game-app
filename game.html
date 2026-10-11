@@ -2,19 +2,35 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="theme-color" content="#0f1720" />
-  <title>围棋 Pro - 在线对战</title>
+  <title>Nobi 游戏 · Nobi Games</title>
+  <link rel="icon" href="ui/brand.svg" type="image/svg+xml">
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="ui/tokens.css">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="build-target.js"></script>
+  <script src="platform.js"></script>
+  <script src="ui/registry.js"></script>
+  <script src="config.local.js"></script><script src="online-config.js"></script>
   <script src="config.js"></script>
+  <script src="supabaseClient.js"></script>
+  <script src="pc/cs16-adapter.js"></script>
+  <script src="ui/audio-manifest.js"></script>
+  <script src="ui/audio-manager.js"></script>
+  <script src="ui/rankings.js"></script>
+  <script src="ui/lobby.js"></script>
   <!--<script src="game.js"></script>-->
   <script src="game.js?v=20260522_v2"></script>
   <!--<script src="multiplayer-ext.js"></script> -->
   <script src="multiplayer-ext.js?v=20260522_v2"></script>
+  <script src="ui/avatars.js"></script>
   <script src="guandan-game.js"></script>
   <script src="guandan-mp-ext.js"></script>
+  <script src="ui/go-analysis.js"></script>
+  <script src="ui/match.js"></script>
   <style>
     :root {
       --bg: #0f1720;
@@ -498,6 +514,7 @@
       .topbar-actions .btn { flex: 1 1 0; }
     }
   </style>
+  <link rel="stylesheet" href="ui/lobby.css">
 </head>
 <body>
   <div id="game-selection">
@@ -524,35 +541,35 @@
   <div class="app">
     <header class="topbar">
       <div class="topbar-brand">
-        <strong>围棋 Pro</strong>
-        <span>在线对战 · 生产级布局</span>
+        <strong>围棋 · <span data-go-mode-label>单机对局</span></strong>
+        <span>Nobi 游戏 · 19 路 · 中国规则 · 白贴 7.5</span>
       </div>
-
       <div class="topbar-center" aria-live="polite">
         <span class="chip chip--muted">轮到：<b id="currentPlayer">黑子</b></span>
         <span class="chip">黑提：<b id="blackCaptures">0</b></span>
         <span class="chip">白提：<b id="whiteCaptures">0</b></span>
-      </div>
-
-      <div class="topbar-actions">
-        <button id="surrender-btn" class="btn btn-danger">认输</button>
-        <button id="quit-game-btn" class="btn btn-ghost">退出游戏</button>
+        <span class="chip chip--muted">手数：<b data-go-move-count>0</b></span>
       </div>
     </header>
 
     <main class="layout">
       <aside class="sidebar sidebar-left">
-        <section class="panel" id="local-player-panel">
+        <section class="go-match-card">
+          <span class="go-match-logo" aria-hidden="true"><i></i><i></i></span>
+          <div><strong>围棋 · <span data-go-mode-label>单机对局</span></strong><small>19 路 · 中国规则 · 白贴 7.5</small></div>
+        </section>
+
+        <section class="panel go-player" id="local-player-panel" data-go-stone="black">
           <div class="panel-header">
             <h2>本地玩家</h2>
             <span id="local-player-status" class="status-pill">在线</span>
           </div>
           <div class="panel-body player-card">
-            <img id="user-avatar" class="player-avatar" src="" alt="玩家头像" />
+            <span class="go-avatar-wrap"><img id="user-avatar" class="player-avatar" src="" alt="玩家头像" /><span class="go-stone-avatar" aria-hidden="true"></span></span>
             <div class="player-meta">
               <div class="name-row">
                 <strong id="user-nickname">未登录</strong>
-                <span id="user-rank" class="chip chip--muted" style="padding: 4px 8px; font-size: 12px;">未设置段位</span>
+                <span id="user-rank" class="chip chip--muted">未设置段位</span>
               </div>
               <div class="sub">
                 <span id="local-player-side">执色：—</span>
@@ -560,27 +577,67 @@
               </div>
             </div>
           </div>
+          <div class="go-player-foot"><span class="go-player-clock" data-go-clock-self>00:00</span><span>提子 <b data-go-captures-self>0</b></span></div>
         </section>
 
-        <section class="panel">
+        <section class="panel go-player" id="opponent-player-panel" data-go-stone="white">
           <div class="panel-header">
-            <h2>对局提示</h2>
+            <h2>对手信息</h2>
+            <span id="opponent-status" class="status-pill offline">离线</span>
           </div>
-          <div class="panel-body hint-list">
-            <div><strong>落子反馈：</strong>最新落点会持续闪烁，直到对手完成应手。</div>
-            <div><strong>棋盘自适应：</strong>主棋盘会随屏幕高度缩放，保持正方形比例。</div>
-            <div><strong>退出逻辑：</strong>顶部“退出游戏”会先二次确认，再执行清理。</div>
+          <div class="panel-body player-card">
+            <span class="go-avatar-wrap"><img id="opponent-avatar" class="player-avatar" src="" alt="对手头像" /><span class="go-stone-avatar" aria-hidden="true"></span></span>
+            <div class="player-meta">
+              <div class="name-row">
+                <strong id="opponent-nickname">等待对手</strong>
+                <span id="opponent-rank" class="chip chip--muted">—</span>
+              </div>
+              <div class="sub">
+                <span id="opponent-side">执色：—</span>
+                <span id="opponent-activity">状态：等待加入</span>
+              </div>
+            </div>
           </div>
+          <div class="go-player-foot"><span class="go-player-clock" data-go-clock-opponent>00:00</span><span>提子 <b data-go-captures-opponent>0</b></span></div>
         </section>
+
+        <div class="nobi-go-tools go-actions" aria-label="对局操作">
+          <button type="button" data-go-confirm disabled>确认落子</button>
+          <button type="button" data-go-cancel disabled>取消预览</button>
+          <button type="button" data-go-undo disabled title="单机撤回自己与 AI 最近一轮；联机暂不支持">悔棋</button>
+          <button type="button" data-go-count title="单机按当前盘面数子结束本局">数子</button>
+          <button id="surrender-btn" type="button" class="btn btn-danger">认输</button>
+        </div>
       </aside>
 
       <section class="board-zone">
+        <div class="nobi-go-summary" aria-live="polite"><span data-go-player>黑方 · 本地玩家</span><span data-go-clock>本地用时 00:00 / 00:00</span><span data-go-opponent>白方 · AI</span></div>
         <div class="board-shell">
           <canvas id="goBoard"></canvas>
+          <canvas class="go-territory" data-go-territory hidden aria-hidden="true"></canvas>
+          <span class="nobi-go-preview" data-go-preview hidden aria-hidden="true"></span>
         </div>
+        <p class="nobi-go-help" data-go-hint>点击交叉点落子 · 本地用时仅供参考，不用于判负</p>
+        <p class="go-estimate" data-go-estimate hidden></p>
       </section>
 
       <aside class="sidebar sidebar-right">
+        <nav class="go-rail" aria-label="对局工具">
+          <button type="button" data-match-settings><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 3-1 3-3 1-2 3 2 2-1 3 3 2 3-1 2 2 3-1 1-3 3-1 2-3-2-2 1-3-3-2-3 1Z"/><circle cx="12" cy="11" r="3"/></svg><span>设置</span></button>
+          <button type="button" data-go-estimate-toggle aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg><span>形势</span></button>
+          <button type="button" data-go-record><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3h14v18H5zM8 8h8M8 12h8M8 16h5"/></svg><span>棋谱</span></button>
+          <button type="button" data-match-chat><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-9l-5 3v-3a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z"/></svg><span>聊天</span></button>
+          <button id="quit-game-btn" type="button" class="go-rail-exit"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 4H5v16h5M14 8l4 4-4 4M18 12H9"/></svg><span>退出</span></button>
+        </nav>
+
+        <section class="panel go-record-panel">
+          <div class="panel-header">
+            <h2>实时棋谱</h2>
+            <span class="status-pill" data-go-record-count>0 手</span>
+          </div>
+          <ol class="go-record-live" data-go-record-live></ol>
+        </section>
+
         <section class="panel" id="room-panel">
           <div class="panel-header">
             <h2>房间信息</h2>
@@ -596,38 +653,33 @@
           </div>
         </section>
 
-        <section class="panel" id="opponent-player-panel">
-          <div class="panel-header">
-            <h2>对手信息</h2>
-            <span id="opponent-status" class="status-pill offline">离线</span>
-          </div>
-          <div class="panel-body player-card">
-            <img id="opponent-avatar" class="player-avatar" src="" alt="对手头像" />
-            <div class="player-meta">
-              <div class="name-row">
-                <strong id="opponent-nickname">等待对手</strong>
-                <span id="opponent-rank" class="chip chip--muted" style="padding: 4px 8px; font-size: 12px;">—</span>
-              </div>
-              <div class="sub">
-                <span id="opponent-side">执色：—</span>
-                <span id="opponent-activity">状态：等待加入</span>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section class="panel">
+        <section class="panel go-status-panel">
           <div class="panel-header">
             <h2>实时状态</h2>
           </div>
           <div class="panel-body hint-list">
             <div><strong>回合：</strong><span id="turn-summary">黑棋先行</span></div>
             <div><strong>连接：</strong><span id="connection-summary">未建立</span></div>
-            <div><strong>提醒：</strong>认输按钮会调用 Supabase RPC <code>game.handle_surrender</code>。</div>
+            <div><strong>提示：</strong>形势与数子为本地估算，不判断死活，不用于联机结算。</div>
           </div>
         </section>
       </aside>
     </main>
+
+    <div id="result-overlay" class="go-result" role="dialog" aria-modal="true" aria-labelledby="result-title">
+      <div class="go-result-card">
+        <span class="go-result-badge" aria-hidden="true"><i></i><i></i></span>
+        <h2 id="result-title">对局结束</h2>
+        <p id="result-desc">—</p>
+        <p id="result-detail" class="go-result-detail"></p>
+        <div class="go-result-actions">
+          <button type="button" class="go-result-primary" data-go-rematch>再来一局</button>
+          <button type="button" data-go-record-result>查看棋谱</button>
+          <button type="button" data-go-result-close>查看棋盘</button>
+          <button type="button" data-go-exit>返回大厅</button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <div id="confirm-modal" class="modal-backdrop" aria-hidden="true">
@@ -642,5 +694,9 @@
   </div>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <link rel="stylesheet" href="ui/match.css">
+  <link rel="stylesheet" href="ui/guandan-table.css">
+  <link rel="stylesheet" href="ui/go-match.css">
+  <link rel="stylesheet" href="ui/reference-upgrade.css">
 </body>
 </html>

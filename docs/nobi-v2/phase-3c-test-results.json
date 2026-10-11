@@ -1,0 +1,180 @@
+{
+  "phase": "3C",
+  "baseline": "c5de0991c386c0916d5f70d4fc3108f837e39a54",
+  "branch": "feature/nobi-games-v2",
+  "environment": "nobi-phase3a-local; loopback only",
+  "evidenceDate": "2026-10-10",
+  "tests": {
+    "unit": {
+      "status": "PASS",
+      "count": 92,
+      "retained": 83,
+      "added": 9
+    },
+    "offline": {
+      "status": "Mock PASS",
+      "tests": 1,
+      "checks": 10
+    },
+    "edgeRegression": {
+      "status": "PASS",
+      "count": 23
+    },
+    "realSupabaseBaseline": {
+      "status": "PASS",
+      "count": 19
+    },
+    "realCompetitiveSupabase": {
+      "status": "PASS",
+      "count": 11,
+      "checks": [
+        {
+          "name": "real Auth admin allowlist; metadata spoof and settlement RPC denied",
+          "status": "PASS"
+        },
+        {
+          "name": "full authoritative four-human Guandan completion, placements, upgrade and team Elo (157 operations)",
+          "status": "PASS"
+        },
+        {
+          "name": "real Go captures, Chinese area/komi, dispute/resume, mutual score consent, private results and ended guard",
+          "status": "PASS"
+        },
+        {
+          "name": "service restart and identical terminal retry do not settle twice",
+          "status": "PASS"
+        },
+        {
+          "name": "client score/season mutation denied, private history RLS and outsider admin denied",
+          "status": "PASS"
+        },
+        {
+          "name": "injected rating write failure rolls back every player/result/snapshot; same operation recovers atomically",
+          "status": "PASS"
+        },
+        {
+          "name": "two real concurrent PostgreSQL settlements and duplicate retries have no lost updates or duplicate points",
+          "status": "PASS"
+        },
+        {
+          "name": "paged stable tied rankings, own rank/tier/stats/history and explicit empty friend interface",
+          "status": "PASS"
+        },
+        {
+          "name": "abnormal exit excludes ratings and creates administrator-readable audit",
+          "status": "PASS"
+        },
+        {
+          "name": "server-generated timeout after verified play settles; client cannot submit timeout",
+          "status": "PASS"
+        },
+        {
+          "name": "season pause/switch/expiration, readonly archives, fresh seasonal ratings and permanent history preservation",
+          "status": "PASS"
+        }
+      ]
+    },
+    "realOnlineBrowser": {
+      "status": "PASS",
+      "count": 4
+    },
+    "realCompetitiveBrowser": {
+      "status": "PASS",
+      "count": 2
+    }
+  },
+  "verification": {
+    "typecheck": "PASS",
+    "migrations": "006-010 applied; actual rollback/reapply PASS",
+    "sqlContract": "PASS",
+    "webBuild": "PASS",
+    "appBuild": "PASS (web/mobile + Android/iOS copy)",
+    "androidDebug": "PASS",
+    "apk": {
+      "path": "android/app/build/outputs/apk/debug/app-debug.apk",
+      "bytes": 6072065,
+      "sha256": "8a3e9d894e2dcd2b8709898519baf2c7d4088c378c8d08d3f4a65fc26024cb14"
+    },
+    "assets": {
+      "cards": {
+        "count": 56,
+        "status": "PASS"
+      },
+      "goSourceBaselines": {
+        "count": 7,
+        "status": "PASS"
+      },
+      "apkGoBaselines": {
+        "count": 3,
+        "status": "PASS"
+      }
+    },
+    "security": {
+      "materialScan": "FAIL: existing signing exposure",
+      "rootAudit": {
+        "status": "FAIL",
+        "info": 0,
+        "low": 0,
+        "moderate": 0,
+        "high": 3,
+        "critical": 1,
+        "total": 4
+      },
+      "toolingAudit": {
+        "status": "PASS",
+        "info": 0,
+        "low": 0,
+        "moderate": 0,
+        "high": 0,
+        "critical": 0,
+        "total": 0
+      }
+    }
+  },
+  "notRun": [
+    "IPA",
+    "Android/iOS real devices",
+    "release signing"
+  ],
+  "notVerified": [
+    "production contract",
+    "public HTTPS deployment",
+    "multi-authority load",
+    "full tournament rules"
+  ],
+  "productionStatus": "NO-GO",
+  "screenshots": [
+    {
+      "file": "go-rank-mobile.png",
+      "sha256": "fe3cd42b1ba10c72019df564f32a920f4180d7ea69a4a3837597e44d8a1ccc75"
+    },
+    {
+      "file": "go-scored-mobile.png",
+      "sha256": "1ed1feefe6f6136959225c499080d6e7aac0c06d00d7c28d30db60460f880d60"
+    },
+    {
+      "file": "guandan-rank.png",
+      "sha256": "b2731df450f61ee4abc7de89faae76e1196ff08c71bde7942a538ba274ee7b5b"
+    },
+    {
+      "file": "guandan-result.png",
+      "sha256": "44ad144f945bafc2acbcbb96627e687535ed14ef61d0d9f3259dc09d4d14abfc"
+    },
+    {
+      "file": "history-mobile.png",
+      "sha256": "556401c566cdd0399fb7159ed44a9549788536a3620d54b420c2e40668b7de39"
+    }
+  ],
+  "commitLookup": "git log -5 --format=%H; report commit: git log -1 --format=%H -- docs/nobi-v2/phase-3c-report.md",
+  "implementationCommits": [
+    "cbfa2dc483891b07b31ce13a42a42f4f1e6f25ce",
+    "39482588090ab05f388611bf026599c552d97486",
+    "58850250739d4bb2ff442b62d4a163db0cfbd584",
+    "ceff1bddeca05c4e6338c8a899dd8b0b9dd098ce"
+  ],
+  "fixtureCleanup": {
+    "status": "PASS",
+    "remainingCompetitiveAuthUsers": 0,
+    "remainingCompetitiveRecords": 0
+  }
+}

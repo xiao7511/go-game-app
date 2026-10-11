@@ -1,0 +1,3 @@
+scripts/ios-prepare-mac.sh text eol=lf
+scripts/codemagic-ios.sh text eol=lf
+infrastructure/production/*.sh text eol=lf

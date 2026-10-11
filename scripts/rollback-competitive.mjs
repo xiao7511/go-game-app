@@ -1,0 +1,2 @@
+﻿import fs from 'node:fs';import {localCredentials} from './local-supabase.mjs';import {localSql} from './local-db.mjs';
+if(process.env.NOBI_ISOLATED_ACK!=='LOCAL_DISPOSABLE_ONLY')throw new Error('BLOCKED: explicit local disposable acknowledgment required');await localCredentials();localSql('begin;'+fs.readFileSync('infrastructure/local-supabase/sql/rollback-competitive.sql','utf8').replace(/^\uFEFF/,'')+';commit;');console.log('PASS: guarded competition rollback; no existing competitive data removed');

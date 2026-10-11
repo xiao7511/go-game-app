@@ -1,0 +1,5 @@
+{
+  "name": "nobi-disposable-supabase",
+  "private": true,
+  "devDependencies": { "supabase": "2.120.0" }
+}

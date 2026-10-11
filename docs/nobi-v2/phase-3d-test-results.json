@@ -1,0 +1,174 @@
+{
+  "schema": 1,
+  "branch": "feature/nobi-games-v2",
+  "baseline": "43fe74811072366f79ec75f9bd476e6b12be989a",
+  "rulesVersion": "guandan-standard-v1",
+  "scope": "dedicated localhost Supabase only",
+  "unit": {
+    "status": "PASS",
+    "exitCode": 0,
+    "baseline": 92,
+    "guandanAdded": 31,
+    "securityAdded": 2,
+    "total": 125,
+    "log": "viewport-unit-final.log"
+  },
+  "browser": {
+    "baseline23": {
+      "status": "PASS",
+      "exitCode": 0,
+      "total": 23,
+      "log": "viewport-edge23.log"
+    },
+    "baselineOnline4": {
+      "status": "PASS",
+      "exitCode": 0,
+      "total": 4,
+      "log": "viewport-browser4.log"
+    },
+    "baselineRated2": {
+      "status": "PASS",
+      "exitCode": 0,
+      "total": 2,
+      "log": "viewport-browser2.log"
+    },
+    "phase3d2Hands": {
+      "status": "PASS",
+      "exitCode": 0,
+      "tests": 1,
+      "clientContexts": 4,
+      "viewport": "844x390 DPR3 + 568x320 + PC1280x800",
+      "fixtures": "valid server-only deal guarantees duplicates and tribute; first leader fixture0 only",
+      "log": "viewport-all-sizes.log",
+      "regressionScreenshots": "docs/nobi-v2/screenshots/phase-3d/regression-series",
+      "unobstructedSeatsActionsAndTrick": "PASS all three sizes"
+    }
+  },
+  "supabase": {
+    "baseline19": {
+      "status": "PASS",
+      "exitCode": 0,
+      "total": 19,
+      "log": "followup-supabase19.log"
+    },
+    "baseline11": {
+      "status": "PASS",
+      "exitCode": 0,
+      "total": 11,
+      "log": "followup-supabase11.log"
+    },
+    "phase3d7": {
+      "status": "PASS",
+      "exitCode": 0,
+      "total": 7,
+      "operations": 299,
+      "log": "followup-supabase7.log"
+    }
+  },
+  "assets": {
+    "originalPng": {
+      "status": "PASS",
+      "count": 56
+    },
+    "goSourceRegions": {
+      "status": "PASS",
+      "count": 7
+    },
+    "webBuild": {
+      "status": "PASS",
+      "exitCode": 0,
+      "log": "viewport-web-build.log"
+    },
+    "mobileBuild": {
+      "status": "PASS",
+      "exitCode": 0,
+      "log": "viewport-mobile-build.log"
+    },
+    "nativePublicAssets": {
+      "status": "PASS"
+    },
+    "capacitorCopy": {
+      "status": "BLOCKED",
+      "reason": "sandbox user identity lookup uv_os_get_passwd failed; verified assets manually synced only"
+    },
+    "nativeCompile": {
+      "androidDebug": {
+        "status": "PASS",
+        "exitCode": 0,
+        "phase": "phase3d",
+        "apkBytes": 6086043,
+        "apkSha256": "04106041c178ec92fd3d77100998477135f1a1c253b935ef8e859e821f2effcc",
+        "assetVerification": "PASS 56PNG + 5sounds + guandan rule module + 7source/3APK Go regions",
+        "log": "viewport-android-delivery.log",
+        "assetLog": "viewport-apk-verification.log",
+        "debugCertificate": true,
+        "debuggable": true,
+        "signatureVerificationExit": 0
+      },
+      "ios": "NOT RUN"
+    },
+    "physicalDevices": {
+      "status": "NOT RUN",
+      "reason": "ADB device enumeration failed with exit 3221226505; no device claim"
+    }
+  },
+  "security": {
+    "signingMaterials": "FAIL existing exposure, owner rotation required",
+    "rootAudit": "BLOCKED post-patch audit endpoint unavailable exit1",
+    "toolingAudit": "BLOCKED recheck audit endpoint unavailable exit1",
+    "dependencyUpgrade": {
+      "status": "PARTIAL / BLOCKED",
+      "xmldom": "0.9.10 -> 0.9.12 installed offline; verified registry SRI; 125 unit + plist compatibility PASS",
+      "braceExpansion": "2.1.0 retained; 2.1.7 fetch rejected EACCES",
+      "tar": "6.2.1 retained; major toolchain migration requires compatibility validation"
+    }
+  },
+  "git": {
+    "originalMetadata": "read-only; add/commit denied",
+    "deliveryCopy": "Actual commits in .nobi-isolated/phase3d/commit-worktree; final confirmed tip in git-delivery.json",
+    "incrementalBundle": "Baseline prerequisite; final object/contents verification recorded in git-delivery.json"
+  },
+  "production": "NOT TOUCHED",
+  "formalRelease": "NOT RUN",
+  "finalVerdict": "LOCAL_FUNCTIONAL_PASS; production/release NO-GO; remaining dependency upgrades/audit and original repository fast-forward BLOCKED",
+  "acceptanceRequirements": {
+    "items": "1-15",
+    "configuredProfile": "PASS",
+    "nineCardSteelVariant": "BLOCKED pending specific source"
+  },
+  "offline": {
+    "status": "PASS",
+    "exitCode": 0,
+    "tests": 1,
+    "checks": 10,
+    "actions": 143
+  },
+  "databaseContracts": {
+    "status": "PASS",
+    "checks": 3
+  },
+  "testReliability": {
+    "servedSourceHashGuard": 7,
+    "separateOutputDirs": true,
+    "priorFailedRunsExcluded": true
+  },
+  "followup": {
+    "status": "PASS",
+    "scope": "xmldom patch, landscape iframe fix, complete isolated regression and Android Debug verification",
+    "baselineUnitPreserved": 92,
+    "finalUnit": 125,
+    "baselinePageBrowser": 23,
+    "baselineRealSupabase": 30,
+    "addedRealSupabase": 7,
+    "baselineOnlineBrowser": 6,
+    "completeBrowserHands": 2,
+    "viewports": [
+      "844x390 DPR3",
+      "568x320",
+      "1280x800"
+    ],
+    "curatedScreenshots": "updated from final successful all-sizes run; inspected",
+    "audits": "BLOCKED; no current vulnerability count",
+    "production": "NOT TOUCHED"
+  }
+}

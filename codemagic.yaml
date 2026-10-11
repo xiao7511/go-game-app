@@ -1,0 +1,57 @@
+# Manual workflows. Configure the nobi_public group in Codemagic before running.
+workflows:
+  ios-simulator:
+    name: Nobi iOS simulator verification
+    instance_type: mac_mini_m2
+    max_build_duration: 60
+    environment:
+      groups:
+        - nobi_public
+      node: 24
+      xcode: 26.6
+      cocoapods: default
+    scripts:
+      - name: Prepare and verify project
+        script: bash scripts/codemagic-ios.sh prepare
+      - name: Build unsigned simulator app
+        script: |
+          set -euo pipefail
+          xcodebuild -workspace ios/App/App.xcworkspace -scheme App -configuration Debug \
+            -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath build/ios-simulator CODE_SIGNING_ALLOWED=NO build
+    artifacts:
+      - build/ios-simulator/Build/Products/Debug-iphonesimulator/*.app
+      - /tmp/xcodebuild_logs/*.log
+  ios-testflight:
+    name: Nobi signed IPA and TestFlight
+    instance_type: mac_mini_m2
+    max_build_duration: 60
+    integrations:
+      app_store_connect: nobi_app_store_connect
+    environment:
+      groups:
+        - nobi_public
+        - nobi_ios_release
+      node: 24
+      xcode: 26.6
+      cocoapods: default
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: cn.obsmd.gogame
+    scripts:
+      - name: Prepare and verify project
+        script: bash scripts/codemagic-ios.sh prepare
+      - name: Apply distribution profiles and increment build
+        script: bash scripts/codemagic-ios.sh signing
+      - name: Archive and export signed IPA
+        script: |
+          set -euo pipefail
+          xcode-project build-ipa --workspace ios/App/App.xcworkspace --scheme App
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
+        submit_to_app_store: false

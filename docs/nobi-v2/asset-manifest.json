@@ -1,0 +1,691 @@
+{
+  "baseline_commit": "a0bb939dbe3544abb5b99ab7fc500a76b2998e06",
+  "hash_algorithm": "SHA-256",
+  "git_blob_algorithm": "SHA-1",
+  "text_hash_scope": "raw Git blob at baseline; normalize text through Git attributes when checking working trees",
+  "card_png_count": 56,
+  "assets": [
+    {
+      "path": "images/cards/10_of_clubs.png",
+      "category": "protected-card-png",
+      "git_blob_sha1": "bfdfe1d6f1386c14bb9cb786e415650eae3eb132",
+      "baseline_bytes": 13052,
+      "baseline_sha256": "31a7a7c87f571454ba1e90ae77646df0465f1cfd8c2e273cd4c0c6c336a71ecc",
+      "width": 222,
+      "height": 323,
+      "binary_unchanged": true
+    },
+    {
+      "path": "images/cards/10_of_diamonds.png",
+      "category": "protected-card-png",
+      "git_blob_sha1": "20fd2a7834fe2591e14d5770c7c0855611c60e08",
+      "baseline_bytes": 15733,
+      "baseline_sha256": "0243020b5cb6c774725fe5fe9141a962778ffe1eb0a630f9db89ebe29fd9a6b3",
+      "width": 222,
+      "height": 323,
+      "binary_unchanged": true
+    },
+    {
+      "path": "images/cards/10_of_hearts.png",
+      "category": "protected-card-png",
+      "git_blob_sha1": "e4e396d8a2344a9d0edee95d6388612cefb05c7d",
+      "baseline_bytes": 15768,
+      "baseline_sha256": "450ac7b489c12190c75cf4f114bebcab3ce4764ba263892f779d7019c520f952",
+      "width": 222,
+      "height": 323,
+      "binary_unchanged": true
+    },
+    {
+      "path": "images/cards/10_of_spades.png",
+      "category": "protected-card-png",
+      "git_blob_sha1": "7fcddfef02b70d00f3edbc32313adcdffee3cdf0",
+      "baseline_bytes": 11988,
+      "baseline_sha256": "59ab64c76f49fc71a71c072db39621a2d5ce4cbfbd5a411a8a6718fe6b8c7af3",
+      "width": 222,
+      "height": 323,
+      "binary_unchanged": true
+    },
+    {
+      "path": "images/cards/2_of_clubs.png",
+      "category": "protected-card-png",
+      "git_blob_sha1": "ceed1f2ff8194df1ffb0540f32289c3dee8c1aaa",
+      "baseline_bytes": 4920,
+      "baseline_sha256": "d08747b2226ba2a750b4afec78694f9825ac91303665d5f88cc8b29985364f4c",
+      "width": 222,
+      "height": 323,
+      "binary_unchanged": true
+    },
+    {
+      "path": "images/cards/2_of_diamonds.png",
+      "category": "protected-card-png",
+      "git_blob_sha1": "b0a6ae4a2409bcd40b3a79786bb2af9a2fcf02b1",
+      "baseline_bytes": 5994,
+      "baseline_sha256": "5921281ef60ab4646043f873f334c3ea89e0d73593fe25c75468f13d7cdb97d6",
+      "width": 222,
+      "height": 323,
+      "binary_unchanged": true
+    },
+    {
+      "path": "images/cards/2_of_hearts.png",
+      "category": "protected-card-png",
+      "git_blob_sha1": "5e0c0da44abb573ac02e9abcce57d14624dbf9fb",
+      "baseline_bytes": 6066,
+      "baseline_sha256": "f55e84ebf845eb9367af7526c4cd0324b3ef295e896e677b43c482ad509afe3b",
+      "width": 222,
+      "height": 323,
+      "binary_unchanged": true
+    },
+    {
+      "path": "images/cards/2_of_spades.png",
+      "category": "protected-card-png",
+      "git_blob_sha1": "cada8bb9c984ab6de5b51f4771044dc3b0e6dbef",
+      "baseline_bytes": 4549,
+      "baseline_sha256": "1762394654973f4a63447d68de29b2d252fdbf881c7405c15510158ca329ed86",
+      "width": 222,
+      "height": 323,
+      "binary_unchanged": true
+    },
+    {
+      "path": "images/cards/3_of_clubs.png",
+      "category": "protected-card-png",
+      "git_blob_sha1": "b5e0f7d46095fd89ca4e9ac2ed5663d3f94f1da9",
+      "baseline_bytes": 6201,
+      "baseline_sha256": "4d5e441207634e28a32ec9134227890f62e1bb38a554c3c9ca7240a21cbbe909",
+      "width": 222,
+      "height": 323,
+      "binary_unchanged": true
+    },
+    {
+      "path": "images/cards/3_of_diamonds.png",
+      "category": "protected-card-png",
+      "git_blob_sha1": "2a93982ee475cbc5341be57ed983e54940378c44",
+      "baseline_bytes": 7685,
+      "baseline_sha256": "f0a8ec9732c5f808074e32c293caa79982e57ed84256515921ed83886263066d",
+      "width": 222,
+      "height": 323,
+      "binary_unchanged": true
+    },
+    {
+      "path": "images/cards/3_of_hearts.png",
+      "category": "protected-card-png",
+      "git_blob_sha1": "87b7c32fe277421f30e203b7a702d58755990824",
+      "baseline_bytes": 7683,
+      "baseline_sha256": "b15b18d3e09210c703ee98ba166c3a5aeece9defcbf8e0f5f57b0a108371f56b",
+      "width": 222,
+      "height": 323,
+      "binary_unchanged": true
+    },
+    {
+      "path": "images/cards/3_of_spades.png",
+      "category": "protected-card-png",
+      "git_blob_sha1": "8b8efcd4240484aba78139a7b8c230ba162a1366",
+      "baseline_bytes": 5739,
+      "baseline_sha256": "ef4dc467677adf13c02c349de5c4bae156ac3ae0e91d14c4611a70b8385db5b6",
+      "width": 222,
+      "height": 323,
+      "binary_unchanged": true
+    },
+    {
+      "path": "images/cards/4_of_clubs.png",
+      "category": "protected-card-png",
+      "git_blob_sha1": "ef50634097e7922ca39e3dfbf5cdb0ea1f0bb297",
+      "baseline_bytes": 6623,
+      "baseline_sha256": "06137f0178199f07c025320fee95ed76fb01530e90c324f2154c4b8daeccb407",
+      "width": 222,
+      "height": 323,
+      "binary_unchanged": true
+    },
+    {
+      "path": "images/cards/4_of_diamonds.png",
+      "category": "protected-card-png",
+      "git_blob_sha1": "2a78a03fb8f283fb68613158ff2e232311c4d978",
+      "baseline_bytes": 8009,
+      "baseline_sha256": "dd8205b13c7f3e11e580ba0f54d39a67b09d31938a0dbaa810ec5bb9b49ffa82",
+      "width": 222,
+      "height": 323,
+      "binary_unchanged": true
+    },
+    {
+      "path": "images/cards/4_of_hearts.png",
+      "category": "protected-card-png",
+      "git_blob_sha1": "9e3f216e16b141e5ddfa29456d6a68e78a35de35",
+      "baseline_bytes": 7998,
+      "baseline_sha256": "8f1eaba83e6c92b8ff12027f4cfff723bda50c66819ebff071856d151d52e844",
+      "width": 222,
+      "height": 323,
+      "binary_unchanged": true
+    },
+    {
+      "path": "images/cards/4_of_spades.png",
+      "category": "protected-card-png",
+      "git_blob_sha1": "dc824923e6cfde470e607cdc82340bd6880d55a0",
+      "baseline_bytes": 6053,
+      "baseline_sha256": "2577fe5ada4cf54aa800ec83c145d50ed5b9e7bce03d111928fec68ba7337304",
+      "width": 222,
+      "height": 323,
+      "binary_unchanged": true
+    },
+    {
+      "path": "images/cards/5_of_clubs.png",
+      "category": "protected-card-png",
+      "git_blob_sha1": "9ee360686646188acc1b4db9c19865090336f0b8",
+      "baseline_bytes": 8028,
+      "baseline_sha256": "bf978bf76032d4b028cf846d59fae14464a9833be1b8adf8a2f136a3839fa36a",
+      "width": 222,
+      "height": 323,
+      "binary_unchanged": true
+    },
+    {
+      "path": "images/cards/5_of_diamonds.png",
+      "category": "protected-card-png",
+      "git_blob_sha1": "9cb297e440bfe04404fff0aa4908f5100c904d30",
+      "baseline_bytes": 9906,
+      "baseline_sha256": "29c96be8259b1dbf6a3a32bd9475625d99d4b7a8e96fd588392073171ed29557",
+      "width": 222,
+      "height": 323,
+      "binary_unchanged": true
+    },
+    {
+      "path": "images/cards/5_of_hearts.png",
+      "category": "protected-card-png",
+      "git_blob_sha1": "9f689dc0747715b585833de29899b4b1e3348cbb",
+      "baseline_bytes": 9823,
+      "baseline_sha256": "abd5f92801234d22f273a11b94e02d5c2776711bb226e4f3f99f25576f7063ad",
+      "width": 222,
+      "height": 323,
+      "binary_unchanged": true
+    },
+    {
+      "path": "images/cards/5_of_spades.png",
+      "category": "protected-card-png",
+      "git_blob_sha1": "f1937f9dd5d200eb88528fde529e61ef8f399e94",
+      "baseline_bytes": 7412,
+      "baseline_sha256": "ebaad6475e8e075408813821597dcf61df48f5e8d0dda4f74c76c08028a6ef77",
+      "width": 222,
+      "height": 323,
+      "binary_unchanged": true
+    },
+    {
+      "path": "images/cards/6_of_clubs.png",
+      "category": "protected-card-png",
+      "git_blob_sha1": "5f250c3681a977057bf6ae184e517375a389c374",
+      "baseline_bytes": 9144,
+      "baseline_sha256": "6efe3dcf20f410c04ab60e6336b5b028a22481d06d7b1da1f7d15106626753ab",
+      "width": 222,
+      "height": 323,
+      "binary_unchanged": true
+    },
+    {
+      "path": "images/cards/6_of_diamonds.png",
+      "category": "protected-card-png",
+      "git_blob_sha1": "d503bb3a5418dd94a7f738212c8d862c380d9eb0",
+      "baseline_bytes": 11199,
+      "baseline_sha256": "1ceb7104422b6e1e6746d1474c94be7bacfb886bd855a12e38754d13b2821397",
+      "width": 222,
+      "height": 323,
+      "binary_unchanged": true
+    },
+    {
+      "path": "images/cards/6_of_hearts.png",
+      "category": "protected-card-png",
+      "git_blob_sha1": "92b58be178a872ce8983d95085e5c5caa8db266c",
+      "baseline_bytes": 11220,
+      "baseline_sha256": "3765502d6a8d8a61ffb6f7aed49f8f0a916b70e467eb423cd80bd54a5f6b612f",
+      "width": 222,
+      "height": 323,
+      "binary_unchanged": true
+    },
+    {
+      "path": "images/cards/6_of_spades.png",
+      "category": "protected-card-png",
+      "git_blob_sha1": "1f8ee0df1d08a061367f2b2a40920bd7bf2ff819",
+      "baseline_bytes": 8456,
+      "baseline_sha256": "b7e056d262f8d2f439af2fe879f809f2cd37bbf001f97c9b09b83be5680c273e",
+      "width": 222,
+      "height": 323,
+      "binary_unchanged": true
+    },
+    {
+      "path": "images/cards/7_of_clubs.png",
+      "category": "protected-card-png",
+      "git_blob_sha1": "2cb601b87eda059d7b147461f76afa340247f976",
+      "baseline_bytes": 9495,
+      "baseline_sha256": "d3e8e6ca8c331c460a25e40f34d8f0025d68fa572b1d26f54238e38e4143f306",
+      "width": 222,
+      "height": 323,
+      "binary_unchanged": true
+    },
+    {
+      "path": "images/cards/7_of_diamonds.png",
+      "category": "protected-card-png",
+      "git_blob_sha1": "ebb930afb59c359b2e60c4feb80009f1b8fe5fbc",
+      "baseline_bytes": 11447,
+      "baseline_sha256": "25aade502898b4e7110c9d288ce5442eacf129f6bc44458001414f5e7164717f",
+      "width": 222,
+      "height": 323,
+      "binary_unchanged": true
+    },
+    {
+      "path": "images/cards/7_of_hearts.png",
+      "category": "protected-card-png",
+      "git_blob_sha1": "9ce55a0e4b7142314c5653032b5c4c07a283db8d",
+      "baseline_bytes": 11507,
+      "baseline_sha256": "0c5ce67bc54fecccba35138ce1762777906279b6110219d29523ade27242e698",
+      "width": 222,
+      "height": 323,
+      "binary_unchanged": true
+    },
+    {
+      "path": "images/cards/7_of_spades.png",
+      "category": "protected-card-png",
+      "git_blob_sha1": "39acb3322d1e34cce9d846881c85313c5e36dc74",
+      "baseline_bytes": 8728,
+      "baseline_sha256": "8025ec6bac3c955c7a439ebba61bcfb0aeda073e2aa63be5c6e1abb3f504867a",
+      "width": 222,
+      "height": 323,
+      "binary_unchanged": true
+    },
+    {
+      "path": "images/cards/8_of_clubs.png",
+      "category": "protected-card-png",
+      "git_blob_sha1": "60cbab4b3d2fe0573022be9c7a2c07596d9f8224",
+      "baseline_bytes": 11026,
+      "baseline_sha256": "19e326aaf129e26b3e792947c1c509122a78515325d0c6bcdddb8fffeefc5157",
+      "width": 222,
+      "height": 323,
+      "binary_unchanged": true
+    },
+    {
+      "path": "images/cards/8_of_diamonds.png",
+      "category": "protected-card-png",
+      "git_blob_sha1": "43f1cd25a70b7595bdaa1c1f00a8229c13521964",
+      "baseline_bytes": 13385,
+      "baseline_sha256": "2206f0642e839d222b6718be0c5a11bec795741619b1062f602cd06b5415f420",
+      "width": 222,
+      "height": 323,
+      "binary_unchanged": true
+    },
+    {
+      "path": "images/cards/8_of_hearts.png",
+      "category": "protected-card-png",
+      "git_blob_sha1": "bc844f993749d05970d63431e670bf6a815cea1c",
+      "baseline_bytes": 13721,
+      "baseline_sha256": "a2331c4de77337eaf3a42bd206d5294495b83d7c8805ec7ed76512f3b27e0323",
+      "width": 222,
+      "height": 323,
+      "binary_unchanged": true
+    },
+    {
+      "path": "images/cards/8_of_spades.png",
+      "category": "protected-card-png",
+      "git_blob_sha1": "34e4823c65c7e4c3298f38526fd14a447e3ad78c",
+      "baseline_bytes": 10094,
+      "baseline_sha256": "6370c71b96d2dc399216c567f289a742b0f37e0fdfd117cc5cb9d0bacfb1aa60",
+      "width": 222,
+      "height": 323,
+      "binary_unchanged": true
+    },
+    {
+      "path": "images/cards/9_of_clubs.png",
+      "category": "protected-card-png",
+      "git_blob_sha1": "b125bec4a97b23b7a3919a5fb5a8e5dc6efc1b69",
+      "baseline_bytes": 11922,
+      "baseline_sha256": "4115323324b3e26523cdfe6422701cb7363d531e3fb508837dd0087cd3624424",
+      "width": 222,
+      "height": 323,
+      "binary_unchanged": true
+    },
+    {
+      "path": "images/cards/9_of_diamonds.png",
+      "category": "protected-card-png",
+      "git_blob_sha1": "ae343522869eb235346c36aecd0d5e8a07a8ecd3",
+      "baseline_bytes": 14631,
+      "baseline_sha256": "a00a0f4c5572f3523eeb985a233591412289006487d5c0414ae739c54a9da1e9",
+      "width": 222,
+      "height": 323,
+      "binary_unchanged": true
+    },
+    {
+      "path": "images/cards/9_of_hearts.png",
+      "category": "protected-card-png",
+      "git_blob_sha1": "88c7840821c91c284bd6aaa075359e1d12892738",
+      "baseline_bytes": 14610,
+      "baseline_sha256": "f12f495fd8d1859a4b5db85599b2a8196ad262f8b07e38d745f24cc8a6ed1743",
+      "width": 222,
+      "height": 323,
+      "binary_unchanged": true
+    },
+    {
+      "path": "images/cards/9_of_spades.png",
+      "category": "protected-card-png",
+      "git_blob_sha1": "11b77539c08ce3f36b2b36d0c2a7b96aa1dd17fc",
+      "baseline_bytes": 10931,
+      "baseline_sha256": "326710c94eb89ce525695ab9b4eec1324b6e8500044ebda224251139df0d2f19",
+      "width": 222,
+      "height": 323,
+      "binary_unchanged": true
+    },
+    {
+      "path": "images/cards/ace_of_clubs.png",
+      "category": "protected-card-png",
+      "git_blob_sha1": "9c7e27d45c31b077116537edf77a67eb814e8f8e",
+      "baseline_bytes": 15809,
+      "baseline_sha256": "3f1c7537ac39fe5e1de80fa21040b13658f3dee34d7667e74756d3c94583b9bd",
+      "width": 222,
+      "height": 323,
+      "binary_unchanged": true
+    },
+    {
+      "path": "images/cards/ace_of_diamonds.png",
+      "category": "protected-card-png",
+      "git_blob_sha1": "33104c8002b0629caa91744c6b4fff2d5f560674",
+      "baseline_bytes": 12290,
+      "baseline_sha256": "0bd51b27034b5687c7d7a0d76bcca3b358709e4a3713cec1429ef4b34989a1ad",
+      "width": 222,
+      "height": 323,
+      "binary_unchanged": true
+    },
+    {
+      "path": "images/cards/ace_of_hearts.png",
+      "category": "protected-card-png",
+      "git_blob_sha1": "6f484e04b561eff8031d9ebe5154e2c0599e297e",
+      "baseline_bytes": 15446,
+      "baseline_sha256": "92f698e18855097a95b1238d92c8476a12f07b9d9b2ef2401308062d876feaf7",
+      "width": 222,
+      "height": 323,
+      "binary_unchanged": true
+    },
+    {
+      "path": "images/cards/ace_of_spades.png",
+      "category": "protected-card-png",
+      "git_blob_sha1": "374e971349ac49440f420b3f5841e7014ea7a6ec",
+      "baseline_bytes": 14351,
+      "baseline_sha256": "4632981e4d735ea0f95c05dd999b75610e662ee38fa8ae8accd1dc97c1119d48",
+      "width": 222,
+      "height": 323,
+      "binary_unchanged": true
+    },
+    {
+      "path": "images/cards/back.png",
+      "category": "protected-card-png",
+      "git_blob_sha1": "67ca9e471af4410c0455902a7c68b8e72c1be550",
+      "baseline_bytes": 6165,
+      "baseline_sha256": "945996916e74d32f2a5e60a38e5fb8215c7220764187905bf80fb7a012cb38ed",
+      "width": 157,
+      "height": 238,
+      "binary_unchanged": true
+    },
+    {
+      "path": "images/cards/back@2x.png",
+      "category": "protected-card-png",
+      "git_blob_sha1": "c2b1c67c1748d32ba769ee7b16adb52b4358b198",
+      "baseline_bytes": 17515,
+      "baseline_sha256": "38026c31a9321e9f36f4084ff689b3123e9568d990b62acde55648ae947327ea",
+      "width": 314,
+      "height": 476,
+      "binary_unchanged": true
+    },
+    {
+      "path": "images/cards/black_joker.png",
+      "category": "protected-card-png",
+      "git_blob_sha1": "118613e461f83533e6bfeb670bc3ab049f7123e9",
+      "baseline_bytes": 10411,
+      "baseline_sha256": "274ae7f2a474069ff46cc6e6148623ad806e912839f12e4023cc08a79d0dab24",
+      "width": 222,
+      "height": 323,
+      "binary_unchanged": true
+    },
+    {
+      "path": "images/cards/jack_of_clubs.png",
+      "category": "protected-card-png",
+      "git_blob_sha1": "7d33fb53ca1221030d6b4c5efcfbdb16b150c5a9",
+      "baseline_bytes": 76397,
+      "baseline_sha256": "da4fe2043375d0282ae17e0790d9b32d8c05ba254b3ac240d02dd6a79111e52a",
+      "width": 222,
+      "height": 323,
+      "binary_unchanged": true
+    },
+    {
+      "path": "images/cards/jack_of_diamonds.png",
+      "category": "protected-card-png",
+      "git_blob_sha1": "d6d6ac1bd19282cae3f801d705a339bfad7afef6",
+      "baseline_bytes": 81022,
+      "baseline_sha256": "163ff5462f1de44800d2c5be16818459515d8bff32c2b511fef500fa468ef526",
+      "width": 222,
+      "height": 323,
+      "binary_unchanged": true
+    },
+    {
+      "path": "images/cards/jack_of_hearts.png",
+      "category": "protected-card-png",
+      "git_blob_sha1": "de1e743f4ce850c5434a325cf935397727e40220",
+      "baseline_bytes": 83311,
+      "baseline_sha256": "41325400f449b21a6b2e788f8551577d9e0acb7a834787e7237e2cf81e02346b",
+      "width": 222,
+      "height": 323,
+      "binary_unchanged": true
+    },
+    {
+      "path": "images/cards/jack_of_spades.png",
+      "category": "protected-card-png",
+      "git_blob_sha1": "09e70e894856afb5818d7756d443b38da9a0d001",
+      "baseline_bytes": 80001,
+      "baseline_sha256": "3905976ca427a77d3a34679eb0f4c03c75358481d1da7670f46bb91cf4b56c90",
+      "width": 222,
+      "height": 323,
+      "binary_unchanged": true
+    },
+    {
+      "path": "images/cards/king_of_clubs.png",
+      "category": "protected-card-png",
+      "git_blob_sha1": "e4c574866acdd22bd74b432f09ef407be8544930",
+      "baseline_bytes": 82935,
+      "baseline_sha256": "192eb636acf554f129c6784bbb8cb118bcdc2b621770ac216fb5ec6d19c80837",
+      "width": 222,
+      "height": 323,
+      "binary_unchanged": true
+    },
+    {
+      "path": "images/cards/king_of_diamonds.png",
+      "category": "protected-card-png",
+      "git_blob_sha1": "82e005164fc3d653136983b360d80cdc69a0c7c2",
+      "baseline_bytes": 87014,
+      "baseline_sha256": "e957fbd666fa32343b3a2086d226844596158116a9dcd6c4bb6ef0d2dfcec225",
+      "width": 222,
+      "height": 323,
+      "binary_unchanged": true
+    },
+    {
+      "path": "images/cards/king_of_hearts.png",
+      "category": "protected-card-png",
+      "git_blob_sha1": "3879d6a57f60201648929a0cf630494ab422e041",
+      "baseline_bytes": 90389,
+      "baseline_sha256": "0189c25d6b5a521b75e0ad1797d83e67494461779154af29d80f82c600af2f84",
+      "width": 222,
+      "height": 323,
+      "binary_unchanged": true
+    },
+    {
+      "path": "images/cards/king_of_spades.png",
+      "category": "protected-card-png",
+      "git_blob_sha1": "2f4c47fc84245dcdff4e1802765283bf4c4af323",
+      "baseline_bytes": 74531,
+      "baseline_sha256": "114cbc811d03999aadf0426ad1a51f17c2c250b0cd78503d652f3621149574dc",
+      "width": 222,
+      "height": 323,
+      "binary_unchanged": true
+    },
+    {
+      "path": "images/cards/queen_of_clubs.png",
+      "category": "protected-card-png",
+      "git_blob_sha1": "a84a0ca6ce1e140b55022e7804108d84e7885678",
+      "baseline_bytes": 86868,
+      "baseline_sha256": "dc32042632499a7b92b45698d277a3418e32b1e5f8d9e80a238f90de6bff86dd",
+      "width": 222,
+      "height": 323,
+      "binary_unchanged": true
+    },
+    {
+      "path": "images/cards/queen_of_diamonds.png",
+      "category": "protected-card-png",
+      "git_blob_sha1": "c4a22dda4008790d6010caee3b83a0a214927dd4",
+      "baseline_bytes": 72371,
+      "baseline_sha256": "4fc0a304cacb364486355cc1baf83db3f4739bc152de0c1abb33b1d6266929ea",
+      "width": 222,
+      "height": 323,
+      "binary_unchanged": true
+    },
+    {
+      "path": "images/cards/queen_of_hearts.png",
+      "category": "protected-card-png",
+      "git_blob_sha1": "2087ca9a55c681e11d40988c70607e3e9af181e5",
+      "baseline_bytes": 82286,
+      "baseline_sha256": "46fb7b2849a3750ae8728524e1a85cb0843a415d661b8a85b4e4218c1dfddb6b",
+      "width": 222,
+      "height": 323,
+      "binary_unchanged": true
+    },
+    {
+      "path": "images/cards/queen_of_spades.png",
+      "category": "protected-card-png",
+      "git_blob_sha1": "aad9ad07cd806b33d16e58c304e6ba757cca6cb7",
+      "baseline_bytes": 73766,
+      "baseline_sha256": "a9683fdceea3aa37493149d9015d6063413ddc458948a781d9dff0d4a9c6d5e3",
+      "width": 222,
+      "height": 323,
+      "binary_unchanged": true
+    },
+    {
+      "path": "images/cards/red_joker.png",
+      "category": "protected-card-png",
+      "git_blob_sha1": "50d405a5a3ef6825c1771dcc891ad3c0f79bab62",
+      "baseline_bytes": 12401,
+      "baseline_sha256": "8de71b34e22ed2d037eed810d7cf6b10cd376c588167cff12cd97fbf80cd27e3",
+      "width": 222,
+      "height": 323,
+      "binary_unchanged": true
+    },
+    {
+      "path": "game.html",
+      "category": "source-provenance-reference",
+      "git_blob_sha1": "aae76b701efc517362ac54a90da4ce1d8ec3d892",
+      "baseline_bytes": 19414,
+      "baseline_sha256": "ac24fa289cec79c787d4dfa6753e64d568bc5df8e86948b461255d6fa9f8ff5b"
+    },
+    {
+      "path": "game.js",
+      "category": "source-provenance-reference",
+      "git_blob_sha1": "97cc96f852ccf8a0eb702425fad950452f7eebc4",
+      "baseline_bytes": 29055,
+      "baseline_sha256": "1361f00bd075d0b2c8308d208ce8005a820f4cc7a13a8a04232b7c09ccfeee6f"
+    },
+    {
+      "path": "multiplayer-ext.js",
+      "category": "source-provenance-reference",
+      "git_blob_sha1": "3aeef750e339925c7def9c91c463bd1b531df721",
+      "baseline_bytes": 36489,
+      "baseline_sha256": "ab2d5daf248e22d6ff7e66a433e1201cd29cc5dd3885a7e5728d90ab9c4f6bb5"
+    },
+    {
+      "path": "guandan-game.js",
+      "category": "source-provenance-reference",
+      "git_blob_sha1": "a2d0cf751c6fb2fbd8ecab0d7e67966705bd79bb",
+      "baseline_bytes": 53543,
+      "baseline_sha256": "2d38325d536e84692c558d457bfcfff3efeab1d11e410466b9dd11c4f8376d48"
+    },
+    {
+      "path": "guandan-mp-ext.js",
+      "category": "source-provenance-reference",
+      "git_blob_sha1": "b475781e3b2b1c92cc57bcb4c1eaebd6eff0e51a",
+      "baseline_bytes": 14028,
+      "baseline_sha256": "95e511a2fc4e49e542d99a27028737c27bb8baa578c7f11228db32a56ec1d63e"
+    },
+    {
+      "path": "www/game.html",
+      "category": "source-provenance-reference",
+      "git_blob_sha1": "18c160c98469946be185c42a0aa6a6ba132e61c1",
+      "baseline_bytes": 18112,
+      "baseline_sha256": "23cbd6f886fd85045f0f859a176bec93cbac1824a5de61fcd675c30c8400a3c0"
+    },
+    {
+      "path": "www/game.js",
+      "category": "source-provenance-reference",
+      "git_blob_sha1": "ed0d90735f5b9e9ff9a5cc5aef2dda23d29fa36a",
+      "baseline_bytes": 32256,
+      "baseline_sha256": "0e02075412690f9e2d7e533f59d76d2ee32014765204b5ec758130c4ca16fd65"
+    },
+    {
+      "path": "www/multiplayer-ext.js",
+      "category": "source-provenance-reference",
+      "git_blob_sha1": "20c3a652ff160a754bdc9055f69f29f9e61ab5d5",
+      "baseline_bytes": 34787,
+      "baseline_sha256": "55e46fe6cb4a624959fc127781861fa1405da4b68e5fd0068baaa4ea5b5ed614"
+    },
+    {
+      "path": "Gemini_Generated_Image_g1m0q0g1m0q0g1m0.png",
+      "category": "icon-reference-not-mobile-v21",
+      "git_blob_sha1": "557955536f486769ee415d8fc0288775394b844b",
+      "baseline_bytes": 1195085,
+      "baseline_sha256": "9087db048ff5482c859d52c64d9e0cba3aa8a9c3d848d38ff22906d856dee6f4",
+      "width": 1408,
+      "height": 768,
+      "binary_unchanged": true
+    },
+    {
+      "path": "Gemini_Generated_Image_tmxarltmxarltmxa.png",
+      "category": "icon-reference-not-mobile-v21",
+      "git_blob_sha1": "aaeff3c393f0184837523f4567d06589e2129499",
+      "baseline_bytes": 1257032,
+      "baseline_sha256": "fe83b882abd6465b122d72e266b76d9119fd77c3ad1d5e0469322d774598f375",
+      "width": 1408,
+      "height": 768,
+      "binary_unchanged": true
+    }
+  ],
+  "audit_date": "2026-10-10",
+  "protected_card_policy": "All 56 original PNG files must retain their exact baseline bytes and filenames; no redrawing, replacements, recompression, recoloring or generated substitutes.",
+  "protected_regions": [
+    {
+      "path": "multiplayer-ext.js",
+      "region": "drawFullBoard",
+      "baseline_start_line": 282,
+      "baseline_sha256": "77feaa0c98c15c055bae2316152af2965be664dcdee212cbf20c6d3cd5c50627"
+    },
+    {
+      "path": "multiplayer-ext.js",
+      "region": "drawStone",
+      "baseline_start_line": 448,
+      "baseline_sha256": "63dd1452d693caa6ac6d98553fd28d4b258c6b21dbfcb35d96b984d1c04c8bfc"
+    },
+    {
+      "path": "www/multiplayer-ext.js",
+      "region": "drawFullBoard",
+      "baseline_start_line": 287,
+      "baseline_sha256": "ac19d7328fba42dc34622161e773a2658fe9e95fd32c6c047c406bd487c91239"
+    },
+    {
+      "path": "www/multiplayer-ext.js",
+      "region": "drawStone",
+      "baseline_start_line": 330,
+      "baseline_sha256": "1a555fe31aee1ab18f17fe141215a4b1710a669752527a005bafa3f74a40cc59"
+    },
+    {
+      "path": "www/game.js",
+      "region": "drawBoard",
+      "baseline_start_line": 598,
+      "baseline_sha256": "4f2a659d94853443be3d68d0ccea18fb3e7eff266da4ab1a4166e15660ea4666"
+    },
+    {
+      "path": "game.html",
+      "region": "CSS --wood-image",
+      "baseline_start_line": 31,
+      "baseline_sha256": "ac46dc77c60801c035eab4c8cd706dd732dcbbea06cdb4df2950a740192337b3"
+    },
+    {
+      "path": "www/game.html",
+      "region": "CSS --wood-image",
+      "baseline_start_line": 27,
+      "baseline_sha256": "ac46dc77c60801c035eab4c8cd706dd732dcbbea06cdb4df2950a740192337b3"
+    }
+  ]
+}

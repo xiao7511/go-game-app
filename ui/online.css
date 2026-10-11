@@ -1,0 +1,28 @@
+﻿:root{color-scheme:dark;font-family:system-ui,sans-serif;background:#081627;color:#e5f3ff}*{box-sizing:border-box}body{margin:0;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}header{display:flex;align-items:center;gap:16px;padding:12px 20px;background:#10263e;border-bottom:1px solid #284c6b}header a{color:#79c9ff;font-weight:800;text-decoration:none}header span{flex:1}main{padding:12px}#setup{max-width:640px;margin:4vh auto;padding:24px;border:1px solid #284c6b;border-radius:16px;background:#10263e}form,#rooms{display:grid;gap:12px}label{display:grid;gap:6px;font-size:14px}input,select,button{min-height:44px;border-radius:8px;border:1px solid #355975;padding:8px 12px;font:inherit}input,select{background:#091c30;color:#e5f3ff;width:100%}button{background:#147fc1;color:white;cursor:pointer}button:disabled{opacity:.4;cursor:default}button[hidden],[hidden]{display:none!important}.room-bar,.operations{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.room-bar label{flex:1;min-width:240px}.room-bar input{font-family:monospace}.operations{justify-content:center;margin-top:8px}#game-frame{height:calc(100dvh - 225px);min-height:400px;margin-top:10px;border-radius:12px;overflow:hidden}iframe{border:0;width:100%;height:100%;display:block;background:#091c30}#notice,#result{color:#ffd38a;margin:10px 0}#clock{min-width:76px;font-variant-numeric:tabular-nums}@media(max-width:700px){header{padding:6px 10px;gap:8px;font-size:12px}main{padding:6px}.room-bar{gap:5px}.room-bar label{min-width:190px}.room-bar input{font-size:11px;min-height:34px}.room-bar button{min-height:36px;padding:5px 8px}#game-frame{height:calc(100dvh - 240px);min-height:380px}.operations button{font-size:12px;min-height:40px}}@media(max-height:550px) and (orientation:landscape){header{padding:3px 8px}header button{min-height:32px}.room-bar label{display:flex;align-items:center;gap:6px}.room-bar{font-size:11px}.room-bar label input{width:220px}#game-frame{height:calc(100dvh - 140px);min-height:250px;margin-top:4px}.operations{margin-top:4px}.operations button{min-height:32px}#notice{margin:2px 0;font-size:11px}}
+
+input[type=checkbox]{width:24px;min-height:24px}#scoring{max-width:760px;margin:16px auto;padding:16px;background:#10263e;border:1px solid #355975;border-radius:12px}#scoring label{margin:10px 0}#session>a{color:#79c9ff;display:inline-block;padding:12px}
+
+/* Keep the four-seat table clear when embedded in a landscape room. */
+@media(max-height:550px) and (orientation:landscape){body[data-game-type=guandan] #game-frame{height:max(390px,calc(100dvh - 140px));min-height:390px}}
+
+@media(max-width:650px) and (max-height:550px) and (orientation:landscape){body[data-game-type=guandan] #game-frame{height:max(320px,calc(100dvh - 140px));min-height:320px}}
+
+#room-controls-toggle{display:none}
+#room-roster{display:none;list-style:none;padding:0;gap:10px}
+body[data-room-phase=waiting] #room-roster{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));max-width:800px;margin:24px auto}
+#room-roster li{padding:18px;background:#10263e;border:1px solid #355975;border-radius:12px}
+body[data-room-phase=waiting] #game-frame,body[data-room-phase=waiting] #resign,body[data-room-phase=waiting] #leave{display:none}
+/* In a running phone room the table gets the whole viewport. Room controls are a drawer. */
+@media(max-height:550px) and (orientation:landscape){
+ body[data-room-phase=playing]{height:100dvh;overflow:hidden}
+ body[data-room-phase=playing] main{padding:0}
+ body[data-room-phase=playing] #game-frame{position:fixed;inset:0;width:100%;height:100dvh;min-height:0;margin:0;border-radius:0;z-index:10}
+ body[data-room-phase=playing] header,body[data-room-phase=playing] .room-bar,body[data-room-phase=playing] #session>.operations,body[data-room-phase=playing] #session>a,body[data-room-phase=playing] #session>#result,body[data-room-phase=playing] #settled-result{display:none}
+ body[data-room-phase=playing] #room-controls-toggle{display:block;position:fixed;right:max(8px,env(safe-area-inset-right));top:max(8px,env(safe-area-inset-top));min-height:32px;padding:6px 10px;font-size:11px;z-index:30;background:#10263ef2}
+ body[data-room-phase=playing] #notice:empty{display:none}
+ body[data-room-phase=playing] #notice{position:fixed;left:25%;right:25%;top:8px;z-index:25;background:#10263ef2;padding:6px;text-align:center;border-radius:8px}
+ body[data-room-phase=playing].room-controls-open header{display:flex;position:fixed;top:0;left:0;right:110px;z-index:40;background:#10263ef7}
+ body[data-room-phase=playing].room-controls-open .room-bar{display:flex;position:fixed;left:8px;right:8px;top:42px;z-index:40;padding:10px;background:#10263ef7;border-radius:10px}
+ body[data-room-phase=playing].room-controls-open #session>.operations{display:flex;position:fixed;left:8px;right:8px;top:110px;z-index:40;padding:8px;background:#10263ef7;border-radius:10px}
+}
+ .room-directory{margin:24px 0;padding:18px;border:1px solid #36557d;border-radius:16px;background:#0e2039}.directory-heading,.directory-pages{display:flex;align-items:center;justify-content:space-between;gap:12px}.directory-heading h2{margin:0;font-size:20px}#room-list{padding:0;list-style:none;display:grid;gap:10px}#room-list li{display:flex;justify-content:space-between;align-items:center;gap:12px;background:#162e4e;border-radius:12px;padding:14px}#room-list li div{display:grid;gap:6px;min-width:0}#room-list li strong{overflow-wrap:anywhere}#room-list li small,#room-list-status{color:#bdcde3}#room-list li button{flex-shrink:0}.directory-pages button:disabled{opacity:.4}

@@ -15,3 +15,41 @@ config.local.js
 .env.*.local
 
 downloads/cs16_green.zip
+
+# New dependencies / generated output (already tracked history is untouched)
+node_modules/
+dist/
+.nobi-stage/
+test-results/
+playwright-report/
+# Re-runs of the full browser suite; curated Guandan screenshots stay tracked.
+docs/nobi-v2/screenshots/guandan-v21/regression/
+android/app/src/main/assets/public/
+ios/App/App/public/
+android/app/src/main/assets/capacitor.config.json
+ios/App/App/capacitor.config.json
+*.key
+*.pem
+*.p12
+*.pfx
+*.p8
+*.jks
+*.keystore
+*.mobileprovision
+*.cer
+*.crt
+*.csr
+.env.*
+!.env.example
+# Disposable local Supabase state (never reuse production credentials here).
+.nobi-isolated/
+infrastructure/local-supabase/.supabase/
+infrastructure/local-supabase/supabase/.temp/
+infrastructure/local-supabase/supabase/.branches/
+docs/nobi-v2/screenshots/phase-3a-regression/
+docs/nobi-v2/screenshots/phase-3b-regression/
+
+docs/nobi-v2/screenshots/phase-3c-regression/
+
+# Reproducible Phase 3D regression captures; keep four curated acceptance screenshots.
+docs/nobi-v2/screenshots/phase-3d/regression*/

@@ -1,0 +1,218 @@
+/* Reference-inspired presentation. Engine layout and original card/board assets stay in their own styles. */
+:root {
+  --nobi-bg: #050e22;
+  --nobi-gold: #f4d48b;
+  --nobi-blue: #437bff;
+  --nobi-muted: #a9bbdb;
+}
+#app-perfect-selector-mask {
+  background: radial-gradient(ellipse at 55% 0%, #19356866, transparent 65%), #050e22;
+}
+.nobi-shell { grid-template-columns: 190px minmax(0, 1fr) 264px; }
+.nobi-sidebar, .nobi-right { background: #07132ae6; border-color: #24385c; }
+.nobi-brand b {
+  background: linear-gradient(180deg, #fff6cc 15%, #ffd66c 58%, #c58b38);
+  background-clip: text; -webkit-background-clip: text; color: transparent;
+  text-shadow: 0 3px 16px #ffc65b12;
+}
+.nobi-sidebar nav [aria-current] {
+  color: #fff; border-color: #466ff7;
+  background: linear-gradient(100deg, #2c57d370, #152c6040);
+  box-shadow: inset 3px 0 #739bff;
+}
+.nobi-topbar { background: #07132980; border-color: #203759; }
+.nobi-main { padding: 26px; }
+.nobi-banner {
+  min-height: 280px; border-color: #48648b; padding: 30px;
+  background: linear-gradient(90deg, #061630bd, #06163020 68%), url('./lobby-night-v3.jpg') center 58% / cover;
+  box-shadow: 0 20px 50px #0005, inset 0 1px #ffffff12;
+}
+.nobi-banner h1 { font-size: clamp(28px, 2.9vw, 44px); line-height: 1.3; letter-spacing: 1px; }
+.nobi-banner p { color: #d2def2; }
+.banner-seal {
+  align-self: flex-start; margin: 6px 0 0 auto; padding: 9px 7px;
+  border: 1px solid #f4d48b88; border-radius: 5px; color: #ffe8b4;
+  background: #06152f70; line-height: 1.5; font-size: 12px; font-family: serif;
+}
+.nobi-shell .gold-button {
+  background: linear-gradient(180deg, #fff2bf, #ffcf69 62%, #e9aa43);
+  border-color: #ffe7a7; border-radius: 24px;
+  box-shadow: inset 0 1px #fff9, 0 3px 16px #f5bd4938;
+}
+.nobi-shell .blue-button, .nobi-tabs button[aria-pressed=true] {
+  color: #fff; background: linear-gradient(180deg, #447bff, #244be5);
+  border-color: #718eff; box-shadow: inset 0 1px #ffffff40, 0 3px 12px #1d4fff30;
+}
+.home-game-heading { display: flex; justify-content: space-between; align-items: center; gap: 16px; }
+.home-game-heading .text-link { flex-shrink: 0; gap: 6px; }
+.section-heading h2 { letter-spacing: .03em; }
+.nobi-game-grid { gap: 16px; }
+.nobi-game-card {
+  position: relative; isolation: isolate; border-radius: 18px; border-color: #446296;
+  background: #0c1b32; box-shadow: 0 10px 26px #0005, inset 0 1px #ffffff20;
+}
+.nobi-game-card.game-guandan { border-color: #4a927f; }
+.nobi-game-card.game-go { border-color: #af8254; }
+.nobi-game-card.is-selected { border-color: #f9dc92; box-shadow: 0 0 0 1px #f3cc7b44, 0 10px 26px #0005; }
+.nobi-game-card:hover { transform: translateY(-3px); }
+.nobi-cover { height: 274px; }
+.nobi-cover::after {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(0deg, #03101ef2 0%, #03101e88 32%, transparent 75%); z-index: 2;
+}
+.card-table { background: linear-gradient(90deg, #06271b80, #06271b10), url('./guandan-room-v3.jpg') center / cover; }
+.card-table .table-ring { display: none; }
+.card-fan { left: 61%; bottom: 68px; transform: translateX(-50%) rotate(8deg); }
+.card-fan img { height: 150px; border-radius: 7px; box-shadow: -4px 6px 12px #0007; }
+.go-table { background: linear-gradient(90deg, #27140866, transparent 75%), url('./go-cover-v3.jpg') center / cover; }
+.go-table .mini-board { display: none; }
+.mini-board { width: 230px; height: 230px; top: 10px; left: 63%; transform: translateX(-50%) perspective(500px) rotateX(25deg) rotateZ(-20deg); }
+.mini-stone { box-shadow: 3px 5px 5px #0008; }
+.cover-caption { top: 16px; left: 16px; font-size: 8px; letter-spacing: 2px; color: #f5f3ddc2; z-index: 3; }
+.card-copy { position: absolute; inset: auto 0 70px; z-index: 4; padding: 0 18px; pointer-events: none; text-shadow: 0 2px 8px #0009; }
+.card-copy h3 { font-size: 30px; font-weight: 850; color: #fff2d2; }
+.card-copy p { color: #dce6f0; font-size: 11px; line-height: 1.6; }
+.game-category { display: block; margin-bottom: 4px; color: #edcf97; font-size: 10px; letter-spacing: 2px; }
+.card-actions { position: absolute; inset: auto 0 0; z-index: 4; padding: 14px 16px 17px; flex-wrap: wrap; }
+.card-actions > span { font-size: 9px; }
+.nobi-shell .gold-button.small { min-height: 44px; padding: 8px 13px; }
+.pc-cover { background: radial-gradient(ellipse at 80% 25%, #587d9166, transparent 60%), repeating-linear-gradient(125deg, transparent 0 35px, #98c4d412 36px 37px), linear-gradient(135deg, #1b3448, #091627); }
+.pc-cover > .nobi-icon { right: 24px; bottom: 80px; width: 130px; height: 130px; color: #97bdd956; }
+.pc-watermark { top: 28px; left: 16px; bottom: auto; color: #c9dbed44; font-size: 30px; }
+.pc-cover .cover-caption { top: auto; bottom: 158px; }
+.quick-actions { border-color: #38527a; background: linear-gradient(100deg, #142b50, #0a1932); }
+.quick-actions .blue-button, .quick-actions .gold-button { min-width: 130px; }
+.nobi-panel { background: linear-gradient(145deg, #122a50ee, #09192fe8); border-color: #2a456e; box-shadow: inset 0 1px #ffffff06; }
+.nobi-metrics b { color: #f1f5ff; font-variant-numeric: tabular-nums; }
+.nobi-badge { color: #f8d887; border-color: #c09a5559; background: #dfb5680a; }
+.nobi-right .tier-placeholder { background: linear-gradient(90deg, #091a35ee, #0b1d3670), url('./lobby-night-v3.jpg') right center / cover; }
+.nobi-row { border-color: #2b446e; background: linear-gradient(100deg, #122a50, #0b1c37); }
+.nobi-row:hover { background: #1c3560; }
+.profile-identity { background: linear-gradient(110deg, #102954ee, #0b1c36c9), url('./lobby-night-v3.jpg') center 58% / cover; }
+.profile-identity .nobi-avatar { width: 68px; height: 68px; flex-basis: 68px; border: 2px solid #9bbbff; box-shadow: 0 0 0 4px #6497ff18, 0 0 24px #2d67c338; }
+.profile-identity .nobi-metrics { padding-top: 16px; border-top: 1px solid #6385bf30; }
+.profile-links .nobi-row[href='#/rank'] > .nobi-icon:first-child { color: #ffcd75; }
+.profile-links .nobi-row[href='#/music'] > .nobi-icon:first-child { color: #59dca6; }
+.avatar-picker { margin: 20px 0; }
+.nobi-tabs { border-radius: 14px; background: #0d1d39; border-color: #2a456e; }
+.rank-panel { max-width: 760px; }
+.ranking-list li { display: grid; grid-template-columns: 26px 36px minmax(0, 1fr) auto; gap: 12px; padding: 12px 8px; border-color: #294567; font-size: 14px; }
+.ranking-list li > span:not(.nobi-avatar) { overflow-wrap: anywhere; }
+.ranking-list .nobi-avatar { width: 34px; height: 34px; flex-basis: 34px; font-size: 14px; }
+.ranking-list li > strong { color: #eff3ff; }
+.ranking-list li > small { grid-column: 3 / -1; color: var(--nobi-muted); font-size: 10px; }
+.ranking-list li.is-me { border: 1px solid #6c99e2; border-radius: 10px; background: #1a3a6355; }
+#app-perfect-selector-mask[data-route=history] .ranking-list li { grid-template-columns: 38px minmax(0, 1fr) auto; }
+.podium-slot { margin-top: 25px; padding-top: 36px; border-radius: 10px; background: linear-gradient(180deg, #2854a5cc, #11294f); }
+.podium-slot .nobi-avatar { position: absolute; top: -30px; }
+.podium-slot.place-1 { margin-top: 12px; padding-top: 46px; background: linear-gradient(180deg, #8d652dc9, #463617); color: #fff3cb; }
+.podium-slot.place-1 .nobi-avatar { top: -35px; border-color: #ffdc80; }
+.podium-slot.place-1 strong { color: #ffde88; }
+.podium-crown { top: -55px; z-index: 2; }
+.podium-slot em { top: -10px; right: 5px; width: 22px; height: 22px; }
+.rank-podium { margin: 42px 0 20px; gap: 8px; }
+.my-rank { background: linear-gradient(110deg, #193962, #102446); border-color: #638ac1; }
+.audio-control { padding: 8px 0; border-color: #38558155; }
+.audio-control:last-of-type { border: 0; }
+.audio-control input[type=range] { flex: 1; }
+.nobi-shell input[type=checkbox]:checked::before { background: linear-gradient(180deg, #558cff, #285cf9); border-color: #8bb0ff; box-shadow: 0 0 12px #3d7dff3b; }
+.scene-preview { display: flex; align-items: center; gap: 12px; padding: 10px; border: 1px solid #d3b16b88; border-radius: 12px; margin-bottom: 12px; background: #172b4b; }
+.scene-art { display: grid; place-items: center; width: 70px; height: 50px; flex: 0 0 70px; border-radius: 8px; background: linear-gradient(90deg, #17305b40, #10275022), url('./lobby-night-v3.jpg') right center / cover; }
+.scene-art .nobi-icon { color: #fff; filter: drop-shadow(0 2px 4px #000); }
+.scene-guandan .scene-art { background: url('./guandan-room-v3.jpg') center / cover; }
+.scene-go .scene-art { background: url('./go-cover-v3.jpg') center / cover; }
+.scene-preview strong { font-size: 13px; line-height: 1.5; }
+.scene-preview small { display: block; color: var(--nobi-muted); font-size: 11px; margin-top: 3px; }
+.scene-selected { margin-left: auto; background: #316afa; color: #fff; border-radius: 50%; width: 20px; height: 20px; text-align: center; flex: 0 0 20px; font-size: 12px; }
+.audio-status { color: #b6c8e5; border-color: #36537d; font-size: 12px; padding: 12px; }
+.about-card { max-width: 680px; padding: 30px; background: linear-gradient(90deg, #0a1a34ee, #0a1a34bb), url('./lobby-night-v3.jpg') center / cover; }
+.about-card h3, .about-card p, .about-card .gold-button { margin-top: 20px; }
+.nobi-go-help, .go-match-card, .go-rail, .nobi-match-dialog { border-color: #45608c; }
+.go-rail button, #guandan-game-container .gd-header-tools button { background: linear-gradient(155deg, #1b335c, #0c1c38); border-color: #42618c; }
+.go-rail button:hover, #guandan-game-container .gd-header-tools button:hover { border-color: #8dadde; }
+/* Keep the full touch target during press feedback, including the release transition. */
+#guandan-game-container .gd-action-bar button:enabled:active { transform: translateY(2px) !important; }
+.nobi-match-dialog { background: linear-gradient(145deg, #132e54, #07162b); box-shadow: 0 24px 80px #0009; }
+.mobile-back, .mobile-page-title { display: none; }
+@media (max-width: 1250px) {
+  .nobi-shell { grid-template-columns: 180px minmax(0, 1fr) 240px; }
+  .nobi-main { padding: 22px; }
+  .card-actions > span { display: none; }
+}
+@media (max-width: 1050px) { .nobi-shell { grid-template-columns: 180px minmax(0, 1fr); } }
+@media (max-width: 700px), (max-width: 1050px) and (pointer: coarse) {
+  #app-perfect-selector-mask { background: linear-gradient(180deg, #06142b18, #050e22 490px), url('./lobby-night-v3.jpg') 65% top / auto 490px no-repeat, #050e22; }
+  .nobi-shell { display: block; }
+  .nobi-topbar { position: sticky; top: 0; z-index: 20; background: #06132bc9; backdrop-filter: blur(14px); border-bottom-color: #4d6b942e; min-height: 64px; gap: 8px; }
+  .nobi-topbar .mobile-brand { display: flex; align-items: center; flex: 1; min-width: 0; }
+  .nobi-topbar .nobi-brand b { font-size: 30px; }
+  .nobi-topbar .nobi-brand span { font-size: 21px; font-style: italic; }
+  .nobi-topbar .topbar-actions { gap: 0; }
+  .nobi-main { padding: 14px 16px calc(88px + env(safe-area-inset-bottom)); }
+  .mobile-back { display: inline-flex; margin-left: -8px; }
+  .mobile-back svg { transform: rotate(180deg); }
+  .mobile-page-title { display: block; font-size: 17px; letter-spacing: .08em; }
+  #app-perfect-selector-mask:not([data-route=home]) .nobi-main > .section-heading { margin: 0 0 16px; }
+  #app-perfect-selector-mask:not([data-route=home]) .nobi-main > .section-heading h2 { display: none; }
+  #app-perfect-selector-mask:not([data-route=home]) .nobi-main > .section-heading p { margin: 0; font-size: 11px; }
+  .mobile-player { position: relative; background: linear-gradient(110deg, #0c244bd6, #081b34a3); border-color: #486b9ca3; border-radius: 16px; backdrop-filter: blur(6px); }
+  .mobile-player .nobi-player strong { font-size: 16px; }
+  .mobile-player .nobi-badge { font-size: 9px; padding: 3px 8px; }
+  .mobile-player .nobi-metrics { border-top: 1px solid #4c6e9b40; padding-top: 10px; }
+  .home-game-heading { gap: 8px; }
+  .home-game-heading .section-heading { margin: 18px 0 12px; }
+  .home-game-heading .section-heading h2 { font-size: 17px; }
+  .home-game-heading .text-link { font-size: 10px; }
+  .home-game-heading .text-link .nobi-icon { width: 13px; flex-basis: 13px; }
+  .home-game-heading .section-heading p { display: none; }
+  .nobi-game-grid { gap: 13px; }
+  .nobi-game-card, .nobi-game-card.is-selected { border-radius: 16px; box-shadow: 0 6px 18px #0005; }
+  .nobi-game-card:hover { transform: none; }
+  .nobi-cover { height: 192px; }
+  #app-perfect-selector-mask[data-route=home] .nobi-cover { height: 148px; }
+  .nobi-cover::after { background: linear-gradient(90deg, #031714c9, transparent 82%), linear-gradient(0deg, #020c1766, transparent 55%); }
+  .card-fan { left: 76%; bottom: -10px; transform: translateX(-50%) rotate(7deg); }
+  .card-fan img { height: 157px; }
+  .mini-board { left: 77%; top: -10px; width: 235px; height: 235px; }
+  .card-copy { bottom: 65px; padding: 0 16px; }
+  .card-copy h3 { font-size: 29px; }
+  .card-copy p { max-width: 172px; font-size: 11px; }
+  .game-category { font-size: 9px; margin-bottom: 2px; }
+  .card-actions { padding: 8px 16px 13px; }
+  .nobi-shell .gold-button.small { min-width: 124px; min-height: 44px; }
+  .cover-caption { display: none; }
+  .quick-actions { border-radius: 14px; padding: 10px; }
+  .quick-actions .gold-button, .quick-actions .blue-button { min-width: 0; }
+  .nobi-bottom-nav { background: #07162ef2; border-color: #344e7d; box-shadow: 0 -8px 24px #02091650; }
+  .nobi-bottom-nav a { color: #9ab2de; min-width: 52px; }
+  .nobi-bottom-nav a[aria-current] { background: radial-gradient(ellipse, #2957dd4d, transparent 75%); color: #a3c5ff; text-shadow: 0 0 12px #477cff; }
+  .nobi-bottom-nav a[aria-current] .nobi-icon { color: #6fa4ff; filter: drop-shadow(0 0 5px #3c69ff); }
+  .nobi-bottom-nav a[aria-current]::after { content: ''; width: 14px; height: 2px; background: #6299ff; border-radius: 2px; }
+  .profile-identity { padding: 18px 16px 12px; }
+  .profile-identity .nobi-player strong { font-size: 17px; }
+  .profile-links { margin: 16px 0; }
+  .profile-links .nobi-row { min-height: 52px; background: linear-gradient(100deg, #11274bdf, #0a1b36df); }
+  .nobi-panel { border-radius: 14px; }
+  .avatar-grid { gap: 7px; }
+  .avatar-grid button img { width: 44px; height: 44px; }
+  .nobi-tabs { padding: 3px; border-radius: 11px; }
+  .nobi-tabs button { min-height: 44px; padding: 6px 4px; font-size: 11px; border-radius: 8px; }
+  .nobi-tabs.secondary { max-width: none; }
+  .rank-panel { margin-top: 16px; padding: 14px 10px; }
+  .ranking-list li { gap: 8px; font-size: 12px; }
+  .podium-slot b { font-size: 11px; }
+  .podium-slot strong { font-size: 19px; }
+  .podium-slot.place-1 strong { font-size: 22px; }
+  .audio-settings { padding: 10px 16px; }
+  .music-scenes { padding: 16px; }
+  .scene-preview strong { font-size: 12px; }
+  .scene-art { width: 58px; flex-basis: 58px; }
+}
+@media (max-width: 350px) {
+  .nobi-main { padding-left: 12px; padding-right: 12px; }
+  .nobi-topbar .nobi-brand b { font-size: 27px; }
+  .nobi-topbar .nobi-brand span { font-size: 18px; }
+  .card-copy p { max-width: 145px; font-size: 10px; }
+  .mobile-page-title { font-size: 15px; }
+  .profile-identity .nobi-avatar { width: 56px; height: 56px; flex-basis: 56px; }
+}

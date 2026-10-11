@@ -2,11 +2,18 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="theme-color" content="#0f1720" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="build-target.js"></script>
+  <script src="platform.js"></script>
+  <script src="config.local.js"></script>
   <script src="config.js"></script>
-  <title>注册 - 在线游戏 Pro</title>
+  <script src="supabaseClient.js"></script>
+  <title>注册 · Nobi 游戏</title>
+  <link rel="icon" href="ui/brand.svg" type="image/svg+xml">
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="ui/tokens.css">
   <style>
     :root {
       --bg: #0f1720;
@@ -56,11 +63,12 @@
     .error-msg { color: #ff4d4f; font-size: 0.85rem; margin-top: 8px; display: none; }
     .success-msg { color: #4caf50; font-size: 0.85rem; margin-top: 8px; display: none; }
   </style>
+  <link rel="stylesheet" href="ui/auth.css">
 </head>
 <body>
   <div class="card">
-    <h1>创建账号</h1>
-    <p>注册以开始围棋对局</p>
+    <h1 class="nobi-brand"><img src="ui/brand.svg" alt=""><div><b>Nobi</b> <span>游戏</span><small>NOBI GAMES</small></div></h1>
+    <p>创建 Nobi 账号，开启好友对局</p>
     <form id="register-form" onsubmit="handleRegister(event)">
       <input type="email" id="reg-email" placeholder="邮箱地址" required autocomplete="email">
       <input type="password" id="reg-password" placeholder="密码（至少6位）" required minlength="6" autocomplete="new-password">
@@ -99,12 +107,8 @@
       btn.innerText = '注册中...';
 
       try {
-        const cfg = window.APP_CONFIG || {};
-        if (!cfg.SUPABASE_URL || !cfg.SUPABASE_ANON_KEY) {
-          throw new Error('配置缺失，请联系管理员');
-        }
-
-        const client = supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY);
+        if (!window.NobiServices?.requireClient) throw new Error('注册服务未加载，请刷新页面');
+        const client = await window.NobiServices.requireClient();
         
         const { data, error } = await client.auth.signUp({
           email: email,

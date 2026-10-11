@@ -1,0 +1,30 @@
+name: Nobi foundation checks
+on:
+  push:
+    branches: [feature/nobi-games-v2]
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  foundation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: tooling/package-lock.json
+      - run: npm ci --ignore-scripts
+      - run: npm ci --prefix tooling --ignore-scripts
+      - run: npm run verify:assets
+      - run: npm test
+      - run: npm run build
+      - run: npm run build:mobile
+      - run: npm run verify:build
+      - run: npm run check:authority
+      - run: node --test tests/integration/device-online.test.mjs
+      - name: Build production authority container
+        run: docker build -f infrastructure/production/Dockerfile -t nobi-online:ci .
+      - run: node tooling/node_modules/@playwright/test/cli.js install --with-deps chromium
+      - run: npm run test:browser

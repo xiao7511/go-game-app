@@ -1,0 +1,14 @@
+**
+!server/
+!server/**
+!ui/
+!ui/guandan-rules.mjs
+!scripts/
+!scripts/public-config.mjs
+!scripts/online-public-config.mjs
+!guandan-game.js
+!multiplayer-ext.js
+!config.js
+!infrastructure/
+!infrastructure/production/
+!infrastructure/production/Dockerfile
