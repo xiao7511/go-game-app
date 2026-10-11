@@ -59,8 +59,9 @@ test('landscape press feedback preserves the full 44px Guandan touch target', as
     // Observe the rendered press state rather than sampling before the next paint.
     await page.evaluate(async()=>{await new Promise(requestAnimationFrame);await new Promise(requestAnimationFrame);});
     const pressed=await hint.boundingBox();
-    expect(pressed.width).toBeGreaterThanOrEqual(44);
-    expect(pressed.height).toBeGreaterThanOrEqual(44);
+    // Allow only compositor float rounding, not a physically smaller touch target.
+    expect(pressed.width).toBeGreaterThanOrEqual(43.999);
+    expect(pressed.height).toBeGreaterThanOrEqual(43.999);
   } finally { await page.mouse.up(); }
   await expect(page.locator('[data-gd-play]')).toBeEnabled();
   await context.close();
