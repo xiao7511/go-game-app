@@ -28,12 +28,12 @@
 ## Codemagic：Windows 也可构建和签名
 
 1. 在 Codemagic 连接 GitHub 仓库 `xiao7511/go-game-app`，选择根目录 `codemagic.yaml`。
-2. 建立 `nobi_public` 环境变量组，填入上面的公开 Auth 配置和 `NOBI_ONLINE_URL`。
+2. YAML 已配置香港 `NOBI_ONLINE_URL`。构建会从生产网站的公开配置端点读取并校验 Auth 配置；也可同时设置 `SUPABASE_URL`、`SUPABASE_ANON_KEY` 覆盖。无需额外建立变量组。
 3. 先手动运行 `ios-simulator`，使用云端 macOS/Xcode 26.6，安装 CocoaPods、同步 Capacitor、检查资源后编译无签名模拟器 `.app`。成功构建不等于已完成真机测试。
-4. 签名与 TestFlight 需要 Apple Developer Program 会员。在 Apple 注册 bundle ID `cn.obsmd.gogame` 并建立 App Store Connect 应用记录。确认此 ID 属于当前团队，否则先统一修改工程及 YAML。
-5. App Store Connect → Users and Access → Integrations 创建专用 API key（App Manager）。在 Codemagic Team integrations 添加，名称必须为 `nobi_app_store_connect`。Issuer ID、Key ID、`.p8` 上传到 Codemagic，禁止提交 Git 或聊天。
+4. 游戏标识 `cn.obsmd.gogame` 已注册，独立 App Store Connect 应用为“Nobi 游戏”，数字 Apple ID `6821625687`。原“NOBI 动漫”是另一应用，不能作为游戏上传目标。
+5. YAML 使用账号中已有的 Apple 连接 `nobi-apple`。复用此连接；如需替换，App Store Connect API key、Issuer ID、`.p8` 只能交给 Codemagic 的凭据表单，禁止提交 Git 或聊天。
 6. Codemagic Code signing identities 中生成/上传 Apple Distribution 证书，获取对应 bundle ID 的 App Store provisioning profile。证书和 profile 必须匹配同一团队及私钥。
-7. 建立 `nobi_ios_release` 变量组，设置 `APP_STORE_APPLE_ID`（App Store Connect 应用的数字 Apple ID）。手动运行 `ios-testflight`：检查项目 → 使用 profile → 查询已有 TestFlight build number 并递增 → 生成签名 IPA → 上传并提交 TestFlight；不会发布正式 App Store。
+7. YAML 已配置游戏 `APP_STORE_APPLE_ID`。手动运行 `ios-testflight`：检查项目 → 使用 profile → 查询已有 TestFlight build number 并递增 → 生成签名 IPA → 上传并提交 TestFlight；不会发布正式 App Store。
 8. 在 App Store Connect 完成 Beta 描述、联系方式、出口合规与 App Privacy，再将构建分配给测试人员。外部测试可能需要 Beta App Review。iPhone 安装 TestFlight 接受邀请，测试账号头像、房间列表、四人对局、断线恢复、声音和横竖屏。
 
 两个工作流都需手动触发，不因普通 push 自动消费云端构建时间。首次上传可能要求先完成 Apple 协议与应用资料。未连接账号、未生成签名 IPA、未看到 App Store Connect 构建时，不能标记为 TestFlight 已提交。
