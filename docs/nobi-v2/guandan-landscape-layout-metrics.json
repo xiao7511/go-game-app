@@ -1,0 +1,277 @@
+{
+  "date": "2026-10-11",
+  "browser": "Microsoft Edge (headless, real browser rendering)",
+  "reference": "docs/nobi-v2/design/nobi-mobile-v21-reference.png (panel 6)",
+  "beforeMethod": "Prior committed ui/match.css from 8c7dbd0 served through a browser route; current hand sizing falls back to the same prior dimensions without its new CSS variable.",
+  "afterMethod": "Built mobile artifact, live page; no screenshot editing.",
+  "measurements": [
+    {
+      "mode": "before",
+      "width": 844,
+      "height": 390,
+      "boxes": {
+        ".gd-arena": {
+          "x": 0,
+          "y": 0,
+          "w": 844,
+          "h": 390
+        },
+        ".gd-seat.top": {
+          "x": 306.828125,
+          "y": 64,
+          "w": 230.34375,
+          "h": 44
+        },
+        ".gd-seat.left": {
+          "x": 18,
+          "y": 141.796875,
+          "w": 106,
+          "h": 44
+        },
+        ".gd-seat.right": {
+          "x": 646,
+          "y": 141.796875,
+          "w": 106,
+          "h": 44
+        },
+        ".gd-seat.bottom": {
+          "x": 0,
+          "y": 218,
+          "w": 844,
+          "h": 172
+        },
+        ".gd-player-wrap": {
+          "x": 16,
+          "y": 318,
+          "w": 106,
+          "h": 44
+        },
+        ".gd-center-table": {
+          "x": 211,
+          "y": 117,
+          "w": 422,
+          "h": 93.59375
+        },
+        ".gd-action-bar": {
+          "x": 0,
+          "y": 218,
+          "w": 844,
+          "h": 44
+        },
+        ".gd-hand": {
+          "x": 0,
+          "y": 270,
+          "w": 844,
+          "h": 120
+        },
+        ".gd-hand .gd-card": {
+          "x": 145.890625,
+          "y": 285.796875,
+          "w": 62,
+          "h": 90.203125
+        }
+      }
+    },
+    {
+      "mode": "after",
+      "width": 844,
+      "height": 390,
+      "boxes": {
+        ".gd-arena": {
+          "x": 0,
+          "y": 0,
+          "w": 844,
+          "h": 390
+        },
+        ".gd-seat.top": {
+          "x": 298.5,
+          "y": 12,
+          "w": 247,
+          "h": 50.6875
+        },
+        ".gd-seat.left": {
+          "x": 12,
+          "y": 122.1875,
+          "w": 118.15625,
+          "h": 52
+        },
+        ".gd-seat.right": {
+          "x": 663.84375,
+          "y": 122.1875,
+          "w": 118.15625,
+          "h": 52
+        },
+        ".gd-seat.bottom": {
+          "x": 0,
+          "y": 210.609375,
+          "w": 844,
+          "h": 179.390625
+        },
+        ".gd-player-wrap": {
+          "x": 12,
+          "y": 320,
+          "w": 118.15625,
+          "h": 58
+        },
+        ".gd-center-table": {
+          "x": 278.5234375,
+          "y": 93.421875,
+          "w": 286.953125,
+          "h": 109.1875
+        },
+        ".gd-action-bar": {
+          "x": 0,
+          "y": 210.609375,
+          "w": 844,
+          "h": 44
+        },
+        ".gd-hand": {
+          "x": 0,
+          "y": 262.609375,
+          "w": 844,
+          "h": 127.390625
+        },
+        ".gd-hand .gd-card": {
+          "x": 138.171875,
+          "y": 281.03125,
+          "w": 69.40625,
+          "h": 100.96875
+        }
+      }
+    },
+    {
+      "mode": "before",
+      "width": 568,
+      "height": 320,
+      "boxes": {
+        ".gd-arena": {
+          "x": 0,
+          "y": 0,
+          "w": 568,
+          "h": 320
+        },
+        ".gd-seat.top": {
+          "x": 236.34375,
+          "y": 12,
+          "w": 95.3125,
+          "h": 36
+        },
+        ".gd-seat.left": {
+          "x": 8,
+          "y": 116.390625,
+          "w": 86,
+          "h": 36
+        },
+        ".gd-seat.right": {
+          "x": 412,
+          "y": 116.390625,
+          "w": 86,
+          "h": 36
+        },
+        ".gd-seat.bottom": {
+          "x": 0,
+          "y": 168,
+          "w": 568,
+          "h": 152
+        },
+        ".gd-player-wrap": {
+          "x": 8,
+          "y": 258,
+          "w": 86,
+          "h": 36
+        },
+        ".gd-center-table": {
+          "x": 142,
+          "y": 96,
+          "w": 284,
+          "h": 70.390625
+        },
+        ".gd-action-bar": {
+          "x": 0,
+          "y": 168,
+          "w": 568,
+          "h": 44
+        },
+        ".gd-hand": {
+          "x": 0,
+          "y": 220,
+          "w": 568,
+          "h": 100
+        },
+        ".gd-hand .gd-card": {
+          "x": 121.96875,
+          "y": 227.4375,
+          "w": 54,
+          "h": 78.5625
+        }
+      }
+    },
+    {
+      "mode": "after",
+      "width": 568,
+      "height": 320,
+      "boxes": {
+        ".gd-arena": {
+          "x": 0,
+          "y": 0,
+          "w": 568,
+          "h": 320
+        },
+        ".gd-seat.top": {
+          "x": 203,
+          "y": 12,
+          "w": 162,
+          "h": 41.59375
+        },
+        ".gd-seat.left": {
+          "x": 8,
+          "y": 99.59375,
+          "w": 79.515625,
+          "h": 44
+        },
+        ".gd-seat.right": {
+          "x": 426.484375,
+          "y": 99.59375,
+          "w": 79.515625,
+          "h": 44
+        },
+        ".gd-seat.bottom": {
+          "x": 0,
+          "y": 158.8125,
+          "w": 568,
+          "h": 161.1875
+        },
+        ".gd-player-wrap": {
+          "x": 8,
+          "y": 258,
+          "w": 79.515625,
+          "h": 50
+        },
+        ".gd-center-table": {
+          "x": 187.4453125,
+          "y": 61.21875,
+          "w": 193.109375,
+          "h": 89.59375
+        },
+        ".gd-action-bar": {
+          "x": 0,
+          "y": 158.8125,
+          "w": 568,
+          "h": 44
+        },
+        ".gd-hand": {
+          "x": 0,
+          "y": 210.8125,
+          "w": 568,
+          "h": 109.1875
+        },
+        ".gd-hand .gd-card": {
+          "x": 99.5625,
+          "y": 229.03125,
+          "w": 57.03125,
+          "h": 82.96875
+        }
+      }
+    }
+  ]
+}

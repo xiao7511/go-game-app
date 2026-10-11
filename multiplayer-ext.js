@@ -55,6 +55,12 @@
     board: Array.from({ length: SIZE }, () => Array(SIZE).fill(EMPTY)),
     resizeObserver: null,
     boundOnce: false,
+    viewMoves: [], // Local UI journal; not authoritative settlement or a persisted SGF.
+    pendingAITimer: null,
+    previewMove: null,
+    previewPointer: null,
+    undoStack: [], // Single-player snapshots, never broadcast or persisted.
+    matchEnded: false,
   };
 
   function $(id) {
@@ -62,6 +68,7 @@
   }
 
   function playSound(name) {
+    if (window.NobiAudio) { window.NobiAudio.playEffect(name); return; }
     try {
       const url = SOUNDS[name];
       if (url) new Audio(url).play().catch(() => {});
@@ -83,32 +90,8 @@
   }
 
   async function initSupabaseClient() {
-      if (state.supabase) return state.supabase;
-
-      let retry = 0;
-      while (!window.APP_CONFIG?.SUPABASE_URL && retry < 30) {
-          await new Promise(r => setTimeout(r, 100));
-          retry++;
-      }
-
-      const cfg = window.APP_CONFIG || window.CONFIG || {};
-      const rawUrl = cfg.SUPABASE_URL || cfg.supabaseUrl || cfg.url;
-      const url = rawUrl ? rawUrl.trim().replace(/\/rest\/v1\/?$/, '') : null;
-      const key = cfg.SUPABASE_ANON_KEY || cfg.supabaseAnonKey || cfg.key;
-
-      if (!url || !key || !window.supabase?.createClient) return null;
-      try {
-          state.supabase = window.supabase.createClient(url, key, {
-              db: { schema: 'game' },
-              realtime: { 
-                  params: { eventsPerSecond: 10 },
-                  config: { broadcast: { self: true }, presence: { key: 'player' } }
-              },
-          });
-          return state.supabase;
-      } catch (err) {
-          return null;
-      }
+    state.supabase = await window.NobiServices?.ready;
+    return state.supabase || null;
   }
 
   function generateRoomCode() {
@@ -119,6 +102,7 @@
   }
 
   async function getCurrentUser() {
+      await initSupabaseClient();
       if (!state.supabase) return null;
       const { data: { user }, error } = await state.supabase.auth.getUser();
       return error ? null : user;
@@ -126,7 +110,7 @@
 
   async function getPlayerProfile(playerId) {
     try {
-      const { data, error } = await state.supabase.rpc('get_player_profile', { p_id: playerId });
+      const { data, error } = await state.supabase.schema('public').rpc('get_player_profile', { player_id: playerId });
       if (error) return null;
       return Array.isArray(data) ? data[0] : data;
     } catch (err) {
@@ -160,9 +144,17 @@
     if (localTurn) localTurn.textContent = state.isInRoom
       ? `状态：${state.currentTurn === state.myColor ? '轮到我方' : '等待对手'}`
       : '状态：待进入对局';
-    if (connSummary) connSummary.textContent = state.isInRoom ? '已连接' : '未建立';
+    if (connSummary) connSummary.textContent = state.gameMode==='SINGLE_PLAYER' ? '本地单机' : state.isInRoom ? '已连接' : '未建立';
     if (blackName) blackName.textContent = state.roomContext.blackName || '黑方';
     if (whiteName) whiteName.textContent = state.roomContext.whiteName || '白方';
+    if(state.gameMode==='SINGLE_PLAYER') {
+      if(localTurn) localTurn.textContent=state.currentTurn==='black'?'状态：轮到我方':'状态：AI 思考中';
+      if($('user-nickname')) $('user-nickname').textContent=window.state?.userNickname || '本地玩家';
+      if($('local-player-status')) $('local-player-status').textContent='本地';
+      if($('opponent-status')) { $('opponent-status').textContent='AI';$('opponent-status').classList.remove('offline'); }
+      if($('turn-summary')) $('turn-summary').textContent=state.currentTurn==='black'?'黑棋回合':'白棋回合';
+    }
+    window.dispatchEvent(new CustomEvent('nobi:go-view'));
   }
 
   function updateRoomPanel({ code = state.roomCode, inviteLink = state.roomContext.inviteLink || '' } = {}) {
@@ -237,10 +229,20 @@
   }
 
   function resizeCanvas() {
+      cancelPreview();
       if (!state.canvas || !state.ctx) return;
       // 1. 获取准确的父容器 (CSS 已经把它限制成了完美的正方形)
       const shell = state.canvas.parentElement; 
       if (!shell) return;
+      // Small-screen header occupies real vertical space. Constrain the square
+      // to the remaining viewport without changing wood/grid/stone rendering.
+      if (window.innerWidth <= 860) {
+        const height = window.visualViewport?.height || window.innerHeight;
+        const available = Math.max(1, Math.floor(height - shell.getBoundingClientRect().top - 12));
+        shell.style.maxWidth = available + 'px';
+      } else {
+        shell.style.maxWidth = '';
+      }
 
       // 2. 获取 CSS 计算出的实际渲染像素大小
       const rect = shell.getBoundingClientRect();
@@ -392,6 +394,7 @@
   window.state.koPoint = null; 
 
   function placeStone(row, col, color) {
+    if (!validPoint(row, col) || ![BLACK, WHITE].includes(color)) return { success: false, captured: 0, reason: '非法坐标或执色' };
     if (window.state.koPoint) {
       if (window.state.koPoint.row === row && window.state.koPoint.col === col) {
         return { success: false, captured: 0, reason: '🚫 处于劫争状态，不能立刻提回' };
@@ -497,6 +500,9 @@
     const x = clientX - rect.left;
     const y = clientY - rect.top;
 
+    if (!state.cellSize || x < state.padding - state.cellSize / 2 || y < state.padding - state.cellSize / 2 ||
+        x > rect.width - state.padding + state.cellSize / 2 || y > rect.height - state.padding + state.cellSize / 2) return null;
+
     let col = Math.round((x - state.padding) / state.cellSize);
     let row = Math.round((y - state.padding) / state.cellSize);
 
@@ -507,6 +513,7 @@
   }
 
   function canvasCaptureHandler(e) {
+    if (state.matchEnded) return;
     if (state.gameMode !== 'SINGLE_PLAYER' && !state.isInRoom) return;
     if (!state.myColor || state.currentTurn !== state.myColor) {
       e.preventDefault();
@@ -516,7 +523,66 @@
     e.preventDefault();
     const pos = captureToBoardCoords(e);
     if (!pos) return;
+    if (e.pointerType === 'touch' || e.pointerType === 'pen') {
+      if (e.isPrimary === false) { cancelPreview(); return; }
+      state.previewPointer = e.pointerId;
+      state.canvas.setPointerCapture?.(e.pointerId);
+      previewPoint(pos.row, pos.col);
+      return;
+    }
     handleMultiplayerMove(pos.row, pos.col);
+  }
+
+  function cancelPreview() {
+    const changed = state.previewMove !== null;
+    state.previewMove = null; state.previewPointer = null;
+    if (changed) window.dispatchEvent(new CustomEvent('nobi:go-view'));
+  }
+
+  function previewPoint(row, col) {
+    if (!validPoint(row, col) || state.matchEnded || state.isSyncing ||
+        !['black', 'white'].includes(state.myColor) || state.currentTurn !== state.myColor ||
+        (state.gameMode !== 'SINGLE_PLAYER' && !state.isInRoom) || state.board[row][col] !== EMPTY) {
+      cancelPreview(); return false;
+    }
+    state.previewMove = {row, col, color:state.myColor,
+      x:state.padding + col * state.cellSize, y:state.padding + row * state.cellSize,
+      size:state.cellSize};
+    window.dispatchEvent(new CustomEvent('nobi:go-view'));
+    return true;
+  }
+
+  async function confirmPreview() {
+    const move = state.previewMove;
+    cancelPreview();
+    if (!move || move.color !== state.myColor || state.matchEnded) return;
+    await handleMultiplayerMove(move.row, move.col);
+  }
+
+  function canvasPreviewMove(e) {
+    if (state.previewPointer !== e.pointerId) return;
+    e.preventDefault();
+    const pos = captureToBoardCoords(e);
+    if (pos) previewPoint(pos.row, pos.col); else cancelPreview();
+  }
+
+  function undoSoloTurn() {
+    if (state.gameMode !== 'SINGLE_PLAYER' || state.matchEnded || state.myColor !== 'black' || !state.undoStack.length) return false;
+    const snapshot = state.undoStack.pop();
+    clearTimeout(state.pendingAITimer); state.pendingAITimer = null;
+    cancelPreview(); clearBlink();
+    setBoardSnapshot(snapshot.board);
+    state.blackCaptures = snapshot.blackCaptures; state.whiteCaptures = snapshot.whiteCaptures;
+    window.state.koPoint = snapshot.koPoint;
+    state.viewMoves = snapshot.moves;
+    state.currentTurn = 'black'; state.isSyncing = false;
+    if (snapshot.latest) {
+      const {row, col, color} = snapshot.latest;
+      // Reuse the original latest-move renderer; startBlink also appends the journal.
+      state.viewMoves.pop(); startBlink(row, col, color);
+    }
+    drawFullBoard(); updateProfilePanels();
+    return true;
   }
 
   async function persistRoomState(extra = {}) {
@@ -552,6 +618,7 @@
   state.blinkTimer = null;
 
   function startBlink(row, col, color) {
+    state.viewMoves.push({row:Number(row),col:Number(col),color,number:state.viewMoves.length+1});
     if (state.blinkTimer) clearInterval(state.blinkTimer);
     state.blinkingMove = { row: parseInt(row), col: parseInt(col), color: color, visible: true };
     state.blinkTimer = setInterval(() => {
@@ -575,11 +642,19 @@
   }
 
   async function handleMultiplayerMove(row, col) {
+    if(state.authoritativeSend){if(state.matchEnded||state.isSyncing||state.currentTurn!==state.myColor)return;cancelPreview();await state.authoritativeSend('move',{row,col});return;}
+    if (!validPoint(row, col) || state.matchEnded) return;
     if (state.currentTurn !== state.myColor || state.board[row][col] !== EMPTY || state.isSyncing) {
       playSound('invalidMove'); return;
     }
 
     state.isSyncing = true; 
+    cancelPreview();
+    const snapshot = state.gameMode === 'SINGLE_PLAYER' ? {
+      board:getBoardSnapshot(), blackCaptures:state.blackCaptures, whiteCaptures:state.whiteCaptures,
+      koPoint:window.state.koPoint ? {...window.state.koPoint} : null,
+      moves:state.viewMoves.map(move=>({...move})), latest:state.viewMoves.at(-1) ? {...state.viewMoves.at(-1)} : null,
+    } : null;
     const colorNum = state.myColor === 'black' ? BLACK : WHITE;
     const result = placeStone(row, col, colorNum);
 
@@ -591,13 +666,18 @@
     }
 
     if (state.gameMode === 'SINGLE_PLAYER') {
+      state.undoStack.push(snapshot);
       playSound(result.captured > 0 ? 'capture' : 'placeStone');
       startBlink(row, col, colorNum);
       state.currentTurn = 'white';
       drawFullBoard();
       updateProfilePanels();
       state.isSyncing = false; 
-      setTimeout(() => triggerAIMove(), 700);
+      clearTimeout(state.pendingAITimer);
+      state.pendingAITimer=setTimeout(()=>{
+        state.pendingAITimer=null;
+        if(state.gameMode==='SINGLE_PLAYER' && state.myColor==='black') triggerAIMove();
+      },700);
       return; 
     }
 
@@ -616,26 +696,35 @@
     }
   }
 
- async function onOpponentMove(payload) {
-    const { row, col, color, captured, next_turn } = payload || {};
-    if (typeof row !== 'number' || typeof col !== 'number' || !color) return;
-    if (state.board[row][col] !== EMPTY) return;
+  function validPoint(row, col) {
+    return Number.isInteger(row) && Number.isInteger(col) && row >= 0 && row < SIZE && col >= 0 && col < SIZE;
+  }
 
+  async function onOpponentMove(payload) {
+    if (state.matchEnded) return;
+    const { row, col, color, captured = [], next_turn } = payload || {};
+    if (!validPoint(row, col) || ![BLACK, WHITE].includes(color) || !Array.isArray(captured)) return;
+    if (captured.some(p => !Array.isArray(p) || p.length !== 2 || !validPoint(p[0], p[1]) || (p[0] === row && p[1] === col))) return;
+    if (new Set(captured.map(p => p.join(','))).size !== captured.length) return;
+    if (['black_captures', 'white_captures'].some(key => payload[key] !== undefined && (!Number.isInteger(payload[key]) || payload[key] < 0))) return;
+    if (next_turn !== undefined && !['black', 'white'].includes(next_turn)) return;
+    if (state.board[row][col] !== EMPTY) return; // Duplicate move: no counter/ko mutation.
+    cancelPreview();
     clearBlink();
     state.board[row][col] = color;
-    if (Array.isArray(captured)) for (const [r, c] of captured) state.board[r][c] = EMPTY;
-
-    if (color === BLACK) state.blackCaptures += Array.isArray(captured) ? captured.length : 0;
-    else state.whiteCaptures += Array.isArray(captured) ? captured.length : 0;
-
-    state.currentTurn = next_turn ? next_turn : (color === BLACK ? 'white' : 'black');
-    
+    for (const [r, c] of captured) state.board[r][c] = EMPTY;
+    if (color === BLACK && payload.black_captures === undefined) state.blackCaptures += captured.length;
+    if (color === WHITE && payload.white_captures === undefined) state.whiteCaptures += captured.length;
+    applyRemotePayload(payload); // Totals replace, never increment a received total.
+    state.currentTurn = next_turn || (color === BLACK ? 'white' : 'black');
+    const ko = payload.koPoint || payload.ko_point;
+    window.state.koPoint = ko && validPoint(ko.row, ko.col) ? { row: ko.row, col: ko.col } : null;
     startBlink(row, col, color);
     playSound('yourTurn');
     drawFullBoard();
     updateProfilePanels();
   }
-  
+
   function applyRemotePayload(payload) {
     if (!payload) return;
     if (typeof payload.black_captures === 'number') state.blackCaptures = payload.black_captures;
@@ -643,12 +732,33 @@
     if (typeof payload.next_turn === 'string') state.currentTurn = payload.next_turn;
   }
 
-  function showGameOverOverlay(winnerColor, reason = 'game_over') {
+  function showGameOverOverlay(winnerColor, reason = 'game_over', detail = '') {
+    state.matchEnded = true; cancelPreview();
+    clearTimeout(state.pendingAITimer);state.pendingAITimer=null;
+    window.NobiAudio?.setScene('result');
+    updateProfilePanels();
     const overlay = $('result-overlay');
     if (!overlay) return;
-    $('result-title').textContent = '对局结束';
-    $('result-desc').textContent = `${winnerColor === 'black' ? '黑方' : '白方'}获胜${reason === 'resign' ? '（对手认输）' : ''}`;
+    const won = state.myColor ? winnerColor === state.myColor : null;
+    overlay.dataset.outcome = won === null ? 'neutral' : won ? 'win' : 'loss';
+    overlay.dataset.mode = state.gameMode;
+    $('result-title').textContent = won === null ? '对局结束' : won ? '恭喜获胜' : '本局惜败';
+    $('result-desc').textContent = `${winnerColor === 'black' ? '黑方' : '白方'}获胜${({resign:'（认输）',count:'（数子）'})[reason] || ''} · 共 ${state.viewMoves.length} 手`;
+    const extra = $('result-detail'); if (extra) extra.textContent = detail;
     overlay.classList.add('is-open');
+    overlay.querySelector('button')?.focus({preventScroll:true});
+  }
+
+  function closeResultOverlay() { $('result-overlay')?.classList.remove('is-open'); }
+
+  // Single-player area count of the board as it stands (no dead-stone removal), white komi 7.5.
+  function scoreSoloGame(skipConfirm = false) {
+    const analysis = window.NobiGoAnalysis;
+    if (!analysis || state.gameMode !== 'SINGLE_PLAYER' || state.matchEnded || !state.myColor) return null;
+    if (!skipConfirm && !window.confirm('按当前盘面数子并结束本局？\n\n棋盘上的子全部按活子计算，请先下完收官。')) return null;
+    const score = analysis.areaScore(state.board);
+    showGameOverOverlay(score.winner, 'count', `黑 ${score.black} 子 · 白 ${score.white} 子（含贴 ${score.komi}）· ${score.winner === 'black' ? '黑' : '白'}胜 ${Math.abs(score.margin)} 子`);
+    return score;
   }
 
   async function announceGameOver(winnerColor, reason = 'game_over') {
@@ -687,18 +797,7 @@
       state.roomChannel = ch; 
 
       ch.on('broadcast', { event: 'move' }, ({ payload }) => {
-        applyRemotePayload(payload);
-        const rawKo = payload && (payload.koPoint || payload.ko_point);
-        if (rawKo && typeof rawKo.row === 'number' && typeof rawKo.col === 'number') {
-          window.state.koPoint = { row: parseInt(payload.koPoint.row), col: parseInt(payload.koPoint.col) };
-        } else {
-          window.state.koPoint = null; 
-        }
-        
-        const r = typeof payload.row === 'number' ? payload.row : parseInt(payload.r);
-        const c = typeof payload.col === 'number' ? payload.col : parseInt(payload.c);
-        if (!isNaN(r) && !isNaN(c)) startBlink(r, c, payload.color || payload.playerColor);
-        onOpponentMove(payload);
+        if (state.roomChannel === ch && state.gameMode === 'MULTIPLAYER') return onOpponentMove(payload);
       });
 
       ch.on('broadcast', { event: 'message' }, ({ payload }) => onRoomMessage(payload));
@@ -808,11 +907,13 @@
   async function createRoom() {
     try {
       state.gameMode = 'MULTIPLAYER';
+      state.matchEnded = false; state.undoStack = []; cancelPreview();
       const user = await getCurrentUser();
       if (!user) throw new Error('未登录用户');
 
       const code = generateRoomCode();
-      const { data, error } = await state.supabase.from('game_rooms').insert([{ code: code, black_id: user.id, next_turn: 'black', status: 'waiting' }]).select().single();
+      state.viewMoves=[];
+      const { data, error } = await state.supabase.schema('game').from('game_rooms').insert([{ code: code, black_id: user.id, next_turn: 'black', status: 'waiting' }]).select().single();
       if (error) throw error;
 
       state.roomCode = code; state.myColor = 'black'; state.currentTurn = 'black';
@@ -837,19 +938,21 @@
   
   async function joinRoom(code) {
     state.gameMode = 'MULTIPLAYER';
+    state.matchEnded = false; state.undoStack = []; cancelPreview();
     if (!code || code.length !== ROOM_CODE_LENGTH) { toast('请输入正确的6位房间号'); return; }
     try {
       const user = await getCurrentUser();
       if (!user) throw new Error('未登录用户');
 
-      const { data: room, error: fetchError } = await state.supabase.from('game_rooms').select('*').eq('code', code).single();
+      const { data: room, error: fetchError } = await state.supabase.schema('game').from('game_rooms').select('*').eq('code', code).single();
       if (fetchError || !room) throw new Error('房间不存在');
+      if(state.roomCode!==code) state.viewMoves=[];
 
       let role = null;
       if (room.black_id === user.id) role = 'black';
       else if (room.white_id === user.id) role = 'white';
       else if (!room.white_id) {
-        await state.supabase.from('game_rooms').update({ white_id: user.id, status: 'playing' }).eq('code', code);
+        await state.supabase.schema('game').from('game_rooms').update({ white_id: user.id, status: 'playing' }).eq('code', code);
         role = 'white';
       } else { role = 'viewer'; }
 
@@ -881,6 +984,8 @@
   }
 
   async function leaveRoom() {
+    cancelPreview(); closeResultOverlay(); state.undoStack = [];
+    clearTimeout(state.pendingAITimer);state.pendingAITimer=null;
     clearBlink();
     if (state.roomChannel) {
       try { await state.roomChannel.untrack(); } catch (_) {}
@@ -902,6 +1007,12 @@
     const bindOne = (el) => {
       if (!el || el.dataset.bound === '1') return;
       el.addEventListener('click', async () => {
+        if (state.gameMode === 'SINGLE_PLAYER') {
+          if (!state.myColor || state.matchEnded || !window.confirm('确认认输并结束本局？')) return;
+          showGameOverOverlay('white', 'resign');
+          toast('本局已结束 · 白方获胜');
+          return;
+        }
         if (!state.isInRoom || !state.roomChannel) return;
         await state.roomChannel.send({ type: 'broadcast', event: 'message', payload: { type: 'RESIGN_REQUEST', from: state.myColor } });
         toast('已发送认输请求');
@@ -919,11 +1030,17 @@
     injectUIButtons();
     bindCopyInviteButton();
     bindResignButtons();
-    checkRoomParam();
+    // The shared shell validates platform/Auth and owns invite routing. Legacy standalone use remains supported.
+    if (!window.NobiLobby) checkRoomParam();
 
     if (!initCanvasParams()) return;
 
     state.canvas.addEventListener('pointerdown', canvasCaptureHandler, { passive: false, capture: true });
+    state.canvas.addEventListener('pointermove', canvasPreviewMove, { passive:false });
+    state.canvas.addEventListener('pointerup', e=>{if(state.previewPointer === e.pointerId) state.previewPointer = null;});
+    state.canvas.addEventListener('pointercancel', cancelPreview);
+    document.addEventListener('visibilitychange', ()=>{if(document.hidden) cancelPreview();});
+    window.addEventListener('pagehide', cancelPreview);
 
     // ✨ 这里我们采用 ResizeObserver 直接监听 CSS Grid 的中间容器
     if (state.resizeObserver) state.resizeObserver.disconnect();
@@ -933,13 +1050,24 @@
     
     const shell = state.canvas.parentElement;
     if (shell) state.resizeObserver.observe(shell);
+    window.addEventListener('resize', resizeCanvas);
+    window.visualViewport?.addEventListener('resize', resizeCanvas);
 
     console.log('[multiplayer-ext] loaded');
   }
 
   function startAIGame() {
+    state.authoritativeSend=null;
+    cancelPreview(); closeResultOverlay(); state.undoStack = []; state.matchEnded = false;
+    clearTimeout(state.pendingAITimer);state.pendingAITimer=null;
+    state.viewMoves=[];
+    const oldChannel = state.roomChannel;
+    state.roomChannel = null; state.isInRoom = false;
+    if (oldChannel) Promise.resolve(state.supabase?.removeChannel(oldChannel)).catch(() => {});
     state.gameMode = 'SINGLE_PLAYER'; state.roomCode = 'AI_LOCAL';
     state.myColor = 'black'; state.currentTurn = 'black';
+    state.blackCaptures = 0; state.whiteCaptures = 0;
+    window.state.koPoint = null;
     for (let r = 0; r < SIZE; r++) for (let c = 0; c < SIZE; c++) state.board[r][c] = EMPTY;
     clearBlink();
     
@@ -955,21 +1083,37 @@
   }
 
   function triggerAIMove() {
-    if (state.gameMode !== 'SINGLE_PLAYER' || state.currentTurn !== 'white') return;
+    if (state.matchEnded || state.gameMode !== 'SINGLE_PLAYER' || state.currentTurn !== 'white') return;
 
     let allEmptyMoves = [];
     for (let r = 0; r < state.boardSize; r++) for (let c = 0; c < state.boardSize; c++) if (state.board[r][c] === EMPTY) allEmptyMoves.push({ r, c });
 
-    if (allEmptyMoves.length === 0) { alert('棋盘已满，对局结束！'); return; }
+    if (allEmptyMoves.length === 0) { scoreSoloGame(true); return; }
 
-    let bestMove = null;
-    for (let move of allEmptyMoves) {
-      const test = placeStone(move.r, move.c, WHITE);
-      if (test.success) {
-        if (test.captured > 0) { bestMove = move; break; }
-        state.board[move.r][move.c] = EMPTY;
-        if (test.capturedGroup) test.capturedGroup.forEach(p => state.board[p.row][p.col] = BLACK);
+    let bestMove = null, placed = false;
+    const analysis = window.NobiGoAnalysis;
+    if (analysis) {
+      const choice = analysis.chooseMove(state.board, WHITE, window.state.koPoint);
+      if (!choice) {
+        // AI passes when only own eyes or self-atari remain; the player may count the board.
+        state.viewMoves.push({pass:true,color:WHITE,number:state.viewMoves.length+1});
+        state.currentTurn = 'black'; updateProfilePanels();
+        toast('AI 选择虚着 · 可点击“数子”结束对局');
+        window.NobiAudio?.playEffect('yourTurn');
+        return;
       }
+      if (placeStone(choice.row, choice.col, WHITE).success) { bestMove = { r: choice.row, c: choice.col }; placed = true; }
+    }
+    if (!bestMove) for (const move of allEmptyMoves) {
+      const boardBefore = state.board.map(row => row.slice());
+      const blackBefore = state.blackCaptures, whiteBefore = state.whiteCaptures;
+      const koBefore = window.state.koPoint;
+      const test = placeStone(move.r, move.c, WHITE);
+      // Candidate evaluation must never commit board, captures or ko.
+      state.board = boardBefore;
+      state.blackCaptures = blackBefore; state.whiteCaptures = whiteBefore;
+      window.state.koPoint = koBefore;
+      if (test.success && test.captured > 0) { bestMove = move; break; }
     }
 
     if (!bestMove) {
@@ -977,7 +1121,7 @@
         const candidate = allEmptyMoves.splice(Math.floor(Math.random() * allEmptyMoves.length), 1)[0];
         if (placeStone(candidate.r, candidate.c, WHITE).success) { bestMove = candidate; break; }
       }
-    } else {
+    } else if (!placed) {
       placeStone(bestMove.r, bestMove.c, WHITE);
     }
 
@@ -990,12 +1134,34 @@
     state.currentTurn = 'black';
     drawFullBoard();
     updateProfilePanels();
+    window.NobiAudio?.playEffect('yourTurn');
   }
 
+  function applyAuthoritySnapshot(snapshot,send,connected=true) {
+    const pub=snapshot.publicState;state.authoritativeSend=send;
+    state.gameMode='MULTIPLAYER';state.isInRoom=true;state.roomCode=snapshot.roomId;state.myColor=snapshot.privateState.seat===0?'black':'white';
+    state.currentTurn=snapshot.currentTurn===0?'black':'white';state.matchEnded=snapshot.status==='ended';state.isSyncing=!connected||snapshot.status!=='playing';state.room={status:snapshot.status,black_id:snapshot.players[0]?.userId,white_id:snapshot.players[1]?.userId};state.roomContext.blackName=snapshot.players[0]?.nickname??'黑方';state.roomContext.whiteName=snapshot.players[1]?.nickname??'等待加入';
+    cancelPreview();clearTimeout(state.pendingAITimer);state.pendingAITimer=null;
+    setBoardSnapshot(pub.board.length?pub.board:Array.from({length:19},()=>Array(19).fill(0)));
+    state.blackCaptures=pub.blackCaptures;state.whiteCaptures=pub.whiteCaptures;window.state.koPoint=pub.koPoint;
+    clearBlink();const moves=pub.moves.filter(move=>!move.pass);state.viewMoves=pub.moves.map((move,i)=>({...move,number:i+1}));
+    const latest=moves.at(-1);if(latest)state.blinkingMove={...latest,visible:true};
+    document.body.classList.add('nobi-playing-go','in-game-match');document.body.classList.remove('nobi-playing-guandan');
+    if($('game-selection'))$('game-selection').style.display='none';const app=document.querySelector('.app');if(app)app.style.display='grid';
+    resizeCanvas();drawFullBoard();updateProfilePanels();window.dispatchEvent(new CustomEvent('nobi:go-view'));
+  }
   window.MP = {
+    applyAuthoritySnapshot,
     createRoom, joinRoom, leaveRoom, startAIGame,
+    confirmPreview, cancelPreview, undoSoloTurn, scoreSoloGame, closeResultOverlay,
     getRoomCode: () => state.roomCode, getMyColor: () => state.myColor,
     isInRoom: () => state.isInRoom, handleSurrender: () => {},
+    getViewState: () => ({mode:state.gameMode,turn:state.currentTurn,myColor:state.myColor,room:state.roomCode,
+      board:getBoardSnapshot(),blackCaptures:state.blackCaptures,whiteCaptures:state.whiteCaptures,
+      geometry:{padding:state.padding,cellSize:state.cellSize},
+      ended:state.matchEnded || (state.gameMode==='MULTIPLAYER' && state.room?.status==='ended'),moveNumber:state.viewMoves.length,
+      preview:state.previewMove ? {...state.previewMove} : null,canUndo:state.gameMode==='SINGLE_PLAYER' && !state.matchEnded && state.undoStack.length>0,
+      moves:state.viewMoves.map(move=>({...move})),latestVisible:state.blinkingMove?.visible ?? true,blackName:state.roomContext.blackName,whiteName:state.roomContext.whiteName}),
   };
 
   // =========================================================================

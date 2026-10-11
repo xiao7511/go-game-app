@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Nobi Games">
+  <defs><linearGradient id="gold" x2="1" y2="1"><stop stop-color="#fff1c8"/><stop offset="1" stop-color="#d3aa60"/></linearGradient></defs>
+  <rect x="2" y="2" width="60" height="60" rx="17" fill="#102748" stroke="#e9c986" stroke-width="1.5"/>
+  <path d="M16 46l7-29h8l9 17 4-17h7l-7 29h-8L27 29l-4 17z" fill="url(#gold)"/>
+</svg>

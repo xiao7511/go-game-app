@@ -1,0 +1,12 @@
+{
+  "name": "nobi-foundation-tooling",
+  "private": true,
+  "engines": { "node": "^24.0.0" },
+  "devDependencies": {
+    "vite": "8.3.4",
+    "vitest": "5.0.3",
+    "@playwright/test": "1.64.0",
+    "@supabase/supabase-js": "2.117.3",
+    "esbuild": "0.28.2"
+  }
+}

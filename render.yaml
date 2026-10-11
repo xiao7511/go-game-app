@@ -1,0 +1,28 @@
+# Create a Blueprint in your Render account. The paid persistent disk is required;
+# do not deploy multiple replicas against this single SQLite writer.
+services:
+  - type: web
+    name: nobi-online
+    runtime: docker
+    plan: 0.5c-512mb
+    dockerfilePath: infrastructure/production/Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+    autoDeployTrigger: 'off'
+    disk:
+      name: nobi-rooms
+      mountPath: /var/data/nobi
+      sizeGB: 1
+    envVars:
+      - key: PORT
+        value: '8080'
+      - key: NOBI_BIND_HOST
+        value: 0.0.0.0
+      - key: NOBI_ROOM_DATABASE
+        value: /var/data/nobi/rooms.sqlite
+      - key: NOBI_ALLOWED_ORIGINS
+        value: https://game.nobistudio.com,https://xiao7511.github.io
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false

@@ -1,0 +1,183 @@
+{
+  "date": "2026-10-10",
+  "branch": "feature/nobi-games-v2",
+  "baseline": "705be3989185d97afbea62549ba60c6d27eea743",
+  "commits": [
+    "8ea67e00dace9feb8b5069f29638c21dca6c480e",
+    "705a2a424428146cb4a937e280fade5f5bb8e141",
+    "2dfb03b8b7b99f631bea5598f04adf9ae538cdfb",
+    "3649e2b160d3c36c39f9903b191109413fa5a421"
+  ],
+  "tests": {
+    "unit": {
+      "status": "PASS",
+      "tests": 83,
+      "files": 16,
+      "original": 76
+    },
+    "edgeRegression": {
+      "status": "PASS",
+      "tests": 23
+    },
+    "realSupabase": {
+      "status": "PASS",
+      "groups": 19,
+      "checks": [
+        {
+          "name": "four distinct disposable Auth signups / logins / identities",
+          "status": "PASS"
+        },
+        {
+          "name": "public profile RPC signature / authenticated grant / anonymous denial",
+          "status": "PASS"
+        },
+        {
+          "name": "atomic concurrent seat allocation / repeat join / membership read",
+          "status": "PASS"
+        },
+        {
+          "name": "room RLS hides outsider / direct state and move writes denied",
+          "status": "PASS"
+        },
+        {
+          "name": "legacy Go room columns / atomic join RPC / untrusted snapshot write denied",
+          "status": "PASS"
+        },
+        {
+          "name": "real Realtime WebSocket / published postgres change / participant RLS / reconnect",
+          "status": "PASS"
+        },
+        {
+          "name": "Go/Guandan season rankings / tie ranking / client rating, history and result writes denied",
+          "status": "PASS"
+        },
+        {
+          "name": "Guandan: four authenticated clients / unique seats / idempotent join",
+          "status": "PASS"
+        },
+        {
+          "name": "Guandan: server start / 108-card deal / private hands / SSE synchronization",
+          "status": "PASS"
+        },
+        {
+          "name": "Guandan: wrong turn / opening pass / stolen card / duplicate card / forged result denied",
+          "status": "PASS"
+        },
+        {
+          "name": "Guandan: operation idempotency / request-key conflict / stale version denied",
+          "status": "PASS"
+        },
+        {
+          "name": "Guandan: disconnect / authenticated reconnect / versioned snapshot recovery",
+          "status": "PASS"
+        },
+        {
+          "name": "Guandan: legal play / pass / turn progression / server rules terminal result (147 actions)",
+          "status": "PASS"
+        },
+        {
+          "name": "Guandan: participant exit / server-confirmed unranked end",
+          "status": "PASS"
+        },
+        {
+          "name": "Go: two clients / black-white seats / move SSE / capture / occupied and wrong-turn rejection",
+          "status": "PASS"
+        },
+        {
+          "name": "Go: reconnect / opponent consent / full-round undo restores board, capture, turn and journal",
+          "status": "PASS"
+        },
+        {
+          "name": "Go: suicide denied / resignation confirmation / server terminal result / ended game blocks input",
+          "status": "PASS"
+        },
+        {
+          "name": "authority rejects invalid token and nonparticipant recovery",
+          "status": "PASS"
+        },
+        {
+          "name": "verified unranked SQL records / unique operation receipts / ratings unchanged",
+          "status": "PASS"
+        }
+      ]
+    },
+    "realBrowserSupabase": {
+      "status": "PASS",
+      "tests": 4
+    },
+    "offlineHttp": {
+      "status": "PASS",
+      "tests": 1,
+      "groups": 10,
+      "identity": "injected; not real Auth"
+    },
+    "typescript": {
+      "status": "PASS"
+    },
+    "sqlContracts": {
+      "status": "PASS"
+    },
+    "privateSql": {
+      "status": "PASS"
+    },
+    "legacyPhase2BroadcastProbe": {
+      "status": "BLOCKED",
+      "reason": "Legacy opt-in environment absent; no requests sent"
+    }
+  },
+  "resources": {
+    "cards": {
+      "status": "PASS",
+      "count": 56
+    },
+    "goSource": {
+      "status": "PASS",
+      "count": 7
+    },
+    "goApp": {
+      "status": "PASS",
+      "count": 3
+    },
+    "originalSounds": 5
+  },
+  "build": {
+    "web": "PASS",
+    "mobile": "PASS",
+    "capacitorAndroidCopy": "PASS",
+    "capacitorIosCopy": "PASS",
+    "androidDebug": "PASS",
+    "apk": {
+      "path": "android/app/build/outputs/apk/debug/app-debug.apk",
+      "bytes": 6073663,
+      "sha256": "64a08569aa86a6b564dc463fd1b8b6386ad917b907f19d646c6bf9c135644499"
+    },
+    "ipa": "NOT RUN",
+    "realDevice": "NOT RUN",
+    "appOnlineDevice": "NOT RUN"
+  },
+  "security": {
+    "stagedMaterials": "PASS",
+    "existingSigningExposure": "FAIL",
+    "rootAudit": {
+      "status": "FAIL",
+      "high": 3,
+      "critical": 1
+    },
+    "toolingAudit": {
+      "status": "PASS",
+      "vulnerabilities": 0
+    },
+    "productionContract": "NOT VERIFIED",
+    "release": "BLOCKED"
+  },
+  "boundaries": {
+    "officialSettlement": "disabled",
+    "goDoublePassScoring": "NOT VERIFIED",
+    "multiProcessLoad": "NOT VERIFIED",
+    "browserFixtureCleanup": "PASS",
+    "manualCredentials": "ignored local file only",
+    "productionWrites": false,
+    "push": false,
+    "mainMerge": false
+  }
+}

@@ -1,0 +1,20 @@
+:root {
+  --nobi-bg: #060f24;
+  --nobi-surface: #0b1c38;
+  --nobi-elevated: #122a4d;
+  --nobi-border: #24466b;
+  --nobi-text: #eef4ff;
+  --nobi-muted: #adc0db;
+  --nobi-gold: #e9c986;
+  --nobi-blue: #588eff;
+  --nobi-radius: 18px;
+  --nobi-shadow: 0 18px 46px #02091966;
+  --nobi-font: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+}
+.nobi-brand { display: inline-flex; align-items: center; gap: 9px; color: var(--nobi-text); text-decoration: none; white-space: nowrap; }
+.nobi-brand img { width: 38px; height: 38px; }
+.nobi-brand b { font-style: italic; font-size: 27px; color: var(--nobi-gold); letter-spacing: -.7px; }
+.nobi-brand span { font-size: 18px; font-weight: 750; }
+.nobi-brand small { display: block; color: var(--nobi-muted); font-size: 10px; letter-spacing: 2px; }
+:focus-visible { outline: 2px solid var(--nobi-gold); outline-offset: 4px; }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; transition-duration: .01ms !important; } }

@@ -1,0 +1,188 @@
+/* Go match chrome (Nobi V2.1 reference ⑦). The board canvas, wood frame and stone rendering stay original. */
+body.nobi-playing-go { --go-panel:linear-gradient(160deg,#10284a,#0a1a33); --go-line:#2a4a72; --go-gold:#e9c986; --go-muted:#9fb5d1; }
+body.nobi-playing-go .app { height:100dvh; min-height:0; grid-template-rows:minmax(0,1fr); background:radial-gradient(ellipse at 50% -20%,#1b3d66 0%,transparent 55%),radial-gradient(ellipse at 50% 120%,#0f2a4a 0%,transparent 50%),var(--nobi-bg); font-family:var(--nobi-font); }
+body.nobi-playing-go .topbar { display:none; }
+body.nobi-playing-go .layout { grid-template-columns:clamp(250px,21vw,320px) minmax(0,1fr) clamp(230px,18vw,290px); grid-template-areas:'left board right'; grid-template-rows:minmax(0,1fr); align-items:stretch; gap:clamp(14px,1.6vw,26px); min-height:0; padding:max(16px,env(safe-area-inset-top)) max(20px,env(safe-area-inset-right)) max(16px,env(safe-area-inset-bottom)) max(20px,env(safe-area-inset-left)); }
+body.nobi-playing-go .sidebar { gap:12px; min-height:0; overflow:auto; scrollbar-width:thin; }
+body.nobi-playing-go .sidebar-left { grid-area:left; }
+body.nobi-playing-go .sidebar-right { grid-area:right; }
+body.nobi-playing-go .panel { background:var(--go-panel); border:1px solid var(--go-line); border-radius:16px; box-shadow:0 10px 28px #02091955; backdrop-filter:none; }
+body.nobi-playing-go .panel-header { padding:12px 14px 8px; border-bottom:0; }
+body.nobi-playing-go .panel-header h2 { font-size:12px; font-weight:600; letter-spacing:.08em; color:var(--go-muted); }
+body.nobi-playing-go .panel-body { padding:4px 14px 12px; }
+body.nobi-playing-go .status-pill { background:#123a5c; border-color:#2f6290; color:#a9d2ff; }
+body.nobi-playing-go .status-pill.offline { background:#3a1d2a; border-color:#6e3446; color:#ffb6c2; }
+body.nobi-playing-go .hint-list { font-size:12px; color:var(--go-muted); }
+
+/* Match title card */
+.go-match-card { display:flex; align-items:center; gap:12px; padding:14px 16px; border-radius:16px; background:linear-gradient(135deg,#173a63,#0c2142); border:1px solid #3a6290; box-shadow:0 10px 28px #02091955; color:var(--nobi-text); }
+.go-match-card strong { display:block; font-size:17px; letter-spacing:.04em; }
+.go-match-card small { display:block; margin-top:3px; color:var(--go-muted); font-size:11px; }
+.go-match-logo { position:relative; flex:0 0 38px; width:38px; height:38px; border-radius:10px; background:linear-gradient(135deg,#f3c17a,#c8945a); box-shadow:inset 0 0 0 1px #fff4,0 4px 10px #0006; }
+.go-match-logo i { position:absolute; width:16px; height:16px; border-radius:50%; top:7px; left:6px; background:radial-gradient(circle at 35% 30%,#555,#111); box-shadow:0 2px 3px #0007; }
+.go-match-logo i + i { top:15px; left:16px; background:radial-gradient(circle at 35% 30%,#fff,#bbb); }
+
+/* Player cards with stone avatar, clock and captures */
+body.nobi-playing-go .go-player { position:relative; transition:border-color .2s,box-shadow .2s; }
+body.nobi-playing-go .go-player.is-turn { border-color:var(--go-gold); box-shadow:0 0 0 2px #e9c98633,0 12px 30px #02091977; }
+body.nobi-playing-go .go-player.is-turn::after { content:attr(data-turn-label); position:absolute; right:14px; bottom:14px; font-size:10px; color:#2b210f; background:var(--go-gold); padding:2px 8px; border-radius:999px; }
+body.nobi-playing-go .player-card { gap:12px; }
+.go-stone-avatar { flex:0 0 48px; width:48px; height:48px; border-radius:50%; box-shadow:0 4px 10px #0008,inset 0 0 0 2px #ffffff14; background:radial-gradient(circle at 35% 30%,#555,#111); }
+[data-go-stone=white] .go-stone-avatar { background:radial-gradient(circle at 35% 30%,#fff,#bbb); }
+body.nobi-playing-go .player-avatar:not([src]), body.nobi-playing-go .player-avatar[src=''] { display:none; }
+body.nobi-playing-go .player-avatar[src]:not([src='']) { width:48px; height:48px; }
+body.nobi-playing-go .go-avatar-wrap { position:relative; display:inline-grid; flex:0 0 auto; }
+body.nobi-playing-go .player-avatar[src]:not([src='']) { border-radius:50%; object-fit:cover; box-shadow:0 0 0 2px #ffffffcc,0 4px 10px #0008; }
+body.nobi-playing-go .go-avatar-wrap .player-avatar[src]:not([src='']) + .go-stone-avatar { position:absolute; right:-3px; bottom:-3px; width:18px !important; height:18px !important; flex-basis:18px !important; box-shadow:0 0 0 2px #0b1c38,0 2px 4px #0009; }
+body.nobi-playing-go .player-meta .name-row strong { font-size:15px; color:#f4f8ff; }
+body.nobi-playing-go .player-meta .name-row .chip { padding:3px 8px; font-size:11px; color:var(--go-gold); background:#e9c9861a; border-color:#e9c98640; }
+body.nobi-playing-go .player-meta .sub { font-size:12px; gap:4px 10px; }
+.go-player-foot { display:flex; align-items:baseline; justify-content:space-between; gap:10px; padding:0 14px 12px 74px; color:var(--go-muted); font-size:12px; }
+.go-player-foot b { color:var(--go-gold); font-size:14px; }
+.go-player-clock { font-size:26px; font-weight:700; color:#f4f8ff; font-variant-numeric:tabular-nums; letter-spacing:.02em; }
+body.nobi-playing-go .go-player.is-turn .go-player-clock { color:var(--go-gold); }
+body.nobi-playing-go .go-player.is-turn .go-player-foot { padding-right:76px; }
+
+/* Actions */
+body.nobi-playing-go .go-actions { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; margin-top:auto; }
+body.nobi-playing-go .go-actions button { min-height:46px; padding:8px 10px; border-radius:12px; border:1px solid #3d6a9c; background:linear-gradient(180deg,#2a62b8,#1a4489); color:#f2f7ff; font-size:14px; font-weight:700; box-shadow:0 4px 12px #02091966,inset 0 1px #ffffff26; }
+body.nobi-playing-go .go-actions button:disabled { opacity:.45; cursor:default; transform:none; }
+body.nobi-playing-go .go-actions [data-go-confirm] { color:#2b210f; border-color:#ffe2a0; background:linear-gradient(180deg,#ffe9b0,#dcae5c); }
+body.nobi-playing-go .go-actions [data-go-count] { background:linear-gradient(180deg,#2f9a68,#1d7049); border-color:#58c08d; }
+body.nobi-playing-go .go-actions #surrender-btn { grid-column:1 / -1; background:linear-gradient(180deg,#d9534f,#a8302d); border-color:#ef8784; box-shadow:0 4px 12px #4a0d0d66,inset 0 1px #ffffff26; }
+body.nobi-playing-go .go-actions [hidden] { display:none; }
+body.nobi-playing-go:not([data-go-preview-active=true]) .go-actions :is([data-go-confirm],[data-go-cancel]) { display:none; }
+body.nobi-playing-go[data-go-mode=SINGLE_PLAYER] .go-actions [data-go-count]:not([hidden]) ~ #surrender-btn { grid-column:auto; }
+body.nobi-playing-go[data-go-mode=SINGLE_PLAYER] .go-actions { grid-template-columns:repeat(3,minmax(0,1fr)); }
+body.nobi-playing-go[data-go-mode=SINGLE_PLAYER][data-go-preview-active=true] .go-actions { grid-template-columns:repeat(2,minmax(0,1fr)); }
+body.nobi-playing-go[data-go-preview-active=true] .go-actions :is([data-go-undo],[data-go-count],#surrender-btn) { display:none; }
+
+/* Board column */
+body.nobi-playing-go .board-zone { grid-area:board; display:flex; flex-direction:column; justify-content:center; align-items:center; gap:10px; min-width:0; min-height:0; padding:0; }
+body.nobi-playing-go .board-shell { width:min(100%,calc(100dvh - 92px)); aspect-ratio:1; flex-shrink:0; box-shadow:0 0 0 1px #ffe7b733,0 30px 80px #000a,0 0 120px #4d86d222; }
+.go-territory { position:absolute; inset:0; z-index:2; width:100%; height:100%; pointer-events:none; }
+.go-territory[hidden], .go-estimate[hidden] { display:none; }
+.nobi-go-preview { position:absolute; z-index:3; transform:translate(-50%,-50%); border:2px solid #0877be; border-radius:50%; box-shadow:0 0 0 2px #fff9; pointer-events:none; }
+.nobi-go-preview[hidden] { display:none; }
+.nobi-go-summary { display:none; justify-content:space-between; flex-wrap:wrap; gap:8px; width:100%; color:#e1c58f; font-size:12px; }
+.nobi-go-help { margin:0; color:#b3c7dc; font-size:12px; text-align:center; }
+.go-estimate { margin:0; padding:6px 14px; border-radius:999px; background:#0c2142; border:1px solid #e9c98655; color:var(--nobi-gold); font-size:12px; text-align:center; }
+
+/* Tool rail */
+.go-rail { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:6px; padding:8px; border-radius:16px; background:var(--go-panel,#0b1c38); border:1px solid var(--go-line,#2a4a72); box-shadow:0 10px 28px #02091955; }
+.go-rail button { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; min-width:44px; min-height:56px; padding:6px 2px; border-radius:12px; border:1px solid #3b5f8a; background:linear-gradient(160deg,#1d3d66,#11284a); color:#dfeaff; font-size:11px; }
+.go-rail button svg { width:20px; height:20px; fill:none; stroke:#b2cbff; stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round; }
+.go-rail button[aria-pressed=true] { border-color:var(--nobi-gold); color:var(--nobi-gold); background:linear-gradient(160deg,#3a3320,#1e2a3d); }
+.go-rail button[aria-pressed=true] svg { stroke:var(--nobi-gold); }
+.go-rail .go-rail-exit { border-color:#a88c5366; color:#ecd49d; }
+.go-rail .go-rail-exit svg { stroke:#ecd49d; }
+
+/* Live record */
+body.nobi-playing-go .go-record-panel { display:flex; flex-direction:column; min-height:160px; flex:1 1 auto; }
+.go-record-live { flex:1 1 auto; min-height:0; max-height:none; margin:0; padding:2px 10px 12px; overflow:auto; list-style:none; display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); align-content:start; gap:4px; font-size:12px; color:#dfe9f8; font-variant-numeric:tabular-nums; }
+.go-record-live li { display:flex; align-items:center; gap:6px; padding:4px 6px; border-radius:8px; background:#ffffff08; }
+.go-record-live li span { display:inline-grid; place-items:center; min-width:24px; height:20px; padding:0 4px; border-radius:10px; font-size:10px; background:radial-gradient(circle at 35% 30%,#555,#111); color:#fff; }
+.go-record-live li[data-color=white] span { background:radial-gradient(circle at 35% 30%,#fff,#bbb); color:#111; }
+.go-record-live li:last-child { outline:1px solid #e9c98688; }
+body.nobi-playing-go[data-go-mode=SINGLE_PLAYER] #room-panel { display:none; }
+
+/* Result overlay */
+.go-result { position:fixed; inset:0; z-index:900; display:none; place-items:center; padding:16px; background:#020a18b3; backdrop-filter:blur(4px); }
+.go-result.is-open { display:grid; }
+.go-result-card { width:min(420px,100%); padding:28px 24px 22px; border-radius:22px; text-align:center; color:var(--nobi-text); background:linear-gradient(160deg,#173a63,#0a1a33); border:1px solid #e9c98666; box-shadow:0 30px 80px #000c; }
+.go-result-badge { position:relative; display:block; width:64px; height:64px; margin:0 auto 12px; border-radius:18px; background:linear-gradient(135deg,#f3c17a,#c8945a); box-shadow:0 8px 20px #0008; }
+.go-result-badge i { position:absolute; width:28px; height:28px; border-radius:50%; left:10px; top:10px; background:radial-gradient(circle at 35% 30%,#555,#111); }
+.go-result-badge i + i { left:26px; top:26px; background:radial-gradient(circle at 35% 30%,#fff,#bbb); }
+.go-result h2 { margin:0 0 6px; font-size:26px; color:var(--nobi-gold); letter-spacing:.06em; }
+.go-result[data-outcome=loss] h2 { color:#c8d6ea; }
+.go-result p { margin:0 0 6px; color:#c4d3e8; font-size:14px; line-height:1.6; }
+.go-result .go-result-detail { color:var(--nobi-gold); font-size:13px; }
+.go-result-detail:empty { display:none; }
+.go-result-actions { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; margin-top:16px; }
+.go-result-actions button { min-height:44px; border-radius:12px; border:1px solid #3d6a9c; background:#173959; color:#edf4ff; font-weight:700; }
+.go-result-actions .go-result-primary { grid-column:1 / -1; color:#2b210f; border-color:#ffe2a0; background:linear-gradient(180deg,#ffe9b0,#dcae5c); }
+.go-result-actions [hidden] { display:none; }
+
+body.nobi-embedded .go-actions #surrender-btn, body.nobi-embedded #quit-game-btn, body.nobi-embedded [data-go-count], body.nobi-embedded [data-go-undo] { display:none !important; }
+body.nobi-embedded .go-rail { grid-template-columns:repeat(4,minmax(0,1fr)); }
+
+@media (max-width:1180px) and (min-height:601px) {
+  body.nobi-playing-go .layout { grid-template-columns:clamp(220px,25vw,280px) minmax(0,1fr) 76px; gap:14px; }
+  body.nobi-playing-go .sidebar-right > .panel { display:none; }
+  body.nobi-playing-go .go-rail { grid-template-columns:1fr; align-content:start; }
+}
+
+/* Phone landscape: reference ⑦ — players left, board centre, tool rail right. */
+@media (max-height:600px) and (orientation:landscape) {
+  body.nobi-playing-go .layout { grid-template-columns:clamp(176px,27vw,300px) minmax(0,1fr) 62px; gap:10px; padding:max(8px,env(safe-area-inset-top)) max(8px,env(safe-area-inset-right)) max(8px,env(safe-area-inset-bottom)) max(10px,env(safe-area-inset-left)); }
+  body.nobi-playing-go .sidebar { gap:7px; overflow:visible; }
+  body.nobi-playing-go .board-shell { width:min(100%,calc(100dvh - 16px - env(safe-area-inset-top) - env(safe-area-inset-bottom))); border-radius:14px; }
+  body.nobi-playing-go .board-shell::after { inset:5px; border-radius:10px; }
+  body.nobi-playing-go .nobi-go-help { display:none; }
+  .go-estimate { position:fixed; left:50%; bottom:max(10px,env(safe-area-inset-bottom)); transform:translateX(-50%); z-index:5; font-size:11px; max-width:60vw; }
+  .go-match-card { padding:8px 10px; gap:8px; border-radius:12px; }
+  .go-match-card strong { font-size:13px; }
+  .go-match-card small { display:none; }
+  .go-match-logo { flex-basis:26px; width:26px; height:26px; border-radius:7px; }
+  .go-match-logo i { width:11px; height:11px; top:5px; left:4px; }
+  .go-match-logo i + i { top:10px; left:11px; }
+  body.nobi-playing-go .go-player { border-radius:12px; }
+  body.nobi-playing-go .go-player .panel-header { display:none; }
+  body.nobi-playing-go .go-player .panel-body { padding:8px 10px 0; }
+  body.nobi-playing-go .player-card { gap:8px; }
+  .go-stone-avatar, body.nobi-playing-go .player-avatar[src]:not([src='']) { flex-basis:32px; width:32px; height:32px; }
+  body.nobi-playing-go .player-meta .name-row { margin-bottom:0; gap:6px; }
+  body.nobi-playing-go .player-meta .name-row strong { font-size:12px; }
+  body.nobi-playing-go .player-meta .name-row .chip { display:none; }
+  body.nobi-playing-go .player-meta .sub { font-size:10px; }
+  body.nobi-playing-go .player-meta .sub #local-player-turn, body.nobi-playing-go .player-meta .sub #opponent-activity { display:none; }
+  .go-player-foot { padding:2px 10px 7px 50px; font-size:10px; }
+  .go-player-foot b { font-size:12px; }
+  .go-player-clock { font-size:20px; }
+  body.nobi-playing-go .go-player.is-turn::after { right:8px; top:8px; bottom:auto; font-size:9px; padding:1px 6px; }
+  body.nobi-playing-go .go-player.is-turn .go-player-foot { padding-right:10px; }
+  body.nobi-playing-go .go-actions { gap:6px; }
+  body.nobi-playing-go .go-actions button { min-height:44px; font-size:12px; padding:6px; border-radius:10px; }
+  body.nobi-playing-go .sidebar-right > .panel { display:none; }
+  .go-rail { grid-template-columns:1fr; gap:5px; padding:5px; border-radius:12px; align-content:start; }
+  .go-rail button { min-height:50px; font-size:10px; gap:2px; border-radius:10px; }
+  .go-rail button svg { width:18px; height:18px; }
+}
+@media (max-height:360px) and (orientation:landscape) {
+  body.nobi-playing-go .go-match-card { display:none; }
+  .go-rail button { min-height:46px; }
+  .go-rail button span { font-size:9px; }
+}
+
+/* Portrait / narrow: players on top, board, then actions and tools. */
+@media (max-width:860px) and (orientation:portrait), (max-width:600px) and (min-height:601px) {
+  html, body.nobi-playing-go { overflow:hidden; }
+  body.nobi-playing-go .app { height:100dvh; }
+  body.nobi-playing-go .layout { display:flex; flex-wrap:wrap; align-content:flex-start; gap:10px; overflow:auto; padding:max(10px,env(safe-area-inset-top)) max(12px,env(safe-area-inset-right)) max(12px,env(safe-area-inset-bottom)) max(12px,env(safe-area-inset-left)); }
+  body.nobi-playing-go .sidebar-left, body.nobi-playing-go .sidebar-right { display:contents; }
+  body.nobi-playing-go .go-match-card { order:0; flex:1 1 100%; padding:8px 12px; }
+  .go-match-card small { display:inline; margin-left:6px; }
+  .go-match-card strong { display:inline; font-size:14px; }
+  body.nobi-playing-go .go-player { order:1; flex:1 1 calc(50% - 5px); min-width:0; border-radius:14px; }
+  body.nobi-playing-go .go-player .panel-header { display:none; }
+  body.nobi-playing-go .go-player .panel-body { padding:10px 10px 0; }
+  body.nobi-playing-go .player-card { gap:8px; }
+  .go-stone-avatar, body.nobi-playing-go .player-avatar[src]:not([src='']) { flex-basis:34px; width:34px; height:34px; }
+  body.nobi-playing-go .player-meta .name-row { margin-bottom:0; }
+  body.nobi-playing-go .player-meta .name-row strong { font-size:13px; }
+  body.nobi-playing-go .player-meta .name-row .chip, body.nobi-playing-go .player-meta .sub #local-player-turn, body.nobi-playing-go .player-meta .sub #opponent-activity { display:none; }
+  body.nobi-playing-go .player-meta .sub { font-size:11px; }
+  .go-player-foot { padding:2px 10px 8px 52px; font-size:11px; }
+  .go-player-clock { font-size:20px; }
+  body.nobi-playing-go .go-player.is-turn::after { top:8px; right:8px; bottom:auto; font-size:9px; padding:1px 6px; }
+  body.nobi-playing-go .go-player.is-turn .go-player-foot { padding-right:10px; }
+  body.nobi-playing-go .board-zone { order:2; flex:1 1 100%; gap:6px; justify-content:flex-start; }
+  body.nobi-playing-go .nobi-go-summary { display:flex; font-size:11px; color:var(--go-muted); }
+  body.nobi-playing-go .nobi-go-summary [data-go-clock] { color:var(--go-gold); }
+  body.nobi-playing-go .board-shell { width:min(100%,calc(100dvh - 330px)); border-radius:16px; }
+  body.nobi-playing-go .nobi-go-help { font-size:11px; }
+  body.nobi-playing-go .go-actions { order:3; flex:1 1 100%; margin-top:0; }
+  body.nobi-playing-go .go-rail { order:4; flex:1 1 100%; grid-template-columns:repeat(5,minmax(0,1fr)); }
+  body.nobi-playing-go .go-record-panel, body.nobi-playing-go .go-status-panel { display:none; }
+  body.nobi-playing-go #room-panel { order:5; flex:1 1 100%; display:block; }
+}

@@ -8,6 +8,7 @@
 
   // ===== 全局静态常量与配置 =====
   const CARD_W = 74; 
+  const TURN_SECONDS = 30; // Local turn timer shown to the player.
   const GD_ICON_SUITS = { SPADE: '♠', HEART: '♥', CLUB: '♣', DIAMOND: '♦' };
   const GD = (window.GD = window.GD || {});
   GD.__loaded = true;
@@ -28,7 +29,7 @@
 
   // 【优化：获取动态登录用户昵称】
   function getUserNickname() {
-    return window.USER_NICKNAME || localStorage.getItem('username') || localStorage.getItem('nickname') || '南家 (你)';
+    return window.state?.userNickname || window.USER_NICKNAME || localStorage.getItem('username') || localStorage.getItem('nickname') || '南家 (你)';
   }
 
   const SEATS = [
@@ -57,10 +58,22 @@
     cardsById: new Map(),
     listeners: [],
     aiDelay: 0,
-    countdown: 20,
+    countdown: TURN_SECONDS,
     clockTimer: null,
+    clockKey: null,
+    countdownCue: null,
+    turnDeadline: null,
+    bombKey: null,
+    bombTimer: null,
     touchStart: { x: 0, y: 0, time: 0 },
-    sortMode: 0 // 0:常规大小, 1:同花优先, 2:炸弹张数优先 (需求7)
+    sortMode: 0, // 0:常规大小, 1:同花优先, 2:炸弹张数优先 (需求7)
+    teamLevels: [0, 0], // Local/legacy series level per team (South-North, East-West); not rated.
+    roundNumber: 1,
+    playedCards: new Map(), // Public cards seen played in the current deal, used by the card counter.
+    seatActions: [null, null, null, null], // Last visible action per seat (played type / 不出).
+    seatTips: [null, null, null, null], // Short-lived prompts shown in front of a seat.
+    hoverCardId: null,
+    counterKey: null
   };
 
   GD.state = state;
@@ -68,10 +81,11 @@
   const getCurrentRankStr = () => RANKS[state.currentRankIndex] || '2';
 
   const AudioCtor = window.AudioContext || window.webkitAudioContext;
-  const ctx = AudioCtor ? new AudioCtor() : null;
+  const ctx = !window.NobiAudio && AudioCtor ? new AudioCtor() : null;
   const uid = () => `${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
   
   function getCardValue(card) {
+    if(state.standardMode&&state.standardRules)return state.standardRules.cardWeight(card,getCurrentRankStr());
     if (card.kind === 'joker') return card.value;
     const curRankStr = getCurrentRankStr();
     if (card.rank === curRankStr) {
@@ -88,7 +102,7 @@
     const baseSorted = cards.slice().sort((a, b) => {
       const valA = getCardValue(a);
       const valB = getCardValue(b);
-      return valA - valB || a.suit.localeCompare(b.suit);
+      return valA - valB || a.suit.localeCompare(b.suit) || (a.deck??0)-(b.deck??0) || a.id.localeCompare(b.id);
     });
 
     if (state.sortMode === 1) {
@@ -126,6 +140,7 @@
   }
 
   function playGDSound(type) {
+    if (window.NobiAudio) { window.NobiAudio.playEffect(type); return; }
     if (!ctx) return;
     if (ctx.state === 'suspended') ctx.resume().catch(() => {});
     const o = ctx.createOscillator();
@@ -525,15 +540,16 @@
     root.id = ROOT_ID;
     root.innerHTML = `
       <div class="gd-landscape-tips" id="gd-landscape-tips">
-        <div class="gd-landscape-tips-icon">🔄</div>
-        <h3 style="font-size:16px;">请旋转手机至横屏模式</h3>
-        <p style="color: #94a3b8; font-size:12px; margin-top:6px;">推荐开启系统自动旋转，横屏即可享受全屏对局</p>
-        <button id="gd-fullscreen-trigger" style="margin-top: 15px; padding: 6px 18px; background: #10b981; border:none; color:white; font-weight:bold; border-radius:15px; font-size:12px; pointer-events:auto;">进入全屏对局</button>
+        <div class="gd-landscape-tips-brand">Nobi <span>游戏</span></div><svg class="gd-landscape-tips-icon" aria-hidden="true" viewBox="0 0 96 96" fill="none" stroke="currentColor" stroke-width="3"><rect x="33" y="18" width="30" height="60" rx="6"/><path d="M45 70h6M17 42a32 32 0 0 1 54-18m0-12v12H59M79 54a32 32 0 0 1-54 18m0 12V72h12"/></svg>
+        <h3 style="font-size:16px;">请横向旋转手机，开始掼蛋对局</h3>
+        <p style="color: #94a3b8; font-size:12px; margin-top:6px;">请开启设备自动旋转；对局与联机连接会继续保持。</p>
+        <button id="gd-fullscreen-trigger" style="margin-top: 15px; padding: 6px 18px; background: #10b981; border:none; color:white; font-weight:bold; border-radius:15px; font-size:12px; pointer-events:auto;">尝试全屏横屏</button><p data-gd-orientation-notice role="status" aria-live="polite"></p>
       </div>
 
       <div class="gd-header">
-        <div class="gd-header-info">当前主级: 打 <span data-gd-rank>${getCurrentRankStr()}</span> | 桌上牌型: <span data-gd-move>—</span></div>
-        <button class="gd-exit-btn" data-gd-exit>返回大厅</button>
+        <div class="gd-header-info"><div class="gd-level-line">当前级牌 <span class="gd-level-chip" data-gd-rank>${getCurrentRankStr()}</span><b data-gd-series>掼蛋对局</b></div><span class="gd-score-line" data-gd-score>本局完游 0 : 0（非积分）</span><div class="gd-counter" data-gd-counter aria-label="记牌器：其他玩家手中剩余的关键牌"></div><small>牌型 <span data-gd-move>—</span></small></div>
+        <div class="gd-room-label"><b>Nobi <span>游戏</span></b><small>GUANDAN</small></div><span class="gd-sys-clock" data-gd-sys-clock aria-label="当前时间"></span>
+        <div class="gd-header-tools"><button type="button" data-match-settings><svg class="gd-tool-symbol" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="m9 3-1 3-3 1-2 3 2 2-1 3 3 2 3-1 2 2 3-1 1-3 3-1 2-3-2-2 1-3-3-2-3 1Z"/><circle cx="12" cy="11" r="3"/></svg>设置</button><button type="button" data-match-chat><svg class="gd-tool-symbol" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M5 4h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-9l-5 3v-3a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z"/><path d="M7 9h10M7 13h7"/></svg>聊天</button><button type="button" class="gd-exit-btn" data-gd-exit>返回大厅 <span aria-hidden="true">↗</span></button></div>
       </div>
       <div class="gd-arena">
         <div class="gd-seat top" data-gd-seat="2"></div>
@@ -547,19 +563,22 @@
         
         <div class="gd-seat bottom" data-gd-seat="0">
           <div class="gd-action-bar" data-gd-action-bar>
-            <button class="gd-btn-pass" data-gd-pass>过 牌</button>
-            <button class="gd-btn-play" data-gd-play>出 牌</button>
-            <button class="gd-btn-sort" data-gd-sort>理 牌<span style="font-size:9px;position:absolute;top:-2px;right:4px;" data-gd-sort-tag>▼</span></button>
-          </div>
-          <div class="gd-clock-panel" data-gd-clock-panel>
-            <span class="gd-clock-icon">⏱</span>
-            <span data-gd-clock-time>20s</span>
+            <button class="gd-btn-pass" data-gd-pass>不出</button>
+            <button class="gd-btn-sort" data-gd-hint>提示</button>
+            <div class="gd-play-control"><div class="gd-turn-clock" data-gd-turn-clock hidden aria-label="出牌倒计时"><span aria-hidden="true"></span><b>30</b>s</div><button class="gd-btn-play" data-gd-play>出牌</button></div>
+            <button class="gd-btn-sort" data-gd-sort>理牌<span class="gd-sort-tag" data-gd-sort-tag>大小</span></button>
+            <button class="gd-btn-pass" data-gd-clear>取消</button>
           </div>
           <div class="gd-player-wrap" data-gd-player-zone style="display:none;"></div>
-          <div class="gd-hand" data-gd-hand></div>
+          <div class="gd-hand-navigation" data-gd-hand-navigation hidden>
+            <span>左右查看手牌</span>
+            <div><button data-gd-hand-prev aria-label="向左查看手牌">‹</button><button data-gd-hand-next aria-label="向右查看手牌">›</button></div>
+          </div>
+          <div class="gd-hand-viewport" data-gd-hand-viewport><div class="gd-hand" data-gd-hand></div></div>
         </div>
       </div>
       <div class="gd-toast" data-gd-toast></div>
+      <div class="gd-bomb-effect" data-gd-bomb-effect hidden aria-hidden="true"></div>
     `;
     return root;
   }
@@ -585,34 +604,62 @@
 
   function startCountdown() {
     clearInterval(state.clockTimer);
-    state.countdown = 20;
-    const clockPanel = state.root?.querySelector('[data-gd-clock-panel]');
-    const clockTime = state.root?.querySelector('[data-gd-clock-time]');
-    
-    if (clockPanel && clockTime) {
-      if (state.currentTurn === 0) {
-        clockPanel.classList.add('show');
-        clockTime.textContent = `${state.countdown}s`;
-        state.clockTimer = setInterval(() => {
-          state.countdown--;
-          if (clockTime) clockTime.textContent = `${state.countdown}s`;
-          if (state.countdown <= 0) {
-            clearInterval(state.clockTimer);
-            if (state.trick) passTurn(0); else {
-              const me = state.players[0];
-              if (me && me.hand.length) playCards(0, [sortCards(me.hand)[0]]);
-            }
-          }
-        }, 1000);
-      } else {
-        clockPanel.classList.remove('show');
+    state.countdownCue = null;
+    const deadline = state.turnDeadline ?? Date.now() + TURN_SECONDS * 1000;
+    state.countdown = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
+    paintTurnClock();
+    if (!state.active || state.currentTurn !== 0) return;
+    const tick = () => {
+      if (!state.active || state.currentTurn !== 0) { clearInterval(state.clockTimer); paintTurnClock(); return; }
+      state.countdown = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
+      paintTurnClock();
+      if (!document.hidden && state.countdown > 0 && state.countdown <= 10 && state.countdownCue !== state.countdown) {
+        state.countdownCue = state.countdown;
+        window.NobiAudio?.playEffect('countdown');
       }
-    }
+      if (state.countdown <= 0) {
+        clearInterval(state.clockTimer);
+        // Network expiry is advisory; only the server/host may advance the turn.
+        if (state.gameMode === 'NET_BATTLE') return;
+        if (state.trick) passTurn(0); else {
+          const me = state.players[0];
+          if (me?.hand.length) playCards(0, [sortCards(me.hand)[0]]);
+        }
+      }
+    };
+    tick();
+    if (state.countdown > 0) state.clockTimer = setInterval(tick, 200);
+  }
+
+  function paintTurnClock() {
+    const node = state.root?.querySelector('[data-gd-turn-clock]');
+    if (!node) return;
+    node.hidden = !state.active || state.currentTurn !== 0 || !!(state.standardMode && state.authorityPublic?.phase !== 'play');
+    node.querySelector('b').textContent = String(state.countdown);
+    node.toggleAttribute('data-urgent', state.countdown <= 10);
+  }
+
+  function paintBombEffect() {
+    const played = state.lastPlayedTrick;
+    if (!played?.cards?.length) return;
+    const key = played.seat + ':' + played.cards.map(c => c.id).join(',');
+    if (state.bombKey === key) return;
+    state.bombKey = key;
+    if (!['炸弹', '天王炸', '同花顺'].includes(played.type)) return;
+    const node = state.root?.querySelector('[data-gd-bomb-effect]');
+    if (!node) return;
+    clearTimeout(state.bombTimer);
+    node.hidden = false;
+    node.innerHTML = `<div class="gd-bomb-burst"><span class="gd-bomb-ring"></span><span class="gd-bomb-sparks"></span><svg viewBox="0 0 100 100" aria-hidden="true"><path d="M61 26q5-18 19-14" fill="none" stroke="#ffce64" stroke-width="5"/><path d="m77 8 5 4 6-1-3 6 2 5-6-2-5 3 1-6-4-4Z" fill="#fff2af"/><path d="m47 23 19 7-5 12-19-7Z" fill="#576175"/><circle cx="44" cy="62" r="29" fill="#182134" stroke="#ffe2a3" stroke-width="3"/><path d="M27 50q3-10 13-11" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" opacity=".5"/></svg><strong>${escapeHTML(played.type)}</strong><small>${played.cards.length} 张 · 强势出击</small></div>`;
+    window.NobiAudio?.playEffect('bomb');
+    state.bombTimer = setTimeout(() => { node.hidden = true; node.innerHTML = ''; }, 1400);
   }
 
   let finishOrder = [];
 
   function startNewRound() {
+    if (state.gameMode === 'NET_BATTLE') return;
+    window.NobiAudio?.setScene('guandan');
     const deck = makeDeck(); 
     finishOrder = [];
     state.players.forEach((p) => { p.hand = []; p.rankOutOrder = null; });
@@ -627,9 +674,12 @@
     state.players.forEach((p) => { p.hand = sortCards(p.hand); });
     
     state.selected.clear();
+    state.playedCards.clear();
+    state.seatActions = [null, null, null, null]; state.seatTips = [null, null, null, null];
+    state.root?.querySelector('[data-gd-result]')?.remove();
     state.trick = null;
-    state.lastPlayedTrick = null; 
-    state.currentTurn = 0; 
+    state.lastPlayedTrick = null;
+    state.currentTurn = 0;
     state.aiDelay = performance.now() + 600;
     state.active = true;   
     state.busy = false;
@@ -677,9 +727,9 @@
     if (n === 2 && (allSame || wildCount === 1)) return { type: '对子', weight: values[0], size: 2 };
     if (n === 3 && (allSame || wildCount >= 1)) return { type: '三张', weight: values[0], size: 3 };
     if (n >= 4 && (allSame || (counts.length <= 2 && wildCount >= 1))) return { type: '炸弹', weight: values[0] + n, size: n };
-    if (n === 5 && rankSeq(values) && sameSuit(cards)) return { type: '同花顺', weight: values[0], size: 5 };
+    if (n === 5 && new Set(values).size === n && rankSeq(values) && sameSuit(cards)) return { type: '同花顺', weight: values[0], size: 5 };
     if (n === 4 && cards.every((c) => c.kind === 'joker')) return { type: '天王炸', weight: 9999, size: 4 };
-    if (n >= 5 && rankSeq(values) && values.every((v) => v < 16)) return { type: '顺子', weight: values[0], size: n };
+    if (n >= 5 && new Set(values).size === n && rankSeq(values) && values.every((v) => v < 16)) return { type: '顺子', weight: values[0], size: n };
     
     if (n >= 6 && n % 2 === 0 && [...grouped.values()].every((x) => x.length === 2)) {
       const pairVals = [...grouped.keys()].sort((a, b) => a - b);
@@ -743,8 +793,58 @@
         box-sizing: border-box;
         overflow: hidden;
       ">
-        <img src="${imgUrl}" alt="${rankLabel(card)}" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2280%22 height=%22110%22><rect width=%22100%%22 height=%22100%%22 fill=%22white%22 stroke=%22%23ccc%22 stroke-width=%222%22/><text x=%2250%%22 y=%2250%%22 font-size=%2214%22 font-weight=%22bold%22 fill=%22%23333%22 text-anchor=%22middle%22 dominant-baseline=%22middle%22>${rankLabel(card)}</text></svg>'" />
+        <img src="${imgUrl}" alt="${rankLabel(card)}" onerror="this.onerror=null;this.dataset.assetError='missing';console.error('Original card PNG unavailable')" />
       </div>`;
+  }
+
+  const AI_AVATARS = [null, 1, 4, 6];
+  function playerAvatar(idx, p) {
+    const avatars = window.NobiAvatars;
+    if (!avatars) return null;
+    if (idx === 0) return avatars.self(window.state?.userNickname || p.name);
+    const account = avatars.safe(p.avatar || p.avatar_url);
+    if (account) return account;
+    if (p.isBot !== false && state.gameMode !== 'NET_BATTLE') return avatars.presets[AI_AVATARS[idx]]?.src || avatars.forKey(p.name);
+    return avatars.forKey(p.userId || p.uid || p.name || String(idx));
+  }
+  // Priority: fresh prompt > finishing place > whose turn > last action this trick.
+  function seatMessage(idx, p, isActive) {
+    const tip = state.seatTips[idx];
+    if (tip && tip.until > Date.now()) return { text: tip.text, kind: tip.kind || 'tip' };
+    if (p.rankOutOrder) return { text: PLACE_LABELS[p.rankOutOrder - 1] || '已完游', kind: 'done' };
+    if (isActive && idx === 0) { const status = selectionStatus(); if (status) return { text: status.text, kind: status.ok ? 'ready' : 'tip' }; }
+    if (isActive && idx === 0) return { text: state.trick ? '轮到你 · 压牌或不出' : '轮到你出牌', kind: 'turn' };
+    return state.seatActions[idx]?.kind === 'pass' ? state.seatActions[idx] : null;
+  }
+  function selectionStatus() {
+    if (!state.selected.size || state.standardMode || state.authoritativeSend) return null;
+    const cards = [...state.selected].map(id => state.cardsById.get(id)).filter(Boolean);
+    const move = typeOf(cards);
+    if (!move) return { ok: false, text: `已选 ${cards.length} 张 · 不成牌型` };
+    if (state.trick && !beats(move, state.trick)) return { ok: false, text: `${move.type} · 压不住上家` };
+    return { ok: true, text: `${move.type} · 可出牌` };
+  }
+  function refreshSelectionUI() {
+    const root = state.root;
+    const key = [...state.selected].join(',') + '|' + state.currentTurn + '|' + (state.trick ? state.trick.seat + ':' + state.trick.type : '');
+    if (key === state.selectionKey) return;
+    state.selectionKey = key;
+    const play = root?.querySelector('[data-gd-play]');
+    if (!play) return;
+    const mine = state.currentTurn === 0 && state.active && state.players[0]?.hand?.length > 0;
+    const status = selectionStatus();
+    if (!state.standardMode) {
+      play.disabled = !mine || state.selected.size === 0 || (status ? !status.ok : false);
+      play.classList.toggle('is-ready', mine && !!status?.ok);
+    }
+    renderSeats();
+  }
+  function seatTip(seat, text, kind = 'tip', ms = 1800) {
+    state.seatTips[seat] = { text, kind, until: Date.now() + ms };
+    renderSeats();
+    clearTimeout(state.seatTipTimers?.[seat]);
+    state.seatTipTimers = state.seatTipTimers || [];
+    state.seatTipTimers[seat] = setTimeout(() => { if (state.root) renderSeats(); }, ms + 30);
   }
 
   function renderSeats() {
@@ -765,6 +865,7 @@
       if (p.rankOutOrder === 1) rankString = '🥇头游';
       else if (p.rankOutOrder === 2) rankString = '二游';
       else if (p.rankOutOrder === 3) rankString = '三游';
+      else if (p.rankOutOrder === 4) rankString = '末游';
       else rankString = `剩 ${cardCount} 张`;
 
       let backsHTML = '';
@@ -776,13 +877,18 @@
         backsHTML += '</div>';
       }
 
-      seatNode.innerHTML = `
-        <div class="gd-player-info ${isActive ? 'active' : ''}">
-          <div class="gd-player-name">${p.name}</div>
-          <div class="gd-player-detail">${rankString}</div>
+      const avatar = playerAvatar(idx, p);
+      const message = seatMessage(idx, p, isActive);
+      const seatHTML = `
+        <div class="gd-player-info ${isActive ? 'active' : ''}" ${isActive ? 'aria-current="true"' : ''}>
+          <span class="gd-player-avatar ${avatar ? 'has-img' : ''}" aria-hidden="true">${avatar ? `<img src="${escapeHTML(avatar)}" alt="" draggable="false" onerror="this.parentNode.classList.remove('has-img');this.remove()">` : ''}<i>${escapeHTML(Array.from(p.name || '?')[0])}</i></span>
+          <div class="gd-player-copy"><div class="gd-player-name" title="${escapeHTML(p.name)}">${escapeHTML(p.name)}</div>
+          <div class="gd-player-detail">${rankString}<span class="gd-player-state">${p.rankOutOrder ? '已完游' : isActive ? '出牌中' : idx % 2 === 0 ? '我方' : '对方'}</span></div></div>
         </div>
+        ${message ? `<div class="gd-seat-msg" data-kind="${message.kind}" role="status">${escapeHTML(message.text)}</div>` : ''}
         ${backsHTML} 
       `;
+      if (seatNode._gdHTML !== seatHTML) { seatNode.innerHTML = seatHTML; seatNode._gdHTML = seatHTML; }
     });
 
     const centerStatus = state.root.querySelector('[data-gd-center-status]');
@@ -792,7 +898,7 @@
         centerStatus.className = 'gd-center-status-bar';
         if (state.currentTurn === 0) {
           centerStatus.classList.add('my-turn');
-          centerStatus.textContent = `到你出牌 (上划或右击直接出牌)`;
+          centerStatus.textContent = '到你出牌 · 点选或拖选，再点出牌';
         } else {
           centerStatus.classList.add('ai-turn');
           centerStatus.textContent = `等待 [ ${activePlayer.name} ]...`;
@@ -806,6 +912,12 @@
     if (!root) return; 
     
     renderSeats();
+    root.classList.toggle('gd-local-mode', !state.standardMode);
+    const score=root.querySelector('[data-gd-score]');
+    if(score) score.textContent=`本局完游 ${[0,2].filter(i=>state.players[i]?.rankOutOrder).length} : ${[1,3].filter(i=>state.players[i]?.rankOutOrder).length}（非积分）`;
+    const series=root.querySelector('[data-gd-series]');
+    if(series && !state.standardMode) series.textContent=`第 ${state.roundNumber} 局 · 我方打 ${RANKS[state.teamLevels[0]]} · 对方打 ${RANKS[state.teamLevels[1]]}`;
+    renderCounter(root);
 
     const trick = root.querySelector('[data-gd-trick]');
     const move = root.querySelector('[data-gd-move]');
@@ -815,22 +927,26 @@
 
     // 理牌按钮标志动态渲染
     if (sortTag) {
-      const modesStr = ["▼", "♣", "🔥"];
-      sortTag.textContent = modesStr[state.sortMode] || "▼";
+      const modesStr = ["大小", "花色", "炸弹"];
+      sortTag.textContent = modesStr[state.sortMode] || "大小";
     }
 
     if (trick) {
       if (state.lastPlayedTrick) {
+        trick.dataset.playSeat = String(state.lastPlayedTrick.seat);
+        root.querySelector('.gd-center-table').dataset.playSeat=trick.dataset.playSeat;
         const pName = state.players[state.lastPlayedTrick.seat]?.name || '未知';
         const cardsHTML = state.lastPlayedTrick.cards.map(formatCard).join('');
         
         trick.innerHTML = `
-          <div class="gd-trick-owner">✦ ${pName} 出牌 ✦</div>
+          <div class="gd-trick-owner">${['南家 ↑','东家 ←','北家 ↓','西家 →'][state.lastPlayedTrick.seat]} · ${escapeHTML(pName)} 出牌</div>
           <div class="gd-trick-cards-wrap" style="margin-top:10px;">${cardsHTML}</div>
         `;
-        if (move) move.textContent = `${pName}：${state.lastPlayedTrick.type}`;
+        if (move) move.textContent = `${escapeHTML(pName)}：${state.lastPlayedTrick.type}`;
       } else {
-        trick.innerHTML = `<span class="gd-trick-empty">暂无出牌，首头发牌</span>`;
+        delete trick.dataset.playSeat;
+        delete root.querySelector('.gd-center-table').dataset.playSeat;
+        trick.innerHTML = `<span class="gd-table-wordmark" aria-hidden="true">NOBI GAMES</span><span class="gd-trick-empty">本轮尚未出牌</span>`;
         if (move) move.textContent = '—';
       }
     }
@@ -839,10 +955,17 @@
     if (hand && me && me.hand) {
       hand.innerHTML = sortCards(me.hand).map(formatCard).join('');
       hand.querySelectorAll('[data-card-id]').forEach((cardDOM) => {
+        const card = state.cardsById.get(cardDOM.getAttribute('data-card-id'));
+        cardDOM.setAttribute('role','button'); cardDOM.setAttribute('tabindex','0');
+        cardDOM.setAttribute('aria-label',card ? `${card.suit} ${rankLabel(card)}${card.deck!==undefined?' · 第'+(card.deck+1)+'副 · 实例'+card.id.slice(-4):''}` : '手牌');
+        cardDOM.setAttribute('aria-pressed',String(state.selected.has(cardDOM.getAttribute('data-card-id'))));
+        cardDOM.querySelector('img')?.setAttribute('draggable','false');
         if (state.selected.has(cardDOM.getAttribute('data-card-id'))) {
           cardDOM.classList.add('sel');
         }
+        if (state.hoverCardId === cardDOM.getAttribute('data-card-id')) cardDOM.classList.add('gd-hover');
       });
+      layoutHand(hand);
     }
 
     if (actionBar && me && me.hand) {
@@ -850,21 +973,38 @@
         actionBar.classList.add('show');
         const playBtn = root.querySelector('[data-gd-play]');
         const passBtn = root.querySelector('[data-gd-pass]');
-        if (playBtn) playBtn.disabled = state.selected.size === 0;
+        if (playBtn) { const status = selectionStatus(); playBtn.disabled = state.selected.size === 0 || (status ? !status.ok : false); playBtn.classList.toggle('is-ready', !!status?.ok); }
         if (passBtn) passBtn.disabled = !state.trick; 
       } else {
         actionBar.classList.remove('show');
+        for(const selector of ['[data-gd-play]','[data-gd-pass]']){const button=root.querySelector(selector);if(button)button.disabled=true;}
+        root.querySelector('[data-gd-play]')?.classList.remove('is-ready');
       }
     }
+    renderStandardStatus();
+    paintTurnClock();
+    paintBombEffect();
   }
 
-  function showToast(msg) {
+  function renderStandardStatus(){
+    if(!state.standardMode||!state.root)return;
+    const pub=state.authorityPublic,root=state.root,rank=root.querySelector('[data-gd-rank]'),score=root.querySelector('[data-gd-score]'),status=root.querySelector('[data-gd-center-status]'),play=root.querySelector('[data-gd-play]'),pass=root.querySelector('[data-gd-pass]');
+    if(rank)rank.textContent=pub.level;
+    if(score)score.textContent='第'+pub.series.round+'副 · 我队 '+pub.series.teamLevels[state.network.mySeat%2]+' / 对方 '+pub.series.teamLevels[1-state.network.mySeat%2]+' · '+(state.ranked?'隔离竞技':'普通对局');
+    const tribute=pub.phase==='tribute',own=state.currentTurn===0&&state.active;
+    if(tribute){play.textContent=pub.tribute.phase==='give'?'确认进贡':'确认还贡';play.disabled=!own||state.selected.size!==1||!state.tributeOptions.includes([...state.selected][0]);pass.disabled=true;if(status)status.textContent=own?(pub.tribute.phase==='give'?'请选择最大非逢人配牌进贡':'选择'+(pub.rulesConfig.returnExcludesLevel?'非级牌':'')+'10及以下还贡，无低牌时还最小牌'):'等待贡牌确认';return;}
+    const cards=[...state.selected].map(id=>state.cardsById.get(id)),rules=state.standardRules;
+    const choices=rules?rules.combinations(cards,getCurrentRankStr(),pub.rulesConfig).filter(c=>rules.classify(cards,getCurrentRankStr(),pub.rulesConfig,state.trick,{kind:c.kind,weight:c.weight})):[];
+    const combo=rules?rules.classify(cards,getCurrentRankStr(),pub.rulesConfig,state.trick,state.combination):null;
+    play.textContent=state.selected.size?'确认出牌 ('+state.selected.size+')':'出牌';play.disabled=!own||!combo;
+    if(own&&status)status.textContent=state.selected.size?(combo?'已选 '+state.selected.size+' 张 · '+combo.type+' · 点击确认出牌':'所选 '+state.selected.size+' 张不符合出牌规则'):'到你出牌 · 点选或连续拖选';
+    let picker=root.querySelector('[data-gd-combination]');if(!picker){picker=document.createElement('select');picker.dataset.gdCombination='';picker.setAttribute('aria-label','逢人配牌型解释');root.querySelector('[data-gd-move]').after(picker);picker.onchange=()=>{state.combination=JSON.parse(picker.value);renderStandardStatus();};}
+    picker.hidden=choices.length<2||!own;picker.replaceChildren();for(const c of choices){const option=document.createElement('option');option.value=JSON.stringify({kind:c.kind,weight:c.weight});option.textContent=c.type+' · '+(c.weight===15?'级牌 '+pub.level:c.weight===16?'小王':c.weight===17?'大王':RANKS[c.weight-2]??c.weight);option.selected=combo?.kind===c.kind&&combo?.weight===c.weight;picker.append(option);}
+  }
+  function showToast(msg, seat = 0) {
     const toastNode = document.querySelector('[data-gd-toast]');
-    if (toastNode) {
-      toastNode.textContent = msg; toastNode.style.opacity = '1';
-      clearTimeout(state._toastTimer);
-      state._toastTimer = setTimeout(() => { toastNode.style.opacity = '0'; }, 1500);
-    }
+    if (toastNode) toastNode.textContent = msg; // kept for assistive tech; shown in front of the seat
+    seatTip(seat, msg);
   }
 
   function findNextTurn(current) {
@@ -879,15 +1019,20 @@
   }
 
   function playCards(seat, cards) {
-    if (!state.active) return false;
+    if (!state.active || seat !== state.currentTurn || !Array.isArray(cards) || !cards.length) return false;
+    const player = state.players[seat];
+    if (!player || new Set(cards).size !== cards.length || cards.some(card => !player.hand.includes(card))) return false;
     const move = typeOf(cards);
     if (!move || (state.trick && !beats(move, state.trick))) return false;
 
-    const player = state.players[seat];
     player.hand = player.hand.filter(c => !cards.includes(c));
-    
+    rememberPlayed(cards);
+    if (!state.trick) state.seatActions = [null, null, null, null];
+    state.seatActions[seat] = { text: move.type || '出牌', kind: 'play' };
+
     state.trick = { ...move, cards, seat };
     state.lastPlayedTrick = state.trick; 
+    paintBombEffect();
     state.selected.clear();
     
     if (player.hand.length === 0) {
@@ -895,10 +1040,11 @@
         finishOrder.push(seat);
         player.rankOutOrder = finishOrder.length;
       }
-      showToast(`👏 ${player.name} 已跑光！`);
+      showToast(`${PLACE_LABELS[player.rankOutOrder - 1] || '已完游'} · 出完了！`, seat);
     }
     
-    if (checkGameOver()) return true;
+    const action = { type: 'PLAY_CARDS', seat, cardIds: cards.map(c => c.id) };
+    if (checkGameOver()) { notifyNetworkAction(action); return true; }
 
     let nextTurn = findNextTurn(seat);
 
@@ -907,14 +1053,18 @@
     }
 
     state.currentTurn = nextTurn;
+    if (nextTurn === 0) window.NobiAudio?.playEffect('yourTurn');
     state.aiDelay = performance.now() + 600;
     renderTable();
     startCountdown();
+    notifyNetworkAction(action);
     return true;
   }
 
   function passTurn(seat) {
-    if (!state.active) return;
+    if(state.authoritativeSend){if(state.active&&seat===0&&state.currentTurn===0&&state.trick)state.authoritativeSend('pass',{});return false;}
+    if (!state.active || seat !== state.currentTurn || !state.trick) return false;
+    state.seatActions[seat] = { text: '不出', kind: 'pass' };
     let nextTurn = findNextTurn(seat);
     
     if (state.trick && state.trick.seat === nextTurn) {
@@ -928,9 +1078,12 @@
     }
 
     state.currentTurn = nextTurn;
+    if (nextTurn === 0) window.NobiAudio?.playEffect('yourTurn');
     playGDSound('pass');
     renderTable();
     startCountdown();
+    notifyNetworkAction({ type: 'PASS_TURN', seat });
+    return true;
   }
 
   function checkGameOver() {
@@ -939,41 +1092,77 @@
     const aliveCount = state.players.filter(p => p.hand.length > 0).length;
 
     if (!team0Alive || !team1Alive || aliveCount <= 1) {
+      window.NobiAudio?.setScene('result');
       state.active = false;
       clearInterval(state.clockTimer);
 
       const firstSeat = finishOrder[0] !== undefined ? finishOrder[0] : 0;
-      const isTeam0Win = (firstSeat === 0 || firstSeat === 2);
-
-      let levelGained = 0;
-      let winMsg = "";
-
-      if (isTeam0Win) {
-        const eastOut = state.players[1].hand.length === 0;
-        const westOut = state.players[3].hand.length === 0;
-        
-        if (!eastOut && !westOut) {
-          levelGained = 3;
-          winMsg = `🎉 完胜！南北同盟达成了【双下】！主级连升 3 级！`;
-        } else if (state.players[0].rankOutOrder === 1 && state.players[2].rankOutOrder === 2) {
-          levelGained = 3;
-          winMsg = `🎉 包揽前两名！主级连升 3 级！`;
-        } else {
-          levelGained = 2;
-          winMsg = `👍 获胜！主级提升 2 级！`;
-        }
-        state.currentRankIndex = Math.min(RANKS.length - 1, state.currentRankIndex + levelGained);
-      } else {
-        winMsg = `💔 局势失守！东西同盟赢下对局。`;
-      }
-
-      setTimeout(() => {
-        alert(`${winMsg}\n下一局主级：打 ${getCurrentRankStr()}`);
-        startNewRound();
-      }, 500);
+      const winTeam = firstSeat % 2;
+      // Remaining players take the last places by fewest cards so all four places are shown.
+      state.players.map((p, seat) => ({ p, seat })).filter(({ p }) => !p.rankOutOrder)
+        .sort((a, b) => a.p.hand.length - b.p.hand.length)
+        .forEach(({ p, seat }) => { finishOrder.push(seat); p.rankOutOrder = finishOrder.length; });
+      // Standard upgrade: partner of the first finisher 2nd → +3, 3rd → +2, last → +1.
+      const partnerOrder = state.players[(firstSeat + 2) % 4].rankOutOrder;
+      const levelGained = partnerOrder === 2 ? 3 : partnerOrder === 3 ? 2 : 1;
+      const before = state.teamLevels[winTeam];
+      state.teamLevels[winTeam] = Math.min(RANKS.length - 1, before + levelGained);
+      // The next deal is played at the winning team's level.
+      state.currentRankIndex = state.teamLevels[winTeam];
+      renderTable();
+      setTimeout(() => showRoundResult({ winTeam, levelGained, before, order: finishOrder.slice() }), 500);
       return true;
     }
     return false;
+  }
+
+  const PLACE_LABELS = ['头游', '二游', '三游', '末游'];
+  const TEAM_LABELS = ['我方（南北）', '对方（东西）'];
+
+  function showRoundResult({ winTeam, levelGained, before, order }) {
+    if (!state.root) return;
+    state.root.querySelector('[data-gd-result]')?.remove();
+    const panel = document.createElement('div');
+    panel.className = 'gd-result';
+    panel.dataset.gdResult = '';
+    panel.dataset.outcome = winTeam === 0 ? 'win' : 'loss';
+    panel.setAttribute('role', 'dialog');
+    panel.setAttribute('aria-modal', 'true');
+    panel.setAttribute('aria-labelledby', 'gd-result-title');
+    const rows = order.map((seat, i) => `<li data-team="${seat % 2}"><b>${PLACE_LABELS[i] || ''}</b><span>${escapeHTML(state.players[seat]?.name || '')}</span><small>${seat % 2 === 0 ? '我方' : '对方'}</small></li>`).join('');
+    const canContinue = state.gameMode !== 'NET_BATTLE';
+    panel.innerHTML = `<div class="gd-result-card">
+        <div class="gd-result-eyebrow">第 ${state.roundNumber} 局 · 结算</div>
+        <h2 id="gd-result-title">${winTeam === 0 ? '我方获胜' : '对方获胜'}</h2>
+        <p class="gd-result-upgrade">${TEAM_LABELS[winTeam]} 升 <b>${levelGained}</b> 级 · ${RANKS[before]} → ${RANKS[state.teamLevels[winTeam]]}</p>
+        <ol class="gd-result-order">${rows}</ol>
+        <div class="gd-result-levels"><span>我方 打 <b>${RANKS[state.teamLevels[0]]}</b></span><span>对方 打 <b>${RANKS[state.teamLevels[1]]}</b></span><span>下一局 级牌 <b>${getCurrentRankStr()}</b></span></div>
+        <div class="gd-result-actions">${canContinue ? '<button type="button" class="gd-result-next" data-gd-next-round>开始下一局</button>' : ''}<button type="button" data-gd-result-exit>返回大厅</button></div>
+      </div>`;
+    state.root.appendChild(panel);
+    on(panel.querySelector('[data-gd-next-round]'), 'click', () => { playGDSound('click'); panel.remove(); state.roundNumber++; startNewRound(); });
+    on(panel.querySelector('[data-gd-result-exit]'), 'click', () => { panel.remove(); state.root?.querySelector('[data-gd-exit]')?.click(); });
+    panel.querySelector('button')?.focus({ preventScroll: true });
+  }
+
+  // Remaining copies of key cards outside my hand and not yet played (two decks: 8 per rank, 2 per joker).
+  function cardCounter() {
+    const level = getCurrentRankStr();
+    const key = card => card.kind === 'joker' ? (card.label === '大王' || card.rank === 'RJ' ? 'RJ' : 'BJ') : card.rank;
+    const counts = { RJ: 2, BJ: 2, A: 8, [level]: 8 };
+    const seen = [...(state.players[0]?.hand || []), ...state.playedCards.values()];
+    for (const card of seen) { const k = key(card); if (k in counts) counts[k]--; }
+    return [['大王', counts.RJ], ['小王', counts.BJ], ['A', counts.A], ...(level === 'A' ? [] : [['级' + level, counts[level]]])];
+  }
+
+  function renderCounter(root) {
+    const node = root.querySelector('[data-gd-counter]');
+    if (!node) return;
+    node.innerHTML = '记牌 ' + cardCounter().map(([label, n]) => `<span data-zero="${n <= 0}">${escapeHTML(label)}<b>${Math.max(0, n)}</b></span>`).join('');
+  }
+
+  function rememberPlayed(cards) {
+    for (const card of cards || []) if (card?.id) state.playedCards.set(card.id, card);
   }
 
   function bestOpening(hand) {
@@ -1003,6 +1192,7 @@
 
   function triggerAIMove() {
     if (!state.active || state.busy || state.currentTurn === 0) return;
+    if (state.gameMode === 'NET_BATTLE' && (!state.network?.isHost || !state.players[state.currentTurn]?.isBot)) return;
     if (performance.now() < state.aiDelay) return;
     state.busy = true;
     try {
@@ -1017,6 +1207,13 @@
   }
 
   function humanPlay() {
+    if(state.authoritativeSend){
+      if(!state.active||state.currentTurn!==0||!state.selected.size)return;
+      if(state.standardMode&&state.authorityPublic?.phase==='tribute'){if(state.selected.size!==1)return showToast('请选择一张贡牌');const cardId=[...state.selected][0];if(!state.tributeOptions.includes(cardId))return showToast('请选择符合贡牌规则的牌');state.authoritativeSend(state.authorityPublic.tribute.phase==='give'?'tribute':'return-tribute',{cardId});return;}
+      const cards=[...state.selected].map(id=>state.cardsById.get(id));const combo=state.standardMode&&state.standardRules?state.standardRules.classify(cards,getCurrentRankStr(),state.authorityPublic.rulesConfig,state.trick,state.combination):null;
+      if(state.standardMode&&!combo)return showToast('所选牌无法合法出牌');
+      state.authoritativeSend('play',{cardIds:[...state.selected],...(combo?{combination:{kind:combo.kind,weight:combo.weight}}:{})});return;
+    }
     if (state.currentTurn !== 0 || !state.active) return;
     const cards = [...state.selected].map(id => state.cardsById.get(id)).filter(Boolean);
     if (!cards.length) return showToast('请先点选卡牌');
@@ -1026,17 +1223,69 @@
     playCards(0, cards);
   }
 
-  function executeFullscreen(element) {
+  // UI-only suggestions: every candidate is checked by the existing rules.
+  // This is deliberately a limited assistant, not a replacement rule/AI engine.
+  function hintCards() {
+    if (!state.active || state.currentTurn !== 0) return [];
+    const hand=sortCards(state.players[0]?.hand || []);
+    if(state.standardMode&&state.standardRules){if(state.authorityPublic?.phase==='tribute')return hand.filter(c=>state.tributeOptions.includes(c.id)).slice(0,1);const candidates=hand.map(c=>[c]);for(const rank of [...RANKS,'BJ','RJ']){const group=hand.filter(c=>c.rank===rank);for(let n=2;n<=Math.min(10,group.length);n++)candidates.push(group.slice(0,n));}return candidates.find(cards=>state.standardRules.classify(cards,getCurrentRankStr(),state.authorityPublic.rulesConfig,state.trick))??[];}
+    if (!hand.length) return [];
+    const candidates=[state.trick ? chooseFollowMove(hand,state.trick) : bestOpening(hand)];
+    for(const card of hand) candidates.push([card]);
+    for(const group of groupsByValue(hand).values()) for(let n=2;n<=Math.min(4,group.length);n++) candidates.push(group.slice(0,n));
+    return candidates.find(cards=>cards?.length && cards.every(c=>hand.includes(c)) && typeOf(cards) && (!state.trick || beats(typeOf(cards),state.trick))) || [];
+  }
+
+  function updateHandNavigation(viewport) {
+    const root=viewport.closest('#'+ROOT_ID);
+    const navigation=root.querySelector('[data-gd-hand-navigation]');
+    const scrollable=viewport.scrollWidth>viewport.clientWidth+1;
+    navigation.hidden=!scrollable;
+    root.dataset.handScroll=String(scrollable);
+    root.querySelector('[data-gd-hand-prev]').disabled=viewport.scrollLeft<=1;
+    root.querySelector('[data-gd-hand-next]').disabled=viewport.scrollLeft>=viewport.scrollWidth-viewport.clientWidth-1;
+  }
+
+  function layoutHand(hand) {
+    const viewport=hand.parentElement;
+    const style=getComputedStyle(hand);
+    const padding=parseFloat(style.paddingLeft)+parseFloat(style.paddingRight);
+    const landscape=matchMedia('(max-width:1023px) and (max-height:600px) and (orientation:landscape)').matches;
+    const available=Math.max(1,(landscape?viewport.clientWidth:hand.clientWidth)-padding);
+    const count=hand.children.length;
+    const preferred=parseFloat(style.getPropertyValue('--gd-card-width'));
+    const phoneWidth=Math.min(preferred,(hand.clientHeight-parseFloat(style.paddingTop)-parseFloat(style.paddingBottom))*222/323);
+    const width=Math.min(available,Number.isFinite(preferred)?phoneWidth:window.innerHeight>600&&window.innerWidth>900?88:window.innerWidth>window.innerHeight?(window.innerWidth<=650?54:62):48);
+    const fitted=count>1?Math.max(0,Math.min(width*.5,(available-width)/(count-1))):width;
+    // Keep rank/suit corners legible. Narrow phones browse the same physical IDs;
+    // selection lives in state.selected and survives scrolling, sorting and resize.
+    const step=landscape&&count>1?Math.max(Math.min(23,width*.45),fitted):fitted;
+    const content=width+Math.max(0,count-1)*step+padding;
+    hand.style.width=landscape?Math.max(viewport.clientWidth,content)+'px':'100%';
+    hand.style.setProperty('--card-width',width+'px');
+    hand.style.setProperty('--card-step',step+'px');
+    if(!landscape)viewport.scrollLeft=0;
+    updateHandNavigation(viewport);
+  }
+
+  async function executeFullscreen(element) {
     if (!element) return;
+    const notice=element.querySelector('[data-gd-orientation-notice]');
+    let locked=false;
     try {
-      if (element.requestFullscreen) { element.requestFullscreen(); }
-      else if (element.webkitRequestFullscreen) { element.webkitRequestFullscreen(); }
-      else if (element.mozRequestFullScreen) { element.mozRequestFullScreen(); }
-      else if (element.msRequestFullscreen) { element.msRequestFullscreen(); }
-      setTimeout(() => { window.scrollTo(0, 1); }, 120);
-    } catch (e) {
-      console.warn('全屏触发受限:', e);
-    }
+      const request=element.requestFullscreen || element.webkitRequestFullscreen;
+      if (request) await request.call(element);
+    } catch (_) { /* Fullscreen is optional; manual rotation always remains available. */ }
+    try {
+      const nativeOrientation=window.Capacitor?.Plugins?.ScreenOrientation;
+      if(window.Capacitor?.isNativePlatform?.() && nativeOrientation?.lock) {
+        await nativeOrientation.lock({orientation:'landscape'}); locked=true;
+      } else if(screen.orientation?.lock) {
+        await screen.orientation.lock('landscape'); locked=true;
+      }
+    } catch (_) { /* Browsers and iOS can refuse orientation locking. */ }
+    if(notice) notice.textContent=locked ? '已请求横屏，请等待设备旋转。' : '当前浏览器无法锁定横屏，请手动横向旋转手机。';
+    layoutHand(element.querySelector('[data-gd-hand]'));
   }
 
   function bindHandInteraction() {
@@ -1052,77 +1301,104 @@
       });
     }
 
-    on(hand, 'touchstart', (e) => {
-      const touch = e.touches[0];
-      state.touchStart.x = touch.clientX;
-      state.touchStart.y = touch.clientY;
-      state.touchStart.time = Date.now();
-    }, { passive: true });
+    const viewport=hand.parentElement;
+    on(viewport,'scroll',()=>updateHandNavigation(viewport));
+    for(const [selector,direction] of [['[data-gd-hand-prev]',-1],['[data-gd-hand-next]',1]]) {
+      on(container.querySelector(selector),'click',()=>{
+        viewport.scrollLeft+=direction*Math.max(100,viewport.clientWidth*.65);
+        updateHandNavigation(viewport);
+      });
+    }
 
-    on(hand, 'touchend', (e) => {
-      const touch = e.changedTouches[0];
-      const deltaX = touch.clientX - state.touchStart.x;
-      const deltaY = touch.clientY - state.touchStart.y;
-      const duration = Date.now() - state.touchStart.time;
-
-      if (deltaY < -25 && Math.abs(deltaX) < 60 && duration < 300) {
-        const cardDOM = e.target.closest('.gd-card');
-        if (cardDOM && state.currentTurn === 0 && state.active) {
-          const id = cardDOM.getAttribute('data-card-id');
-          if (id) state.selected.add(id);
-        }
-        humanPlay();
-        return;
-      }
-
-      if (Math.abs(deltaY) < 15 && Math.abs(deltaX) < 15) {
-        const cardDOM = e.target.closest('.gd-card');
-        if (!cardDOM || state.currentTurn !== 0 || !state.active) return;
-        
-        e.preventDefault(); 
-        
-        const id = cardDOM.getAttribute('data-card-id');
-        if (state.selected.has(id)) {
-          state.selected.delete(id);
-        } else {
-          state.selected.add(id);
-        }
-        playGDSound('click');
-        renderTable();
-      }
+    let gesture=null;
+    const canSelect=()=>state.currentTurn===0 && state.active;
+    const paint=()=>hand.querySelectorAll('[data-card-id]').forEach(node=>{
+      const selected=state.selected.has(node.dataset.cardId);
+      node.classList.toggle('sel',selected); node.setAttribute('aria-pressed',String(selected));
     });
-
-    on(hand, 'click', (e) => {
-      if (e.pointerType === 'touch') return; 
-      const cardDOM = e.target.closest('.gd-card');
-      if (!cardDOM || state.currentTurn !== 0 || !state.active) return;
-      const id = cardDOM.getAttribute('data-card-id');
-      if (state.selected.has(id)) state.selected.delete(id); else state.selected.add(id);
-      playGDSound('click');
-      renderTable();
-    });
-
-    on(hand, 'contextmenu', (e) => {
-      e.preventDefault(); 
-      if (state.currentTurn !== 0 || !state.active) return;
-      const cardDOM = e.target.closest('.gd-card');
-      if (cardDOM) {
-        const id = cardDOM.getAttribute('data-card-id');
-        if (id && !state.selected.has(id)) { 
-          state.selected.add(id); 
-        }
+    const applyRange=end=>{
+      const nodes=[...hand.querySelectorAll('[data-card-id]')];
+      const a=nodes.findIndex(n=>n.dataset.cardId===gesture.start),b=nodes.findIndex(n=>n.dataset.cardId===end);
+      if(a<0 || b<0) return;
+      state.selected=new Set(gesture.before);
+      for(let i=Math.min(a,b);i<=Math.max(a,b);i++) {
+        if(gesture.select) state.selected.add(nodes[i].dataset.cardId); else state.selected.delete(nodes[i].dataset.cardId);
       }
-      renderTable();
-      humanPlay(); 
-    });
-
-    const handleOrientationChange = () => {
-      const isLandscape = window.innerWidth > window.innerHeight || (screen.orientation && screen.orientation.type.includes('landscape'));
-      if (isLandscape && state.active) {
-        executeFullscreen(container);
-      }
+      paint(); refreshSelectionUI(); renderStandardStatus();
     };
+    const setHover=id=>{
+      if(state.hoverCardId===id) return;
+      state.hoverCardId=id;
+      hand.querySelectorAll('[data-card-id]').forEach(node=>node.classList.toggle('gd-hover',node.dataset.cardId===id));
+    };
+    let lastPointerType='mouse';
+    on(container,'pointerdown',e=>{lastPointerType=e.pointerType;},true);
+    on(hand,'pointerdown',e=>{
+      const node=e.target.closest('[data-card-id]');
+      if(!node || !canSelect() || gesture || !e.isPrimary || e.button!==0) return;
+      e.preventDefault(); hand.setPointerCapture(e.pointerId);
+      gesture={pointerId:e.pointerId,start:node.dataset.cardId,before:new Set(state.selected),select:!state.selected.has(node.dataset.cardId)};
+      if(e.pointerType!=='mouse') setHover(node.dataset.cardId);
+      applyRange(gesture.start);
+    });
+    on(hand,'pointermove',e=>{
+      if(e.pointerType==='mouse' && !gesture) {
+        const nodes=[...hand.querySelectorAll('[data-card-id]')];
+        let found=null;
+        for(let i=nodes.length-1;i>=0;i--){const r=nodes[i].getBoundingClientRect();if(e.clientX>=r.left&&e.clientX<=r.right){found=nodes[i];break;}}
+        setHover(found?.dataset.cardId||null);
+      }
+    });
+    on(hand,'pointerleave',()=>setHover(null));
+    on(hand,'pointermove',e=>{
+      if(!gesture || gesture.pointerId!==e.pointerId) return;
+      if(!canSelect()) { gesture=null; renderTable(); return; }
+      const node=document.elementFromPoint(e.clientX,e.clientY)?.closest('[data-card-id]');
+      if(node && hand.contains(node)) { applyRange(node.dataset.cardId); if(e.pointerType!=='mouse') setHover(node.dataset.cardId); }
+    });
+    const finish=(e,cancel)=>{
+      if(!gesture || gesture.pointerId!==e.pointerId) return;
+      if(cancel) state.selected=gesture.before;
+      gesture=null;
+      if(e.pointerType!=='mouse') state.hoverCardId=null;
+      if(hand.hasPointerCapture(e.pointerId)) hand.releasePointerCapture(e.pointerId);
+      playGDSound('click'); renderTable();
+    };
+    on(hand,'pointerup',e=>finish(e,false));
+    on(hand,'pointercancel',e=>finish(e,true));
+    on(hand,'lostpointercapture',e=>finish(e,true));
+    // A click generated by a touch/pointer must not toggle a second time.
+    on(hand,'click',e=>{
+      if(e.detail!==0 || !canSelect()) return;
+      const node=e.target.closest('[data-card-id]'); if(!node) return;
+      const id=node.dataset.cardId;
+      if(state.selected.has(id)) state.selected.delete(id); else state.selected.add(id);
+      renderTable(); hand.querySelector(`[data-card-id="${id}"]`)?.focus();
+    });
+    on(hand,'keydown',e=>{
+      const node=e.target.closest('[data-card-id]');if(!node) return;
+      const nodes=[...hand.querySelectorAll('[data-card-id]')],index=nodes.indexOf(node);
+      if(['ArrowLeft','ArrowRight'].includes(e.key)) {e.preventDefault();nodes[Math.max(0,Math.min(nodes.length-1,index+(e.key==='ArrowRight'?1:-1)))]?.focus();}
+      if([' ','Enter'].includes(e.key) && canSelect()) {e.preventDefault();node.click();}
+    });
+
+    on(container, 'contextmenu', (e) => {
+      if (e.target.closest('input,textarea,select,dialog,[data-gd-result]')) return;
+      e.preventDefault();
+      // A touch long-press also fires contextmenu; only a real mouse right-click may play.
+      if (lastPointerType !== 'mouse' || state.currentTurn !== 0 || !state.active) return;
+      if (!state.selected.size) {
+        const id = e.target.closest('[data-gd-hand] .gd-card')?.getAttribute('data-card-id');
+        if (!id) { showToast('先选牌，再右键出牌'); return; }
+        state.selected.add(id);
+      }
+      renderTable();
+      humanPlay();
+    });
+
+    const handleOrientationChange = () => layoutHand(hand);
     on(window, 'resize', handleOrientationChange);
+    if(window.visualViewport) on(window.visualViewport,'resize',handleOrientationChange);
     if (screen.orientation) {
       on(screen.orientation, 'change', handleOrientationChange);
     }
@@ -1148,7 +1424,11 @@
   function destroy() {
     clearInterval(state.timer);
     clearInterval(state.clockTimer);
+    clearInterval(state.sysClockTimer);
+    clearTimeout(state.bombTimer); state.bombKey = null; state.clockKey = null; state.turnDeadline = null;
     state.active = false; offAll();
+    if (state.gameMode === 'NET_BATTLE') window.GD_MP?.stopNetMatch?.();
+    state.authoritativeSend=null;state.network = null; state.gameMode = 'SINGLE_PLAYER';
     if (state.root) state.root.remove();
     state.root = null;
     if (state.styleNode) state.styleNode.remove();
@@ -1166,7 +1446,10 @@
   }
 
   // ===== 进入单机模式对局核心控制 =====
-  function initGameMatch() {
+  function initGameMatch(mode) {
+    clearTimeout(state.bombTimer); state.bombKey = null; state.clockKey = null; state.turnDeadline = null;
+    if(mode!=='NET_BATTLE')state.authoritativeSend=null;
+    if (mode) state.gameMode = mode === 'NET_BATTLE' ? mode : 'SINGLE_PLAYER';
     if (state.selectedGame !== 'guandan') {
       alert(`温馨提示：当前仅支持“江苏掼蛋”对局，其他游戏开发中，敬请期待！`);
       return;
@@ -1180,6 +1463,7 @@
     if (oldContainer) oldContainer.remove();
     if (state.timer) clearInterval(state.timer);
     if (state.clockTimer) clearInterval(state.clockTimer);
+    clearInterval(state.sysClockTimer);
 
     injectResponsiveStyles(); 
 
@@ -1191,19 +1475,24 @@
     SEATS[0].name = getUserNickname();
     state.players = SEATS.map((seat) => ({ ...seat, hand: [], rankOutOrder: null }));
     
-    executeFullscreen(newShell);
+    // Fullscreen remains an explicit gesture, not a resize/ordinary-click side effect.
 
     setTimeout(() => {
-      startNewRound();
+      if (state.gameMode !== 'NET_BATTLE') { state.teamLevels = [0, 0]; state.roundNumber = 1; state.currentRankIndex = 0; startNewRound(); }
       bindHandInteraction();
       
       const playBtn = newShell.querySelector('[data-gd-play]');
       const passBtn = newShell.querySelector('[data-gd-pass]');
       const sortBtn = newShell.querySelector('[data-gd-sort]');
       const exitBtn = newShell.querySelector('[data-gd-exit]');
+      on(newShell.querySelector('[data-gd-clear]'),'click',()=>{state.selected.clear();renderTable();});
+      on(newShell.querySelector('[data-gd-hint]'),'click',()=>{
+        state.selected=new Set(hintCards().map(card=>card.id)); renderTable();
+        showToast(state.selected.size?'已选建议牌，请确认后出牌':'没有找到简单建议，可自行选牌或不出');
+      });
 
       if (playBtn) on(playBtn, 'click', () => { playGDSound('click'); humanPlay(); });
-      if (passBtn) on(passBtn, 'click', () => { playGDSound('click'); if(state.trick) passTurn(0); });
+      if (passBtn) on(passBtn, 'click', () => { playGDSound('click'); if(state.currentTurn === 0 && state.trick) passTurn(0); });
       
       // ===== 【需求7：理牌多重模态循环切换触发器】 =====
       if (sortBtn) on(sortBtn, 'click', () => { 
@@ -1218,14 +1507,9 @@
       
       if (exitBtn) on(exitBtn, 'click', () => { playGDSound('click'); destroy(); });
 
-      on(newShell, 'click', () => {
-        const isLandscape = window.innerWidth > window.innerHeight;
-        if (isLandscape && !document.fullscreenElement && !document.webkitFullscreenElement) {
-          executeFullscreen(newShell);
-        }
-      }, { capture: true });
-
       state.timer = setInterval(triggerAIMove, 200);
+      const tickClock = () => { const node = state.root?.querySelector('[data-gd-sys-clock]'); if (node) node.textContent = new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false }); };
+      tickClock(); state.sysClockTimer = setInterval(tickClock, 15000);
     }, 80);
   }
 
@@ -1317,7 +1601,97 @@
     });
   }
 
-  Object.assign(GD, { init, destroy, startNewRound, initGameMatch });
+
+  // Thin transport bridge: reuse existing rules; keep seat 0 as the local player.
+  function notifyNetworkAction(action) {
+    const net = state.network;
+    if (!net || net.applying) return;
+    net.sequence++;
+    net.send({ ...action, seat: (action.seat + net.mySeat) % 4, sequence: net.sequence });
+  }
+
+  function createNetworkDeal() {
+    const deck = makeDeck();
+    return [0, 1, 2, 3].map(seat => deck.filter((_, index) => index % 4 === seat));
+  }
+
+  function startNetworkGame(hands, seats, mySeat, turn, send, isHost = false) {
+    if (!Array.isArray(hands) || hands.length !== 4 || hands.some(h => !Array.isArray(h) || h.length !== 27) ||
+        !Array.isArray(seats) || seats.length !== 4 || !Number.isInteger(mySeat) || mySeat < 0 || mySeat > 3 ||
+        !Number.isInteger(turn) || turn < 0 || turn > 3) return false;
+    const deck = hands.flat();
+    if (typeof send !== 'function' || deck.some(c => !c || typeof c !== 'object')) return false;
+    if (new Set(deck.map(c => c.id)).size !== 108 || deck.some(c => typeof c.id !== 'string' || !/^[a-zA-Z0-9_-]{1,80}$/.test(c.id) ||
+      !((c.kind === 'normal' && RANKS.includes(c.rank) && GD_SUITS.some(s => s.key === c.suit)) ||
+        (c.kind === 'joker' && ((c.value === 16 && c.label === '小王') || (c.value === 17 && c.label === '大王')))))) return false;
+    const composition = new Map();
+    for (const card of deck) {
+      const key = card.kind === 'joker' ? 'joker:' + card.value : card.suit + ':' + card.rank;
+      composition.set(key, (composition.get(key) || 0) + 1);
+    }
+    if (composition.size !== 54 || [...composition.values()].some(count => count !== 2)) return false;
+    if (seats.some(s => !s || typeof s.uid !== 'string' || typeof s.nickname !== 'string')) return false;
+    finishOrder = [];
+    state.gameMode = 'NET_BATTLE';
+    state.currentRankIndex = 0;
+    state.network = { mySeat, send, isHost, sequence: 0, applying: false };
+    state.players = SEATS.map((seat, local) => {
+      const remote = (local + mySeat) % 4;
+      return { ...seat, name: seats[remote].nickname.slice(0,128), uid: seats[remote].uid, avatar: window.NobiAvatars?.safe(seats[remote].avatar), isBot: !!seats[remote].isBot, hand: sortCards(hands[remote]), rankOutOrder: null };
+    });
+    state.cardsById = new Map(deck.map(c => [c.id, c]));
+    state.currentTurn = (turn - mySeat + 4) % 4;
+    state.selected.clear(); state.trick = null; state.lastPlayedTrick = null; state.playedCards.clear();
+    state.active = true; state.busy = false; state.aiDelay = performance.now() + 600;
+    clearInterval(state.clockTimer);
+    renderTable();
+    startCountdown();
+    return true;
+  }
+
+  function applyNetworkAction(action) {
+    const net = state.network;
+    if (!net || !action || !Number.isInteger(action.seat) || action.seat < 0 || action.seat > 3 ||
+        action.sequence !== net.sequence + 1) return false;
+    const seat = (action.seat - net.mySeat + 4) % 4;
+    if (seat !== state.currentTurn) return false;
+    net.applying = true;
+    let ok = false;
+    try {
+      if (action.type === 'PLAY_CARDS' && Array.isArray(action.cardIds)) {
+        const cards = action.cardIds.map(id => state.cardsById.get(id));
+        ok = playCards(seat, cards);
+      } else if (action.type === 'PASS_TURN') ok = passTurn(seat);
+      if (ok) net.sequence = action.sequence;
+      return ok;
+    } finally { net.applying = false; }
+  }
+
+  const escapeHTML = text => String(text).replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
+
+  function applyAuthoritySnapshot(snapshot, send, connected=true) {
+    if(!state.root) initGameMatch('NET_BATTLE');
+    const mySeat=snapshot.privateState.seat, pub=snapshot.publicState;
+    const localSeat=remote=>(remote-mySeat+4)%4;
+    state.authoritativeSend=send;state.gameMode='NET_BATTLE';state.network={mySeat,isHost:false,send:()=>{},sequence:snapshot.version};
+    state.standardMode=snapshot.rulesVersion==='guandan-standard-v1';state.authorityPublic=pub;state.ranked=!!snapshot.competitive;state.tributeOptions=snapshot.privateState.tributeOptions??[];
+    if(state.standardMode&&!state.standardRules&&!state.rulesLoading){state.rulesLoading=true;import('./ui/guandan-rules.mjs').then(rules=>{state.standardRules=rules;renderTable();}).catch(()=>showToast('规则模块无法载入，请刷新'));}
+    state.currentRankIndex=Math.max(0,RANKS.indexOf(pub.level??'2'));state.currentTurn=localSeat(snapshot.currentTurn);
+    state.players=SEATS.map((base,local)=>{const remote=(local+mySeat)%4;return {...base,name:snapshot.players[remote]?.nickname??'等待加入',userId:snapshot.players[remote]?.userId,avatar:window.NobiAvatars?.safe(snapshot.players[remote]?.avatar),isBot:false,hand:local===0?snapshot.privateState.hand:{length:pub.handCounts?.[remote]??0},rankOutOrder:pub.finishOrder?.includes(remote)?pub.finishOrder.indexOf(remote)+1:null};});
+    const rotate=trick=>trick?{...trick,seat:localSeat(trick.seat)}:null;
+    state.trick=rotate(pub.trick);state.lastPlayedTrick=rotate(pub.lastPlayedTrick);
+    if(state.counterKey!==snapshot.roomId){state.counterKey=snapshot.roomId;state.playedCards.clear();state.seatActions=[null,null,null,null];}rememberPlayed(pub.lastPlayedTrick?.cards);
+    if(!state.trick)state.seatActions=[null,null,null,null];if(state.lastPlayedTrick&&state.trick)state.seatActions[state.lastPlayedTrick.seat]={text:state.lastPlayedTrick.type||'出牌',kind:'play'};
+    state.cardsById=new Map([...snapshot.privateState.hand,...(pub.lastPlayedTrick?.cards??[])].map(card=>[card.id,card]));
+    if(state.authorityVersion!==snapshot.version){state.selected.clear();state.combination=null;}state.authorityVersion=snapshot.version;
+    state.active=snapshot.status==='playing'&&connected;state.busy=false;
+    state.turnDeadline=Number.isFinite(snapshot.deadline)?snapshot.deadline:null;
+    const clockKey=[snapshot.roomId,snapshot.currentTurn,snapshot.deadline,state.active,pub.phase].join(':');
+    renderTable();
+    if(state.clockKey!==clockKey){state.clockKey=clockKey;startCountdown();}
+    if(snapshot.status==='ended'){const status=state.root.querySelector('[data-gd-center-status]');if(status)status.textContent='本局已结束';}
+  }
+  Object.assign(GD, { applyAuthoritySnapshot, init, destroy, startNewRound, initGameMatch, createNetworkDeal, startNetworkGame, applyNetworkAction });
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', secureBindLaunch, { once: true });

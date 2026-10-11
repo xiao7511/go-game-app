@@ -1,0 +1,138 @@
+{
+  "date": "2026-10-10",
+  "codeCommit": "bbf50ff9647ba446a7558d433d20b04605e2fb43",
+  "unit": {
+    "status": "PASS",
+    "count": 76,
+    "retainedBaseline": 66
+  },
+  "edge": {
+    "status": "PASS",
+    "count": 23
+  },
+  "realSupabase": {
+    "kind": "REAL_LOCAL_SUPABASE",
+    "status": "PASS",
+    "total": 19,
+    "checks": [
+      {
+        "name": "four distinct disposable Auth signups / logins / identities",
+        "status": "PASS"
+      },
+      {
+        "name": "public profile RPC signature / authenticated grant / anonymous denial",
+        "status": "PASS"
+      },
+      {
+        "name": "atomic concurrent seat allocation / repeat join / membership read",
+        "status": "PASS"
+      },
+      {
+        "name": "room RLS hides outsider / direct state and move writes denied",
+        "status": "PASS"
+      },
+      {
+        "name": "legacy Go room columns / atomic join RPC / untrusted snapshot write denied",
+        "status": "PASS"
+      },
+      {
+        "name": "real Realtime WebSocket / published postgres change / participant RLS / reconnect",
+        "status": "PASS"
+      },
+      {
+        "name": "Go/Guandan season rankings / tie ranking / client rating, history and result writes denied",
+        "status": "PASS"
+      },
+      {
+        "name": "Guandan: four authenticated clients / unique seats / idempotent join",
+        "status": "PASS"
+      },
+      {
+        "name": "Guandan: server start / 108-card deal / private hands / SSE synchronization",
+        "status": "PASS"
+      },
+      {
+        "name": "Guandan: wrong turn / opening pass / stolen card / duplicate card / forged result denied",
+        "status": "PASS"
+      },
+      {
+        "name": "Guandan: operation idempotency / request-key conflict / stale version denied",
+        "status": "PASS"
+      },
+      {
+        "name": "Guandan: disconnect / authenticated reconnect / versioned snapshot recovery",
+        "status": "PASS"
+      },
+      {
+        "name": "Guandan: legal play / pass / turn progression / server rules terminal result (156 actions)",
+        "status": "PASS"
+      },
+      {
+        "name": "Guandan: participant exit / server-confirmed unranked end",
+        "status": "PASS"
+      },
+      {
+        "name": "Go: two clients / black-white seats / move SSE / capture / occupied and wrong-turn rejection",
+        "status": "PASS"
+      },
+      {
+        "name": "Go: reconnect / opponent consent / full-round undo restores board, capture, turn and journal",
+        "status": "PASS"
+      },
+      {
+        "name": "Go: suicide denied / resignation confirmation / server terminal result / ended game blocks input",
+        "status": "PASS"
+      },
+      {
+        "name": "authority rejects invalid token and nonparticipant recovery",
+        "status": "PASS"
+      },
+      {
+        "name": "verified unranked SQL records / unique operation receipts / ratings unchanged",
+        "status": "PASS"
+      }
+    ]
+  },
+  "offlineFramework": {
+    "status": "PASS",
+    "nodeTests": 1,
+    "groups": 10,
+    "supabaseVerified": false
+  },
+  "assets": {
+    "status": "PASS",
+    "originalPNG": 56,
+    "sourceGoRegions": 7
+  },
+  "apk": {
+    "status": "PASS",
+    "apkBytes": 6042374,
+    "apkSha256": "e99adb529370f6674103dc5e41d4f5fdbd263e69b46965788b905a2ad39eaa34",
+    "target": "mobile",
+    "cards": 56,
+    "sounds": 5,
+    "publication": "PASS",
+    "sourceGoRendering": {
+      "count": 7,
+      "status": "PASS"
+    },
+    "apkGoRendering": {
+      "count": 3,
+      "status": "PASS"
+    }
+  },
+  "security": {
+    "status": "FAIL",
+    "existingSigningExposure": true,
+    "rootAudit": {
+      "high": 3,
+      "critical": 1
+    },
+    "toolingAudit": 0,
+    "localCLIAudit": 0
+  },
+  "ipa": "NOT RUN",
+  "physicalDevice": "NOT RUN",
+  "legacyBrowserMultiplayer": "NOT VERIFIED",
+  "production": "NOT VERIFIED; no writes or deployments"
+}

@@ -1,0 +1,252 @@
+{
+  "date": "2026-10-11",
+  "branch": "feature/nobi-games-v2",
+  "isolatedBase": "8a7e21f803b27a03acabfe4e0ad69618236a8020",
+  "testedSourceSha256": {
+    "guandan-game.js": "1446cd08773d42c0f0aaf2f5080fa34a74abbaa7aa3c33e30bcf9cff1ca56d24",
+    "ui/match.css": "b4419390fcd9c92d0ca5e3d75a4cee6e3d074acec80b467d42b75fbc314d2735",
+    "tests/browser/guandan-visual.spec.mjs": "bdddc0892c4f30c2ca61554e8adf072f8f0482aa43b514fc68e0a043bb75ccc6",
+    "tests/browser/match.spec.mjs": "79e16c668d747cdb5cbdf93ad91d44b5a9ca2756192142ea6f91dcbb38c21cf3",
+    "tests/browser/guandan-layout-helpers.mjs": "73e42beb0aef4ad501f2e6b45de1d718e307e380332200968a1a635094e068ff",
+    "tests/browser/guandan-landscape-interaction.spec.mjs": "ed328f7f92f169b73d33f186e4d69621021a60545ffd59ca30bdf0a3a44ec7ef",
+    "tests/guandan-browser/standard.spec.mjs": "753acfb3d711146aa7ec4dc41ba2115c8595d30ebccd62c0d4e70c3407161755"
+  },
+  "unit": {
+    "passed": 125,
+    "files": 18,
+    "log": ".nobi-isolated/landscape-round2/logs/units-delivery.log"
+  },
+  "edge": {
+    "passed": 30,
+    "retainedBaseline": 23,
+    "log": ".nobi-isolated/landscape-round2/logs/edge-delivery.log"
+  },
+  "realBrowsers": {
+    "baselineOnline": 4,
+    "baselineCompetitive": 2,
+    "continuousSeries": 1,
+    "completedHands": 2,
+    "logs": [
+      ".nobi-isolated/landscape-round2/logs/online4.log",
+      ".nobi-isolated/landscape-round2/logs/rated2.log",
+      ".nobi-isolated/landscape-round2/logs/standard-online-final.log"
+    ]
+  },
+  "integration": [
+    {
+      "kind": "REAL_LOCAL_SUPABASE",
+      "status": "PASS",
+      "checks": [
+        {
+          "name": "four distinct disposable Auth signups / logins / identities",
+          "status": "PASS"
+        },
+        {
+          "name": "public profile RPC signature / authenticated grant / anonymous denial",
+          "status": "PASS"
+        },
+        {
+          "name": "atomic concurrent seat allocation / repeat join / membership read",
+          "status": "PASS"
+        },
+        {
+          "name": "room RLS hides outsider / direct state and move writes denied",
+          "status": "PASS"
+        },
+        {
+          "name": "legacy Go room columns / atomic join RPC / untrusted snapshot write denied",
+          "status": "PASS"
+        },
+        {
+          "name": "real Realtime WebSocket / published postgres change / participant RLS / reconnect",
+          "status": "PASS"
+        },
+        {
+          "name": "Go/Guandan season rankings / tie ranking / client rating, history and result writes denied",
+          "status": "PASS"
+        },
+        {
+          "name": "Guandan: four authenticated clients / unique seats / idempotent join",
+          "status": "PASS"
+        },
+        {
+          "name": "Guandan: server start / 108-card deal / private hands / SSE synchronization",
+          "status": "PASS"
+        },
+        {
+          "name": "Guandan: wrong turn / opening pass / stolen card / duplicate card / forged result denied",
+          "status": "PASS"
+        },
+        {
+          "name": "Guandan: operation idempotency / request-key conflict / stale version denied",
+          "status": "PASS"
+        },
+        {
+          "name": "Guandan: disconnect / authenticated reconnect / versioned snapshot recovery",
+          "status": "PASS"
+        },
+        {
+          "name": "Guandan: legal play / pass / turn progression / server rules terminal result (151 actions)",
+          "status": "PASS"
+        },
+        {
+          "name": "Guandan: participant exit / server-confirmed unranked end",
+          "status": "PASS"
+        },
+        {
+          "name": "Go: two clients / black-white seats / move SSE / capture / occupied and wrong-turn rejection",
+          "status": "PASS"
+        },
+        {
+          "name": "Go: reconnect / opponent consent / full-round undo restores board, capture, turn and journal",
+          "status": "PASS"
+        },
+        {
+          "name": "Go: suicide denied / resignation confirmation / server terminal result / ended game blocks input",
+          "status": "PASS"
+        },
+        {
+          "name": "authority rejects invalid token and nonparticipant recovery",
+          "status": "PASS"
+        },
+        {
+          "name": "verified unranked SQL records / unique operation receipts / ratings unchanged",
+          "status": "PASS"
+        }
+      ]
+    },
+    {
+      "kind": "REAL_LOCAL_COMPETITIVE_SUPABASE",
+      "status": "PASS",
+      "checks": [
+        {
+          "name": "real Auth admin allowlist; metadata spoof and settlement RPC denied",
+          "status": "PASS"
+        },
+        {
+          "name": "full authoritative four-human Guandan completion, placements, upgrade and team Elo (157 operations)",
+          "status": "PASS"
+        },
+        {
+          "name": "real Go captures, Chinese area/komi, dispute/resume, mutual score consent, private results and ended guard",
+          "status": "PASS"
+        },
+        {
+          "name": "service restart and identical terminal retry do not settle twice",
+          "status": "PASS"
+        },
+        {
+          "name": "client score/season mutation denied, private history RLS and outsider admin denied",
+          "status": "PASS"
+        },
+        {
+          "name": "injected rating write failure rolls back every player/result/snapshot; same operation recovers atomically",
+          "status": "PASS"
+        },
+        {
+          "name": "two real concurrent PostgreSQL settlements and duplicate retries have no lost updates or duplicate points",
+          "status": "PASS"
+        },
+        {
+          "name": "paged stable tied rankings, own rank/tier/stats/history and explicit empty friend interface",
+          "status": "PASS"
+        },
+        {
+          "name": "abnormal exit excludes ratings and creates administrator-readable audit",
+          "status": "PASS"
+        },
+        {
+          "name": "server-generated timeout after verified play settles; client cannot submit timeout",
+          "status": "PASS"
+        },
+        {
+          "name": "season pause/switch/expiration, readonly archives, fresh seasonal ratings and permanent history preservation",
+          "status": "PASS"
+        }
+      ]
+    },
+    {
+      "kind": "REAL_PHASE3D_SUPABASE",
+      "status": "PASS",
+      "checks": [
+        {
+          "name": "real four Auth identities, canonical 108 unique physical cards, 4x27, version and private permissions",
+          "status": "PASS"
+        },
+        {
+          "name": "real service restart restores version, all 108 instance IDs and private played/remaining state",
+          "status": "PASS"
+        },
+        {
+          "name": "full natural double-deck terminal, four placements, upgrade, team Elo and identical terminal retry",
+          "status": "PASS"
+        },
+        {
+          "name": "actual legacy/new rating rows isolated; default leaderboard and personal queries exclude legacy",
+          "status": "PASS"
+        },
+        {
+          "name": "idempotent continuation has separate result ID and inherits trusted teams, levels and seat membership",
+          "status": "PASS"
+        },
+        {
+          "name": "real tribute/return commands, restart during tribute, corresponding transfer and complete 108-card conservation (server fixture)",
+          "status": "PASS"
+        },
+        {
+          "name": "second full upgraded hand settles once; concurrent real database duplicate settlement cannot add points",
+          "status": "PASS"
+        }
+      ]
+    }
+  ],
+  "assets": {
+    "cards": 56,
+    "goRendering": 7,
+    "status": "PASS"
+  },
+  "builds": {
+    "web": "PASS",
+    "mobile": "PASS",
+    "originalCardsPerTarget": 56
+  },
+  "viewports": [
+    [
+      852,
+      393
+    ],
+    [
+      667,
+      375
+    ],
+    [
+      1920,
+      1080
+    ]
+  ],
+  "additionalViewports": [
+    [
+      844,
+      390
+    ],
+    [
+      568,
+      320
+    ],
+    [
+      1440,
+      900
+    ],
+    [
+      390,
+      844
+    ]
+  ],
+  "scope": "Real Edge with viewport/touch emulation; physical phones not run; ten-card cases are renderer fixtures, not competitive games",
+  "priorFailedRuns": [
+    ".nobi-isolated/landscape-round2/logs/edge.log",
+    ".nobi-isolated/landscape-round2/logs/standard-online.log",
+    ".nobi-isolated/landscape-round2/logs/edge-accepted.log",
+    ".nobi-isolated/landscape-round2/logs/standard-online-delivery.log"
+  ]
+}

@@ -1,0 +1,31 @@
+﻿-- LOCAL ONLY rollback. Refuses to destroy any competitive users/results/ratings.
+do $$ begin
+ if exists(select 1 from game.match_records where season_id is not null or ranked) or exists(select 1 from nobi_private.room_snapshots where state->'competitive' is not null) or exists(select 1 from game.rating_events where permanent_before is not null) or exists(select 1 from game.ratings where season_id in('00000000-0000-4000-8000-000000000001'::uuid,'00000000-0000-4000-8000-000000000003'::uuid)) or exists(select 1 from nobi_private.admin_users) or exists(select 1 from game.settlement_audit) or exists(select 1 from game.seasons where scope='season' and state<>'draft' and id<>'00000000-0000-4000-8000-000000000003'::uuid) then raise exception 'BLOCKED: competitive data/admin config exists; no destructive rollback';end if;
+end $$;
+drop trigger result_participant_fks on game.match_records;
+drop function game.record_participants();
+drop table game.match_participants;
+alter table game.match_records drop constraint match_room_fk;
+drop function game.expire_test_seasons();
+drop function game.manage_test_season(text,uuid,text,timestamptz,timestamptz);
+drop function game.settle_match(uuid,bigint);
+drop trigger archived_ratings_guard on game.ratings;
+drop function game.guard_archived_ratings();
+drop table game.settlement_audit,game.leaderboard_snapshots,nobi_private.admin_users;
+revoke execute on function public.get_player_profile(uuid) from nobi_authority;
+drop policy authority_seasons_read on game.seasons;
+drop policy authority_ratings_read on game.ratings;
+drop policy authority_history_read on game.rating_events;
+revoke select on game.seasons,game.ratings,game.rating_events from nobi_authority;
+drop index game.one_active_test_season;
+drop index game.rating_page_idx;
+drop index game.rating_history_idx;
+drop index game.personal_records_idx;
+alter table game.rating_events drop constraint permanent_event_balance,drop column permanent_before,drop column permanent_delta,drop column permanent_after;
+alter table game.match_records drop column season_id,drop column result_version,drop column settlement_status;
+alter table game.match_records add constraint match_records_ranked_check check(ranked=false);
+alter table game.ratings drop constraint rating_stats_balance,drop column wins,drop column losses,drop column draws,drop column last_match_at;
+delete from game.seasons where id in('00000000-0000-4000-8000-000000000001'::uuid,'00000000-0000-4000-8000-000000000003'::uuid);
+alter table game.seasons drop column scope,drop column state;
+delete from public.nobi_local_migrations where name in('20261010000600_competitive_settlement.sql','20261010000700_settlement_guards.sql','20261010000800_qualified_settlement.sql','20261010000900_season_expiration.sql','20261010001000_result_participants.sql');
+notify pgrst,'reload schema';

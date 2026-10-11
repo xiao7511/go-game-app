@@ -1,0 +1,193 @@
+{
+  "audit_date": "2026-10-10",
+  "timezone": "Asia/Shanghai",
+  "branch": "feature/nobi-games-v2",
+  "baseline_commit": "a0bb939dbe3544abb5b99ab7fc500a76b2998e06",
+  "main_before": "a0bb939dbe3544abb5b99ab7fc500a76b2998e06",
+  "environment": {
+    "node": "24.19.0",
+    "npm": "11.17.0",
+    "java": "17.0.12",
+    "os": "Windows",
+    "adb_on_path": false,
+    "xcodebuild_on_path": false,
+    "pod_on_path": false,
+    "android_home_set": false,
+    "android_sdk_root_set": false,
+    "android_local_properties_present": false,
+    "android_generated_cordova_plugins_present": false
+  },
+  "dependencies": [
+    {
+      "package": "",
+      "version": "1.0.0"
+    },
+    {
+      "package": "node_modules/@capacitor/android",
+      "version": "5.7.8"
+    },
+    {
+      "package": "node_modules/@capacitor/cli",
+      "version": "5.7.8",
+      "engines": {
+        "node": ">=16.0.0"
+      }
+    },
+    {
+      "package": "node_modules/@capacitor/core",
+      "version": "5.7.8"
+    },
+    {
+      "package": "node_modules/@capacitor/ios",
+      "version": "5.7.8"
+    },
+    {
+      "package": "node_modules/typescript",
+      "version": "6.0.3",
+      "engines": {
+        "node": ">=14.17"
+      }
+    }
+  ],
+  "initial_worktree": "clean",
+  "tests": [
+    {
+      "name": "npm test",
+      "kind": "existing-test-entry",
+      "exit_code": 1,
+      "result": "not-run",
+      "reason": "Missing script: test"
+    },
+    {
+      "name": "npm run build",
+      "kind": "existing-build-command",
+      "exit_code": 0,
+      "result": "passed-command-only",
+      "reason": "Echo-only static site command; no bundle generated"
+    },
+    {
+      "name": "npm ls --depth=0",
+      "kind": "dependency-inspection",
+      "exit_code": 0,
+      "result": "passed"
+    },
+    {
+      "name": "android/gradlew.bat :app:testDebugUnitTest --offline --no-daemon --console=plain",
+      "kind": "existing-unit-test-task",
+      "exit_code": 1,
+      "result": "bootstrap-failed-no-tests-run",
+      "reason": "Gradle Wrapper attempted gradle-8.0.2-all.zip download and timed out (10000ms); --offline does not suppress wrapper bootstrap"
+    },
+    {
+      "name": "Android ExampleInstrumentedTest",
+      "kind": "existing-device-test",
+      "result": "not-run",
+      "reason": "adb/device not available on PATH; wrapper bootstrap unavailable; expected package differs from applicationId"
+    },
+    {
+      "name": "iOS native tests",
+      "result": "not-run",
+      "reason": "No repository iOS test target found; Windows has no Xcode/CocoaPods toolchain"
+    }
+  ],
+  "syntax": {
+    "external_scripts": 19,
+    "external_passed": 18,
+    "external_failed": 1,
+    "inline_scripts": 7,
+    "inline_passed": 7,
+    "inline_failed": 0
+  },
+  "syntax_failure": {
+    "path": "src/scripts/gameLobby.js",
+    "line": 2,
+    "message": "SyntaxError: Unexpected token '<'"
+  },
+  "runtime_probes": {
+    "result": "completed-offline-no-production-access",
+    "observations": [
+      {
+        "scenario": "runtime-config-CONFIG",
+        "url": "",
+        "key_present": false
+      },
+      {
+        "scenario": "runtime-config-APP_CONFIG_LOCAL",
+        "url": "https://example.invalid",
+        "key_present": true
+      },
+      {
+        "event": "PLAY_CARDS",
+        "error": "ReferenceError: handleNetPlayCards is not defined"
+      },
+      {
+        "event": "PASS_TURN",
+        "error": "ReferenceError: handleNetPass is not defined"
+      },
+      {
+        "scenario": "guandan-hand-integration",
+        "global_hand_length": 1,
+        "core_players_length": 0,
+        "global_card_has_kind": false,
+        "global_renderer_type": "undefined",
+        "global_sorter_type": "undefined"
+      },
+      {
+        "scenario": "go-new-ai-game-reset",
+        "black_captures": 5,
+        "white_captures": 7,
+        "ko_point": {
+          "row": 2,
+          "col": 2
+        }
+      },
+      {
+        "scenario": "go-broadcast-capture-count",
+        "announced_white_captures": 1,
+        "actual_white_captures": 2
+      }
+    ],
+    "script": "\nconst fs=require('node:fs'),vm=require('node:vm');\n(async()=>{\nconst observations=[];\nfor(const mode of ['CONFIG','APP_CONFIG_LOCAL']){\n const w={dispatchEvent(){}};w[mode]={SUPABASE_URL:'https://example.invalid/rest/v1/',SUPABASE_ANON_KEY:'non-secret-test-key'};\n const s={window:w,fetch:async()=>({ok:false}),console:{log(){},error(){},warn(){}},setTimeout(){},CustomEvent:function(){}};\n await vm.runInNewContext(fs.readFileSync('config.js','utf8'),s);\n observations.push({scenario:'runtime-config-'+mode,url:w.APP_CONFIG.SUPABASE_URL,key_present:!!w.APP_CONFIG.SUPABASE_ANON_KEY});\n}\nconst handlers={};const channel={on(kind,filter,handler){handlers[filter.event]=handler;return this;},subscribe(){return this;},send(){return Promise.resolve();}};\nconst w={state:{uid:'audit-user',userNickname:'Audit'},getSupabaseClient:()=>({channel:()=>channel})};\nconst sandbox={window:w,document:{readyState:'loading',addEventListener(){},getElementById(){return null;},querySelector(){return null;}},localStorage:{getItem(){return null;},setItem(){}},console:{log(){},error(){},warn(){}},setTimeout(){},clearTimeout(){},setInterval(){},clearInterval(){},navigator:{}};\nvm.createContext(sandbox);\nvm.runInContext(fs.readFileSync('guandan-game.js','utf8'),sandbox);\nvm.runInContext(fs.readFileSync('guandan-mp-ext.js','utf8'),sandbox);\nawait w.GD_MP.startNetMatch('GD1234');\nfor(const event of ['PLAY_CARDS','PASS_TURN']){try{handlers[event]({payload:{}});observations.push({event,error:null});}catch(e){observations.push({event,error:e.name+': '+e.message});}}\nhandlers.ROOM_SYNC({payload:{seats:[{uid:'audit-user',nickname:'Audit'},null,null,null],countdownSeconds:180,countdownOver:false}});\nhandlers.GAME_START({payload:{hands:[[{suit:'S',rank:'A'}],[],[],[]],hostTurn:0}});\nobservations.push({scenario:'guandan-hand-integration',global_hand_length:w.gdPlayerHand.length,core_players_length:w.GD.state.players.length,global_card_has_kind:Object.hasOwn(w.gdPlayerHand[0],'kind'),global_renderer_type:typeof w.renderGameBoard,global_sorter_type:typeof w.sortHandCards});\nconst goW={};const goS={window:goW,document:{readyState:'loading',addEventListener(){},getElementById(){return null;}},setInterval(){return 1;},clearInterval(){},clearTimeout(){},setTimeout(){},console:{log(){},error(){}}};\nconst src=fs.readFileSync('multiplayer-ext.js','utf8').replace('window.MP = {','window.__audit = {state, applyRemotePayload, onOpponentMove}; window.MP = {');\nvm.runInNewContext(src,goS);\nconst state=goW.__audit.state;state.blackCaptures=5;state.whiteCaptures=7;goW.state.koPoint={row:2,col:2};goW.MP.startAIGame();\nobservations.push({scenario:'go-new-ai-game-reset',black_captures:state.blackCaptures,white_captures:state.whiteCaptures,ko_point:goW.state.koPoint});\nstate.whiteCaptures=0;state.board[1][1]=1;\nconst payload={row:1,col:2,color:2,captured:[[1,1]],white_captures:1,black_captures:0,next_turn:'black'};\ngoW.__audit.applyRemotePayload(payload);await goW.__audit.onOpponentMove(payload);\nobservations.push({scenario:'go-broadcast-capture-count',announced_white_captures:1,actual_white_captures:state.whiteCaptures});\nconsole.log(JSON.stringify(observations,null,2));\n})().catch(e=>{console.error(e);process.exitCode=1;});\n"
+  },
+  "syntax_probe_script": "\nconst fs=require('node:fs'),cp=require('node:child_process'),vm=require('node:vm');\nconst files=cp.spawnSync('git',['ls-files'],{encoding:'utf8'}).stdout.trim().split('\\n').filter(p=>!p.startsWith('node_modules/'));\nconst scripts=files.filter(p=>p.endsWith('.js'));\nlet failed=0;\nfor(const p of scripts){const r=cp.spawnSync(process.execPath,['--check',p],{encoding:'utf8'});console.log(JSON.stringify({check:'node --check',path:p,exit:r.status,detail:r.status?r.stderr.trim().split('\\n').slice(0,9).join('\\n'):''}));if(r.status)failed++;}\nlet inline=0,inlineFailed=0;\nfor(const p of files.filter(p=>p.endsWith('.html'))){\nconst re=/<script\\b([^>]*)>([\\s\\S]*?)<\\/script>/gi;let m;\nwhile((m=re.exec(fs.readFileSync(p,'utf8')))){if(/\\bsrc\\s*=/i.test(m[1])||!m[2].trim())continue;inline++;try{new vm.Script(m[2],{filename:p+':inline-'+inline});}catch(e){inlineFailed++;console.log(JSON.stringify({check:'inline-script-parse',path:p,error:e.message}));}}\n}\nconsole.log(JSON.stringify({external_scripts:scripts.length,external_passed:scripts.length-failed,external_failed:failed,inline_scripts:inline,inline_passed:inline-inlineFailed,inline_failed:inlineFailed}));\nprocess.exitCode=failed||inlineFailed?1:0;\n",
+  "resources": {
+    "card_png_count": 56,
+    "card_png_baseline_equal": 56,
+    "manifest_entries": 66,
+    "protected_render_regions": 7,
+    "design_reference_observation": "Both root Gemini images are icon concept sheets, not the confirmed V2.1 mobile UI"
+  },
+  "coverage_limits": [
+    "No production Supabase access or changes",
+    "No browser gameplay E2E",
+    "No real multiplayer matches",
+    "No CS1.6 protocol registration, download, launch or API requests",
+    "No APK/IPA build or installation",
+    "No production deployment"
+  ],
+  "notes": [
+    "Auditing shell commands initially failed sandbox helper setup; read/test calls were run only after escalation approvals",
+    "Source and asset hashes come from raw Git blobs to avoid CRLF/LF ambiguity",
+    "Runtime probes use fake configuration and stubbed DOM/Realtime; internal Go hooks are injected only into an in-memory source string"
+  ],
+  "final_documentation_verification": {
+    "documents": 11,
+    "local_links_checked": 20,
+    "source_hashes_checked": 66,
+    "render_regions_checked": 7,
+    "failures": []
+  },
+  "documented_probe_replay": {
+    "syntax_exit": 1,
+    "runtime_exit": 0,
+    "results_match_recorded": true
+  },
+  "precommit_protection": {
+    "branch": "feature/nobi-games-v2",
+    "head": "a0bb939dbe3544abb5b99ab7fc500a76b2998e06",
+    "main": "a0bb939dbe3544abb5b99ab7fc500a76b2998e06",
+    "existing_tracked_files_changed": false,
+    "card_pngs_verified": 56,
+    "scope": "11 new files under docs/nobi-v2 only"
+  }
+}

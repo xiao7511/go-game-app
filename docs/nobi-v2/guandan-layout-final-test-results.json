@@ -1,0 +1,624 @@
+{
+  "date": "2026-10-11T02:48:46.895Z",
+  "rulesVersion": "guandan-standard-v1",
+  "sourceSha256": {
+    "guandan-game.js": "69897d7835bf8b67088b594116345cb7d1cd88607548b582942a4c1c7f06a4f1",
+    "ui/match.css": "f24c7b899c0e8748e7f7aa8ad516d4e313b4723ecd09088ad2d81a74d2a1c3c2",
+    "tests/browser/guandan-visual.spec.mjs": "56ca5f5afa1d5dc33596df5ee0fd068dde471abe8019aea674ac83621273e5ee",
+    "tests/browser/match.spec.mjs": "293ecb5277e04a2ed27fac0efe1d48e68158934c41921e8a2095547feed33053",
+    "tests/guandan-browser/standard.spec.mjs": "b8560b183ed0f062a803582fce9c4e0be6ec7a727a2bae197e29fa5d6f819842"
+  },
+  "totals": {
+    "unit": 125,
+    "edge": 34,
+    "originalOnline": 4,
+    "originalCompetitive": 2,
+    "standardContinuousMatches": 1,
+    "standardHands": 2,
+    "supabaseGroups": 37,
+    "protectedPng": 56,
+    "protectedGoRegions": 7
+  },
+  "executed": [
+    {
+      "name": "unit-serial-delivery",
+      "exitCode": 0,
+      "log": ".nobi-isolated/landscape-round3/logs/unit-serial-delivery.log",
+      "sha256": "62678de0744a760aa0a7d229ca6f3dcb7bfd7dde3158ddfc1feffdc7666faf19"
+    },
+    {
+      "name": "edge-delivery",
+      "exitCode": 0,
+      "log": ".nobi-isolated/landscape-round3/logs/edge-delivery.log",
+      "sha256": "427c2be0b2024f20fba48dc4f2d95c559be1030c46a7bed71cd403816897cd3a"
+    },
+    {
+      "name": "online4",
+      "exitCode": 0,
+      "log": ".nobi-isolated/landscape-round3/logs/online4.log",
+      "sha256": "cc5ecb87407350b0556866b3d570d53f9937680543197b9db5b07cce759bea9b"
+    },
+    {
+      "name": "rated2",
+      "exitCode": 0,
+      "log": ".nobi-isolated/landscape-round3/logs/rated2.log",
+      "sha256": "2ae9c36c0e610e5d2ce896f5ecc5efe20360e09cbfdc044d8e62aa6eaa02ee9e"
+    },
+    {
+      "name": "standard-online-delivery",
+      "exitCode": 0,
+      "log": ".nobi-isolated/landscape-round3/logs/standard-online-delivery.log",
+      "sha256": "d43a932a51fe77a05ba4ed8882cf3cece38d5232e20e2c07106a969c66d62054"
+    },
+    {
+      "name": "integrations",
+      "exitCode": 0,
+      "log": ".nobi-isolated/landscape-round3/logs/integrations.log",
+      "sha256": "045934192bd09e0431f4894326551e4ad551a33247dde56918bf51655a487822"
+    },
+    {
+      "name": "build-web-verified",
+      "exitCode": 0,
+      "log": ".nobi-isolated/landscape-round3/logs/build-web-verified.log",
+      "sha256": "4f7378b722b8866e5417990b6b41b1792a0e0c8d607d85c9264b2cd2b8e9f7dd"
+    },
+    {
+      "name": "build-mobile-verified",
+      "exitCode": 0,
+      "log": ".nobi-isolated/landscape-round3/logs/build-mobile-verified.log",
+      "sha256": "810057110c4a01e3dbf8dafe70200bdebb70fbdcb652053cbb32f500498d8afd"
+    },
+    {
+      "name": "measured-capture",
+      "exitCode": 0,
+      "log": ".nobi-isolated/landscape-round3/logs/measured-capture.log",
+      "sha256": "63467a8b5a4e55986818d4b5bd8b694abdf6689243e000b921ffc44299ac52c7"
+    },
+    {
+      "name": "portrait-fullscreen",
+      "exitCode": 0,
+      "log": ".nobi-isolated/landscape-round3/logs/portrait-fullscreen.log",
+      "sha256": "ec17084df925af7d0335fed38a585b1a9d9658577541d0c5ab527fe82ec79259"
+    }
+  ],
+  "integrations": [
+    {
+      "name": "private",
+      "kind": "REAL_LOCAL_SUPABASE",
+      "status": "PASS",
+      "checks": [
+        {
+          "name": "four distinct disposable Auth signups / logins / identities",
+          "status": "PASS"
+        },
+        {
+          "name": "public profile RPC signature / authenticated grant / anonymous denial",
+          "status": "PASS"
+        },
+        {
+          "name": "atomic concurrent seat allocation / repeat join / membership read",
+          "status": "PASS"
+        },
+        {
+          "name": "room RLS hides outsider / direct state and move writes denied",
+          "status": "PASS"
+        },
+        {
+          "name": "legacy Go room columns / atomic join RPC / untrusted snapshot write denied",
+          "status": "PASS"
+        },
+        {
+          "name": "real Realtime WebSocket / published postgres change / participant RLS / reconnect",
+          "status": "PASS"
+        },
+        {
+          "name": "Go/Guandan season rankings / tie ranking / client rating, history and result writes denied",
+          "status": "PASS"
+        },
+        {
+          "name": "Guandan: four authenticated clients / unique seats / idempotent join",
+          "status": "PASS"
+        },
+        {
+          "name": "Guandan: server start / 108-card deal / private hands / SSE synchronization",
+          "status": "PASS"
+        },
+        {
+          "name": "Guandan: wrong turn / opening pass / stolen card / duplicate card / forged result denied",
+          "status": "PASS"
+        },
+        {
+          "name": "Guandan: operation idempotency / request-key conflict / stale version denied",
+          "status": "PASS"
+        },
+        {
+          "name": "Guandan: disconnect / authenticated reconnect / versioned snapshot recovery",
+          "status": "PASS"
+        },
+        {
+          "name": "Guandan: legal play / pass / turn progression / server rules terminal result (152 actions)",
+          "status": "PASS"
+        },
+        {
+          "name": "Guandan: participant exit / server-confirmed unranked end",
+          "status": "PASS"
+        },
+        {
+          "name": "Go: two clients / black-white seats / move SSE / capture / occupied and wrong-turn rejection",
+          "status": "PASS"
+        },
+        {
+          "name": "Go: reconnect / opponent consent / full-round undo restores board, capture, turn and journal",
+          "status": "PASS"
+        },
+        {
+          "name": "Go: suicide denied / resignation confirmation / server terminal result / ended game blocks input",
+          "status": "PASS"
+        },
+        {
+          "name": "authority rejects invalid token and nonparticipant recovery",
+          "status": "PASS"
+        },
+        {
+          "name": "verified unranked SQL records / unique operation receipts / ratings unchanged",
+          "status": "PASS"
+        }
+      ],
+      "total": 19
+    },
+    {
+      "name": "competitive",
+      "kind": "REAL_LOCAL_COMPETITIVE_SUPABASE",
+      "status": "PASS",
+      "checks": [
+        {
+          "name": "real Auth admin allowlist; metadata spoof and settlement RPC denied",
+          "status": "PASS"
+        },
+        {
+          "name": "full authoritative four-human Guandan completion, placements, upgrade and team Elo (171 operations)",
+          "status": "PASS"
+        },
+        {
+          "name": "real Go captures, Chinese area/komi, dispute/resume, mutual score consent, private results and ended guard",
+          "status": "PASS"
+        },
+        {
+          "name": "service restart and identical terminal retry do not settle twice",
+          "status": "PASS"
+        },
+        {
+          "name": "client score/season mutation denied, private history RLS and outsider admin denied",
+          "status": "PASS"
+        },
+        {
+          "name": "injected rating write failure rolls back every player/result/snapshot; same operation recovers atomically",
+          "status": "PASS"
+        },
+        {
+          "name": "two real concurrent PostgreSQL settlements and duplicate retries have no lost updates or duplicate points",
+          "status": "PASS"
+        },
+        {
+          "name": "paged stable tied rankings, own rank/tier/stats/history and explicit empty friend interface",
+          "status": "PASS"
+        },
+        {
+          "name": "abnormal exit excludes ratings and creates administrator-readable audit",
+          "status": "PASS"
+        },
+        {
+          "name": "server-generated timeout after verified play settles; client cannot submit timeout",
+          "status": "PASS"
+        },
+        {
+          "name": "season pause/switch/expiration, readonly archives, fresh seasonal ratings and permanent history preservation",
+          "status": "PASS"
+        }
+      ],
+      "total": 11
+    },
+    {
+      "name": "guandan",
+      "kind": "REAL_PHASE3D_SUPABASE",
+      "status": "PASS",
+      "checks": [
+        {
+          "name": "real four Auth identities, canonical 108 unique physical cards, 4x27, version and private permissions",
+          "status": "PASS"
+        },
+        {
+          "name": "real service restart restores version, all 108 instance IDs and private played/remaining state",
+          "status": "PASS"
+        },
+        {
+          "name": "full natural double-deck terminal, four placements, upgrade, team Elo and identical terminal retry",
+          "status": "PASS"
+        },
+        {
+          "name": "actual legacy/new rating rows isolated; default leaderboard and personal queries exclude legacy",
+          "status": "PASS"
+        },
+        {
+          "name": "idempotent continuation has separate result ID and inherits trusted teams, levels and seat membership",
+          "status": "PASS"
+        },
+        {
+          "name": "real tribute/return commands, restart during tribute, corresponding transfer and complete 108-card conservation (server fixture)",
+          "status": "PASS"
+        },
+        {
+          "name": "second full upgraded hand settles once; concurrent real database duplicate settlement cannot add points",
+          "status": "PASS"
+        }
+      ],
+      "operations": 325,
+      "total": 7
+    }
+  ],
+  "assets": {
+    "cards": [
+      {
+        "path": "images/cards/10_of_clubs.png",
+        "baseline": "31a7a7c87f571454ba1e90ae77646df0465f1cfd8c2e273cd4c0c6c336a71ecc",
+        "actual": "31a7a7c87f571454ba1e90ae77646df0465f1cfd8c2e273cd4c0c6c336a71ecc",
+        "match": true
+      },
+      {
+        "path": "images/cards/10_of_diamonds.png",
+        "baseline": "0243020b5cb6c774725fe5fe9141a962778ffe1eb0a630f9db89ebe29fd9a6b3",
+        "actual": "0243020b5cb6c774725fe5fe9141a962778ffe1eb0a630f9db89ebe29fd9a6b3",
+        "match": true
+      },
+      {
+        "path": "images/cards/10_of_hearts.png",
+        "baseline": "450ac7b489c12190c75cf4f114bebcab3ce4764ba263892f779d7019c520f952",
+        "actual": "450ac7b489c12190c75cf4f114bebcab3ce4764ba263892f779d7019c520f952",
+        "match": true
+      },
+      {
+        "path": "images/cards/10_of_spades.png",
+        "baseline": "59ab64c76f49fc71a71c072db39621a2d5ce4cbfbd5a411a8a6718fe6b8c7af3",
+        "actual": "59ab64c76f49fc71a71c072db39621a2d5ce4cbfbd5a411a8a6718fe6b8c7af3",
+        "match": true
+      },
+      {
+        "path": "images/cards/2_of_clubs.png",
+        "baseline": "d08747b2226ba2a750b4afec78694f9825ac91303665d5f88cc8b29985364f4c",
+        "actual": "d08747b2226ba2a750b4afec78694f9825ac91303665d5f88cc8b29985364f4c",
+        "match": true
+      },
+      {
+        "path": "images/cards/2_of_diamonds.png",
+        "baseline": "5921281ef60ab4646043f873f334c3ea89e0d73593fe25c75468f13d7cdb97d6",
+        "actual": "5921281ef60ab4646043f873f334c3ea89e0d73593fe25c75468f13d7cdb97d6",
+        "match": true
+      },
+      {
+        "path": "images/cards/2_of_hearts.png",
+        "baseline": "f55e84ebf845eb9367af7526c4cd0324b3ef295e896e677b43c482ad509afe3b",
+        "actual": "f55e84ebf845eb9367af7526c4cd0324b3ef295e896e677b43c482ad509afe3b",
+        "match": true
+      },
+      {
+        "path": "images/cards/2_of_spades.png",
+        "baseline": "1762394654973f4a63447d68de29b2d252fdbf881c7405c15510158ca329ed86",
+        "actual": "1762394654973f4a63447d68de29b2d252fdbf881c7405c15510158ca329ed86",
+        "match": true
+      },
+      {
+        "path": "images/cards/3_of_clubs.png",
+        "baseline": "4d5e441207634e28a32ec9134227890f62e1bb38a554c3c9ca7240a21cbbe909",
+        "actual": "4d5e441207634e28a32ec9134227890f62e1bb38a554c3c9ca7240a21cbbe909",
+        "match": true
+      },
+      {
+        "path": "images/cards/3_of_diamonds.png",
+        "baseline": "f0a8ec9732c5f808074e32c293caa79982e57ed84256515921ed83886263066d",
+        "actual": "f0a8ec9732c5f808074e32c293caa79982e57ed84256515921ed83886263066d",
+        "match": true
+      },
+      {
+        "path": "images/cards/3_of_hearts.png",
+        "baseline": "b15b18d3e09210c703ee98ba166c3a5aeece9defcbf8e0f5f57b0a108371f56b",
+        "actual": "b15b18d3e09210c703ee98ba166c3a5aeece9defcbf8e0f5f57b0a108371f56b",
+        "match": true
+      },
+      {
+        "path": "images/cards/3_of_spades.png",
+        "baseline": "ef4dc467677adf13c02c349de5c4bae156ac3ae0e91d14c4611a70b8385db5b6",
+        "actual": "ef4dc467677adf13c02c349de5c4bae156ac3ae0e91d14c4611a70b8385db5b6",
+        "match": true
+      },
+      {
+        "path": "images/cards/4_of_clubs.png",
+        "baseline": "06137f0178199f07c025320fee95ed76fb01530e90c324f2154c4b8daeccb407",
+        "actual": "06137f0178199f07c025320fee95ed76fb01530e90c324f2154c4b8daeccb407",
+        "match": true
+      },
+      {
+        "path": "images/cards/4_of_diamonds.png",
+        "baseline": "dd8205b13c7f3e11e580ba0f54d39a67b09d31938a0dbaa810ec5bb9b49ffa82",
+        "actual": "dd8205b13c7f3e11e580ba0f54d39a67b09d31938a0dbaa810ec5bb9b49ffa82",
+        "match": true
+      },
+      {
+        "path": "images/cards/4_of_hearts.png",
+        "baseline": "8f1eaba83e6c92b8ff12027f4cfff723bda50c66819ebff071856d151d52e844",
+        "actual": "8f1eaba83e6c92b8ff12027f4cfff723bda50c66819ebff071856d151d52e844",
+        "match": true
+      },
+      {
+        "path": "images/cards/4_of_spades.png",
+        "baseline": "2577fe5ada4cf54aa800ec83c145d50ed5b9e7bce03d111928fec68ba7337304",
+        "actual": "2577fe5ada4cf54aa800ec83c145d50ed5b9e7bce03d111928fec68ba7337304",
+        "match": true
+      },
+      {
+        "path": "images/cards/5_of_clubs.png",
+        "baseline": "bf978bf76032d4b028cf846d59fae14464a9833be1b8adf8a2f136a3839fa36a",
+        "actual": "bf978bf76032d4b028cf846d59fae14464a9833be1b8adf8a2f136a3839fa36a",
+        "match": true
+      },
+      {
+        "path": "images/cards/5_of_diamonds.png",
+        "baseline": "29c96be8259b1dbf6a3a32bd9475625d99d4b7a8e96fd588392073171ed29557",
+        "actual": "29c96be8259b1dbf6a3a32bd9475625d99d4b7a8e96fd588392073171ed29557",
+        "match": true
+      },
+      {
+        "path": "images/cards/5_of_hearts.png",
+        "baseline": "abd5f92801234d22f273a11b94e02d5c2776711bb226e4f3f99f25576f7063ad",
+        "actual": "abd5f92801234d22f273a11b94e02d5c2776711bb226e4f3f99f25576f7063ad",
+        "match": true
+      },
+      {
+        "path": "images/cards/5_of_spades.png",
+        "baseline": "ebaad6475e8e075408813821597dcf61df48f5e8d0dda4f74c76c08028a6ef77",
+        "actual": "ebaad6475e8e075408813821597dcf61df48f5e8d0dda4f74c76c08028a6ef77",
+        "match": true
+      },
+      {
+        "path": "images/cards/6_of_clubs.png",
+        "baseline": "6efe3dcf20f410c04ab60e6336b5b028a22481d06d7b1da1f7d15106626753ab",
+        "actual": "6efe3dcf20f410c04ab60e6336b5b028a22481d06d7b1da1f7d15106626753ab",
+        "match": true
+      },
+      {
+        "path": "images/cards/6_of_diamonds.png",
+        "baseline": "1ceb7104422b6e1e6746d1474c94be7bacfb886bd855a12e38754d13b2821397",
+        "actual": "1ceb7104422b6e1e6746d1474c94be7bacfb886bd855a12e38754d13b2821397",
+        "match": true
+      },
+      {
+        "path": "images/cards/6_of_hearts.png",
+        "baseline": "3765502d6a8d8a61ffb6f7aed49f8f0a916b70e467eb423cd80bd54a5f6b612f",
+        "actual": "3765502d6a8d8a61ffb6f7aed49f8f0a916b70e467eb423cd80bd54a5f6b612f",
+        "match": true
+      },
+      {
+        "path": "images/cards/6_of_spades.png",
+        "baseline": "b7e056d262f8d2f439af2fe879f809f2cd37bbf001f97c9b09b83be5680c273e",
+        "actual": "b7e056d262f8d2f439af2fe879f809f2cd37bbf001f97c9b09b83be5680c273e",
+        "match": true
+      },
+      {
+        "path": "images/cards/7_of_clubs.png",
+        "baseline": "d3e8e6ca8c331c460a25e40f34d8f0025d68fa572b1d26f54238e38e4143f306",
+        "actual": "d3e8e6ca8c331c460a25e40f34d8f0025d68fa572b1d26f54238e38e4143f306",
+        "match": true
+      },
+      {
+        "path": "images/cards/7_of_diamonds.png",
+        "baseline": "25aade502898b4e7110c9d288ce5442eacf129f6bc44458001414f5e7164717f",
+        "actual": "25aade502898b4e7110c9d288ce5442eacf129f6bc44458001414f5e7164717f",
+        "match": true
+      },
+      {
+        "path": "images/cards/7_of_hearts.png",
+        "baseline": "0c5ce67bc54fecccba35138ce1762777906279b6110219d29523ade27242e698",
+        "actual": "0c5ce67bc54fecccba35138ce1762777906279b6110219d29523ade27242e698",
+        "match": true
+      },
+      {
+        "path": "images/cards/7_of_spades.png",
+        "baseline": "8025ec6bac3c955c7a439ebba61bcfb0aeda073e2aa63be5c6e1abb3f504867a",
+        "actual": "8025ec6bac3c955c7a439ebba61bcfb0aeda073e2aa63be5c6e1abb3f504867a",
+        "match": true
+      },
+      {
+        "path": "images/cards/8_of_clubs.png",
+        "baseline": "19e326aaf129e26b3e792947c1c509122a78515325d0c6bcdddb8fffeefc5157",
+        "actual": "19e326aaf129e26b3e792947c1c509122a78515325d0c6bcdddb8fffeefc5157",
+        "match": true
+      },
+      {
+        "path": "images/cards/8_of_diamonds.png",
+        "baseline": "2206f0642e839d222b6718be0c5a11bec795741619b1062f602cd06b5415f420",
+        "actual": "2206f0642e839d222b6718be0c5a11bec795741619b1062f602cd06b5415f420",
+        "match": true
+      },
+      {
+        "path": "images/cards/8_of_hearts.png",
+        "baseline": "a2331c4de77337eaf3a42bd206d5294495b83d7c8805ec7ed76512f3b27e0323",
+        "actual": "a2331c4de77337eaf3a42bd206d5294495b83d7c8805ec7ed76512f3b27e0323",
+        "match": true
+      },
+      {
+        "path": "images/cards/8_of_spades.png",
+        "baseline": "6370c71b96d2dc399216c567f289a742b0f37e0fdfd117cc5cb9d0bacfb1aa60",
+        "actual": "6370c71b96d2dc399216c567f289a742b0f37e0fdfd117cc5cb9d0bacfb1aa60",
+        "match": true
+      },
+      {
+        "path": "images/cards/9_of_clubs.png",
+        "baseline": "4115323324b3e26523cdfe6422701cb7363d531e3fb508837dd0087cd3624424",
+        "actual": "4115323324b3e26523cdfe6422701cb7363d531e3fb508837dd0087cd3624424",
+        "match": true
+      },
+      {
+        "path": "images/cards/9_of_diamonds.png",
+        "baseline": "a00a0f4c5572f3523eeb985a233591412289006487d5c0414ae739c54a9da1e9",
+        "actual": "a00a0f4c5572f3523eeb985a233591412289006487d5c0414ae739c54a9da1e9",
+        "match": true
+      },
+      {
+        "path": "images/cards/9_of_hearts.png",
+        "baseline": "f12f495fd8d1859a4b5db85599b2a8196ad262f8b07e38d745f24cc8a6ed1743",
+        "actual": "f12f495fd8d1859a4b5db85599b2a8196ad262f8b07e38d745f24cc8a6ed1743",
+        "match": true
+      },
+      {
+        "path": "images/cards/9_of_spades.png",
+        "baseline": "326710c94eb89ce525695ab9b4eec1324b6e8500044ebda224251139df0d2f19",
+        "actual": "326710c94eb89ce525695ab9b4eec1324b6e8500044ebda224251139df0d2f19",
+        "match": true
+      },
+      {
+        "path": "images/cards/ace_of_clubs.png",
+        "baseline": "3f1c7537ac39fe5e1de80fa21040b13658f3dee34d7667e74756d3c94583b9bd",
+        "actual": "3f1c7537ac39fe5e1de80fa21040b13658f3dee34d7667e74756d3c94583b9bd",
+        "match": true
+      },
+      {
+        "path": "images/cards/ace_of_diamonds.png",
+        "baseline": "0bd51b27034b5687c7d7a0d76bcca3b358709e4a3713cec1429ef4b34989a1ad",
+        "actual": "0bd51b27034b5687c7d7a0d76bcca3b358709e4a3713cec1429ef4b34989a1ad",
+        "match": true
+      },
+      {
+        "path": "images/cards/ace_of_hearts.png",
+        "baseline": "92f698e18855097a95b1238d92c8476a12f07b9d9b2ef2401308062d876feaf7",
+        "actual": "92f698e18855097a95b1238d92c8476a12f07b9d9b2ef2401308062d876feaf7",
+        "match": true
+      },
+      {
+        "path": "images/cards/ace_of_spades.png",
+        "baseline": "4632981e4d735ea0f95c05dd999b75610e662ee38fa8ae8accd1dc97c1119d48",
+        "actual": "4632981e4d735ea0f95c05dd999b75610e662ee38fa8ae8accd1dc97c1119d48",
+        "match": true
+      },
+      {
+        "path": "images/cards/back.png",
+        "baseline": "945996916e74d32f2a5e60a38e5fb8215c7220764187905bf80fb7a012cb38ed",
+        "actual": "945996916e74d32f2a5e60a38e5fb8215c7220764187905bf80fb7a012cb38ed",
+        "match": true
+      },
+      {
+        "path": "images/cards/back@2x.png",
+        "baseline": "38026c31a9321e9f36f4084ff689b3123e9568d990b62acde55648ae947327ea",
+        "actual": "38026c31a9321e9f36f4084ff689b3123e9568d990b62acde55648ae947327ea",
+        "match": true
+      },
+      {
+        "path": "images/cards/black_joker.png",
+        "baseline": "274ae7f2a474069ff46cc6e6148623ad806e912839f12e4023cc08a79d0dab24",
+        "actual": "274ae7f2a474069ff46cc6e6148623ad806e912839f12e4023cc08a79d0dab24",
+        "match": true
+      },
+      {
+        "path": "images/cards/jack_of_clubs.png",
+        "baseline": "da4fe2043375d0282ae17e0790d9b32d8c05ba254b3ac240d02dd6a79111e52a",
+        "actual": "da4fe2043375d0282ae17e0790d9b32d8c05ba254b3ac240d02dd6a79111e52a",
+        "match": true
+      },
+      {
+        "path": "images/cards/jack_of_diamonds.png",
+        "baseline": "163ff5462f1de44800d2c5be16818459515d8bff32c2b511fef500fa468ef526",
+        "actual": "163ff5462f1de44800d2c5be16818459515d8bff32c2b511fef500fa468ef526",
+        "match": true
+      },
+      {
+        "path": "images/cards/jack_of_hearts.png",
+        "baseline": "41325400f449b21a6b2e788f8551577d9e0acb7a834787e7237e2cf81e02346b",
+        "actual": "41325400f449b21a6b2e788f8551577d9e0acb7a834787e7237e2cf81e02346b",
+        "match": true
+      },
+      {
+        "path": "images/cards/jack_of_spades.png",
+        "baseline": "3905976ca427a77d3a34679eb0f4c03c75358481d1da7670f46bb91cf4b56c90",
+        "actual": "3905976ca427a77d3a34679eb0f4c03c75358481d1da7670f46bb91cf4b56c90",
+        "match": true
+      },
+      {
+        "path": "images/cards/king_of_clubs.png",
+        "baseline": "192eb636acf554f129c6784bbb8cb118bcdc2b621770ac216fb5ec6d19c80837",
+        "actual": "192eb636acf554f129c6784bbb8cb118bcdc2b621770ac216fb5ec6d19c80837",
+        "match": true
+      },
+      {
+        "path": "images/cards/king_of_diamonds.png",
+        "baseline": "e957fbd666fa32343b3a2086d226844596158116a9dcd6c4bb6ef0d2dfcec225",
+        "actual": "e957fbd666fa32343b3a2086d226844596158116a9dcd6c4bb6ef0d2dfcec225",
+        "match": true
+      },
+      {
+        "path": "images/cards/king_of_hearts.png",
+        "baseline": "0189c25d6b5a521b75e0ad1797d83e67494461779154af29d80f82c600af2f84",
+        "actual": "0189c25d6b5a521b75e0ad1797d83e67494461779154af29d80f82c600af2f84",
+        "match": true
+      },
+      {
+        "path": "images/cards/king_of_spades.png",
+        "baseline": "114cbc811d03999aadf0426ad1a51f17c2c250b0cd78503d652f3621149574dc",
+        "actual": "114cbc811d03999aadf0426ad1a51f17c2c250b0cd78503d652f3621149574dc",
+        "match": true
+      },
+      {
+        "path": "images/cards/queen_of_clubs.png",
+        "baseline": "dc32042632499a7b92b45698d277a3418e32b1e5f8d9e80a238f90de6bff86dd",
+        "actual": "dc32042632499a7b92b45698d277a3418e32b1e5f8d9e80a238f90de6bff86dd",
+        "match": true
+      },
+      {
+        "path": "images/cards/queen_of_diamonds.png",
+        "baseline": "4fc0a304cacb364486355cc1baf83db3f4739bc152de0c1abb33b1d6266929ea",
+        "actual": "4fc0a304cacb364486355cc1baf83db3f4739bc152de0c1abb33b1d6266929ea",
+        "match": true
+      },
+      {
+        "path": "images/cards/queen_of_hearts.png",
+        "baseline": "46fb7b2849a3750ae8728524e1a85cb0843a415d661b8a85b4e4218c1dfddb6b",
+        "actual": "46fb7b2849a3750ae8728524e1a85cb0843a415d661b8a85b4e4218c1dfddb6b",
+        "match": true
+      },
+      {
+        "path": "images/cards/queen_of_spades.png",
+        "baseline": "a9683fdceea3aa37493149d9015d6063413ddc458948a781d9dff0d4a9c6d5e3",
+        "actual": "a9683fdceea3aa37493149d9015d6063413ddc458948a781d9dff0d4a9c6d5e3",
+        "match": true
+      },
+      {
+        "path": "images/cards/red_joker.png",
+        "baseline": "8de71b34e22ed2d037eed810d7cf6b10cd376c588167cff12cd97fbf80cd27e3",
+        "actual": "8de71b34e22ed2d037eed810d7cf6b10cd376c588167cff12cd97fbf80cd27e3",
+        "match": true
+      }
+    ]
+  },
+  "earlyFailures": [
+    {
+      "job": "after-capture",
+      "issue": "The capture helper waited for visible hand images in portrait; the new overlay intentionally hides them. Changed capture wait to attached plus completed PNG loading."
+    },
+    {
+      "job": "unit-delivery",
+      "issue": "One public-config VM test timed out at 100ms during concurrent browser load (124/125). Kept the limit; complete lower-load rerun passed 125/125."
+    }
+  ],
+  "manualReview": {
+    "referencePanel": 6,
+    "viewports": [
+      "1920x1080",
+      "1600x900",
+      "1366x768",
+      "852x393",
+      "932x430",
+      "667x375",
+      "393x852"
+    ],
+    "screenshotsInspected": true,
+    "userDesignApproval": "pending",
+    "nativePhysicalDevices": "NOT_TESTED"
+  }
+}

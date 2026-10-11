@@ -25,21 +25,13 @@
 
   function getNetUser() {
     if (window.state && window.state.uid) {
-      return { uid: window.state.uid, nickname: window.state.userNickname || '玩家_' + window.state.uid.substr(0,4) };
+      return { uid: window.state.uid, nickname: window.state.userNickname || '玩家_' + window.state.uid.substr(0,4), avatar: window.NobiAvatars?.self(window.state.userNickname) || null };
     }
-    let localUid = localStorage.getItem('gd_net_uid') || 'u_' + Math.random().toString(36).substr(2, 6);
-    localStorage.setItem('gd_net_uid', localUid);
-    let localNickname = localStorage.getItem('user_nickname') || '客军_' + Math.floor(Math.random() * 900);
-    return { uid: localUid, nickname: localNickname };
+    return null;
   }
 
   function initMpClient() {
-    if (mpState.client) return true;
-    if (typeof window.getSupabaseClient === 'function') mpState.client = window.getSupabaseClient();
-    if (!mpState.client && window.supabase && window.APP_CONFIG) {
-      const { createClient } = window.supabase;
-      mpState.client = createClient(window.APP_CONFIG.SUPABASE_URL, window.APP_CONFIG.SUPABASE_ANON_KEY);
-    }
+    if (!mpState.client) mpState.client = window.getSupabaseClient?.();
     return !!mpState.client;
   }
 
@@ -47,16 +39,29 @@
   // 🚀 联机网关（精细化生命周期握手）
   // =========================================================================
   GD_MP.startNetMatch = async function(targetRoomCode = null) {
+    if (window.NobiServices) {
+      try {
+        const user = await window.NobiServices.requireUser();
+        window.state = window.state || {};
+        window.state.uid = user.id;
+        window.state.userNickname = user.user_metadata?.nickname || '玩家';
+        window.NobiAvatars?.setAccount(user);
+      } catch (_) { alert('请登录并确认联机配置后重试'); return; }
+    }
     if (!initMpClient()) {
       console.error("Supabase 网关未就绪！");
       return;
     }
 
     if (window.state) window.state.gameMode = 'NET_BATTLE';
-    mpState.isGameStarted = false; 
+    GD_MP.stopNetMatch();
+    mpState.isGameStarted = false;
+    mpState.seats = [null,null,null,null]; mpState.mySeatIndex = -1;
 
     const user = getNetUser();
-    
+    if (!user) return;
+    window.GD?.initGameMatch('NET_BATTLE');
+
     if (targetRoomCode) {
       mpState.roomCode = String(targetRoomCode).trim().toUpperCase();
       mpState.isHost = false;
@@ -114,7 +119,7 @@
   // ⏳ 3分钟时钟流转（带同步时间戳）
   // =========================================================================
   function startMatchCountdown() {
-    if (mpState.matchTimer) return;
+    if (mpState.uiRefreshTimer) return;
     mpState.countdownSeconds = 180;
     
     mpState.uiRefreshTimer = setInterval(() => {
@@ -166,7 +171,13 @@
   // =========================================================================
   // 👥 席位确认与倒计时动态校准（解决不同步的关键）
   // =========================================================================
-  function handlePlayerJoin({ payload }) {
+  function validSeat(seat) {
+    return !!seat && typeof seat.uid === 'string' && seat.uid.length > 0 && seat.uid.length <= 128 &&
+      typeof seat.nickname === 'string' && seat.nickname.length <= 128;
+  }
+
+  function handlePlayerJoin({ payload } = {}) {
+    if (!mpState.channel || !validSeat(payload)) return false;
     if (mpState.isHost && !mpState.isGameStarted) {
       console.log(`[房东捕获新玩家] 玩家【${payload.nickname}】申请进入房间座位`);
       
@@ -174,7 +185,7 @@
       if (existingIdx === -1) {
         for (let i = 0; i < 4; i++) {
           if (!mpState.seats[i]) {
-            mpState.seats[i] = { uid: payload.uid, nickname: payload.nickname };
+            mpState.seats[i] = { uid: payload.uid, nickname: payload.nickname, avatar: window.NobiAvatars?.safe(payload.avatar) || null };
             break;
           }
         }
@@ -203,7 +214,12 @@
     }
   }
 
-  function handleRoomSync({ payload }) {
+  function handleRoomSync({ payload } = {}) {
+    if (!payload || !Array.isArray(payload.seats) || payload.seats.length !== 4 ||
+        payload.seats.some(seat => seat !== null && !validSeat(seat)) ||
+        !Number.isInteger(payload.countdownSeconds) || payload.countdownSeconds < 0 || payload.countdownSeconds > 180) return false;
+    const user = getNetUser();
+    if (!user) return false;
     console.log(`[客军同步成功] 收到来自房东的权威时间校准，当前剩余秒数: ${payload.countdownSeconds}s`);
     
     mpState.seats = payload.seats;
@@ -211,7 +227,6 @@
     // 💡【同步核心】：客军将自己的本地时钟，强行校准对齐房东发过来的时间戳
     mpState.countdownSeconds = payload.countdownSeconds;
     
-    const user = getNetUser();
     mpState.mySeatIndex = mpState.seats.findIndex(s => s && s.uid === user.uid);
     
     // 如果客军本地没有开秒级刷新钟，帮他开起来，实现画面动态倒计时
@@ -226,9 +241,7 @@
     if (payload.countdownOver) clearAllMatchTimers();
     syncEngineNicknames();
 
-    if (payload.triggerStart && !mpState.isGameStarted) {
-      mpState.isGameStarted = true;
-    }
+    // Only GAME_START installs the engine state; ROOM_SYNC never marks it active.
   }
 
   // =========================================================================
@@ -296,36 +309,28 @@
   }
 
   function checkAndStartGame() {
-    if (mpState.seats.filter(Boolean).length === 4) {
+    if (!mpState.isGameStarted && mpState.seats.filter(Boolean).length === 4) {
       mpState.isGameStarted = true;
-      let allCards = [];
-      const suits = ['S', 'H', 'C', 'D'];
-      const ranks = ['2','3','4','5','6','7','8','9','10','J','Q','K','A'];
-      for(let k=0; k<2; k++){
-        suits.forEach(s => ranks.forEach(r => allCards.push({ suit: s, rank: r })));
-        allCards.push({ suit: 'JOKER', rank: 'SMALL' });
-        allCards.push({ suit: 'JOKER', rank: 'BIG' });
-      }
-      allCards.sort(() => Math.random() - 0.5);
-
-      const hands = [
-        allCards.slice(0, 27), allCards.slice(27, 54),
-        allCards.slice(54, 81), allCards.slice(81, 108)
-      ];
+      const hands = window.GD.createNetworkDeal();
 
       mpState.channel.send({
         type: 'broadcast',
         event: 'GAME_START',
-        payload: { hands: hands, hostTurn: 0 }
+        payload: { hands: hands, seats: mpState.seats, hostTurn: 0 }
       });
-      loadNetGameData(hands[0], 0);
+      loadNetGameData(hands, 0);
     }
   }
 
-  function handleGameStart({ payload }) {
-    mpState.isGameStarted = true;
-    clearAllMatchTimers();
-    loadNetGameData(payload.hands[mpState.mySeatIndex], payload.hostTurn);
+  function handleGameStart({ payload } = {}) {
+    if (mpState.isGameStarted || !payload || !Array.isArray(payload.seats) || payload.seats.length !== 4 || payload.seats.some(s => !validSeat(s))) return false;
+    const user = getNetUser();
+    if (!user) return false;
+    mpState.seats = payload.seats;
+    mpState.mySeatIndex = payload.seats.findIndex(s => s.uid === user.uid);
+    loadNetGameData(payload.hands, payload.hostTurn);
+    if (mpState.isGameStarted) clearAllMatchTimers();
+    return mpState.isGameStarted;
   }
 
   function clearAllMatchTimers() {
@@ -333,16 +338,32 @@
     if (mpState.uiRefreshTimer) { clearInterval(mpState.uiRefreshTimer); mpState.uiRefreshTimer = null; }
   }
 
-  function loadNetGameData(rawHandCards, initialTurn) {
-    mpState.currentTurnSeat = initialTurn;
-    window.gdPlayerHand = rawHandCards.map((c, idx) => ({
-      id: 'net_' + idx + '_' + Math.random().toString(36).substr(2,4),
-      suit: c.suit, rank: c.rank, score: parseInt(c.rank) || idx, selected: false
-    }));
-    if (typeof window.sortHandCards === 'function') window.sortHandCards(window.gdPlayerHand);
-    if (typeof window.renderGameBoard === 'function') window.renderGameBoard();
-    syncEngineNicknames(); 
+  function loadNetGameData(hands, initialTurn) {
+    const ok = window.GD?.startNetworkGame(hands, mpState.seats, mpState.mySeatIndex, initialTurn,
+      action => {
+        mpState.channel?.send({ type: 'broadcast', event: action.type, payload: { ...action, uid: mpState.seats[action.seat]?.uid } })
+          .then(result => { if (result !== 'ok') console.error('[GD network] Delivery failed; rejoin required'); })
+          .catch(() => console.error('[GD network] Delivery failed; rejoin required'));
+      }, mpState.isHost);
+    mpState.isGameStarted = !!ok;
+    if (ok) syncEngineNicknames();
   }
+
+  function handleNetAction(type, payload) {
+    if (!payload || !mpState.isGameStarted || !Number.isInteger(payload.seat)) return false;
+    const seat = mpState.seats[payload.seat];
+    if (!seat || payload.uid !== seat.uid || (seat.isBot && !mpState.seats[0])) return false;
+    return window.GD?.applyNetworkAction({ ...payload, type }) || false;
+  }
+  function handleNetPlayCards({ payload } = {}) { return handleNetAction('PLAY_CARDS', payload); }
+  function handleNetPass({ payload } = {}) { return handleNetAction('PASS_TURN', payload); }
+
+  GD_MP.stopNetMatch = function() {
+    clearAllMatchTimers();
+    if (mpState.channel) mpState.client?.removeChannel?.(mpState.channel);
+    mpState.channel = null; mpState.isGameStarted = false;
+    document.getElementById('guandan-inner-mp-banner')?.remove();
+  };
 
   GD_MP.copyRoomLink = function() {
     if (!mpState.roomCode) return;

@@ -1,0 +1,205 @@
+/* Guandan table skin after Nobi V2.1 reference ⑥: warm wooden room, bright felt, wood rim,
+   dark name plates with gold scores, fanned card backs, bright pill actions and a wall clock.
+   Materials only — seat/hand geometry stays in match.css; original card PNGs are untouched. */
+#guandan-game-container {
+  --gd-wood-dark:#2b1a0f; --gd-wood:#6b4423; --gd-wood-light:#a8743f; --gd-felt:#1f7d4f; --gd-felt-dark:#0d4a2e;
+  --gd-plate:linear-gradient(180deg,#141b24f2,#0a0f16e6); --gd-gold:#f2cf7a;
+  background:
+    radial-gradient(ellipse 70% 55% at 50% 45%,#5a3a1f66,transparent 70%),
+    repeating-linear-gradient(90deg,#00000000 0 86px,#0000002e 86px 88px),
+    linear-gradient(180deg,#3a2414 0%,#24160c 55%,#160d07 100%);
+}
+/* Wooden rim: two-layer background so the rim reads as lacquered wood around the felt. */
+#guandan-game-container .gd-arena::before {
+  border-color:transparent;
+  background:
+    radial-gradient(ellipse 75% 70% at 50% 40%,#2b9a63 0%,var(--gd-felt) 38%,var(--gd-felt-dark) 85%,#093822 100%) padding-box,
+    linear-gradient(160deg,#c48a4d 0%,var(--gd-wood) 22%,#4a2c14 50%,var(--gd-wood) 78%,#b07a42 100%) border-box;
+  box-shadow:0 0 0 2px #2a170b,0 0 0 4px #d9b06a55,inset 0 0 0 2px #e6c27a66,inset 0 0 0 5px #00000033,inset 0 18px 70px #00160c99,0 30px 70px #000c,0 0 120px #ffb35a1f;
+}
+#guandan-game-container .gd-arena::after { opacity:.22; background:repeating-radial-gradient(circle at 50% 40%,#ffffff08 0 1px,transparent 1px 3px); }
+#guandan-game-container .gd-room-label { display:none; }
+
+/* Header info panel (top-left): dark glass with gold text. */
+#guandan-game-container .gd-header-info { background:linear-gradient(180deg,#0c1118e6,#070b10d9); border-color:#d9b06a66; color:#f3e3bd; box-shadow:0 8px 20px #0008,inset 0 1px #ffffff12; }
+#guandan-game-container .gd-level-line { color:#c9b48a; }
+#guandan-game-container .gd-level-line b[data-gd-series] { color:var(--gd-gold); }
+#guandan-game-container .gd-header-info .gd-level-chip { background:linear-gradient(180deg,#fff1c7,#e2b45e); border-color:#fff0c4; color:#3a2a10; box-shadow:0 2px 6px #0007; }
+#guandan-game-container .gd-header-info .gd-score-line { color:#f1eadb; }
+#guandan-game-container .gd-counter span { background:#ffffff0f; border-color:#d9b06a33; }
+
+/* Wall clock, top-right beside the exit button. */
+#guandan-game-container .gd-sys-clock { position:fixed; top:max(18px,env(safe-area-inset-top)); right:calc(max(22px,env(safe-area-inset-right)) + 116px); display:inline-flex; align-items:center; gap:6px; min-height:36px; padding:0 12px; border-radius:18px; background:#0a0f16cc; border:1px solid #d9b06a44; color:#f6ead0; font-size:14px; font-weight:700; font-variant-numeric:tabular-nums; pointer-events:none; z-index:120; }
+#guandan-game-container .gd-sys-clock::before { content:''; width:14px; height:14px; border-radius:50%; border:2px solid var(--gd-gold); background:linear-gradient(var(--gd-gold),var(--gd-gold)) 50% 30%/2px 5px no-repeat,linear-gradient(var(--gd-gold),var(--gd-gold)) 62% 50%/4px 2px no-repeat; box-sizing:border-box; }
+#guandan-game-container .gd-sys-clock:empty { display:none; }
+
+/* Player name plates: round avatar with ring over a dark plate, score/count in gold. */
+#guandan-game-container .gd-player-info { background:var(--gd-plate); border-color:#ffffff1f; box-shadow:0 6px 16px #000a,inset 0 1px #ffffff14; }
+#guandan-game-container .gd-player-info.active { background:linear-gradient(180deg,#2a2210f2,#141006e6); border-color:var(--gd-gold); box-shadow:0 0 0 2px #f2cf7a40,0 0 22px #f2cf7a33,0 6px 16px #000a; }
+#guandan-game-container .gd-player-avatar { border:2px solid #f5f0e6; background:radial-gradient(circle at 35% 25%,#7aa6d6,#2c4f7c 55%,#18304f); color:#fff; box-shadow:0 0 0 2px #00000066,0 3px 8px #000a; }
+#guandan-game-container .gd-seat.left .gd-player-avatar, #guandan-game-container .gd-seat.right .gd-player-avatar { background:radial-gradient(circle at 35% 25%,#d9897a,#8b3a32 55%,#5a1f1b); }
+#guandan-game-container .active .gd-player-avatar { border-color:var(--gd-gold); color:#fff3cf; }
+#guandan-game-container .gd-player-name { color:#f7f3ea; font-weight:700; }
+#guandan-game-container .gd-player-detail { color:var(--gd-gold); font-weight:700; }
+#guandan-game-container .gd-player-state { color:#c9c2b3; font-weight:400; }
+
+/* Opponent hands as fanned card backs (original back.png, no colour filters). */
+#guandan-game-container .gd-opp-card-back { border:1px solid #ffffffcc; border-radius:4px; box-shadow:-2px 2px 5px #0008; transform-origin:50% 135%; transform:rotate(var(--fan,0deg)); }
+#guandan-game-container .gd-opp-card-back:nth-child(1) { --fan:-18deg; }
+#guandan-game-container .gd-opp-card-back:nth-child(2) { --fan:-12deg; }
+#guandan-game-container .gd-opp-card-back:nth-child(3) { --fan:-6deg; }
+#guandan-game-container .gd-opp-card-back:nth-child(4) { --fan:0deg; }
+#guandan-game-container .gd-opp-card-back:nth-child(5) { --fan:6deg; }
+#guandan-game-container .gd-opp-card-back:nth-child(6) { --fan:12deg; }
+#guandan-game-container .gd-opp-card-back:nth-child(7) { --fan:18deg; }
+#guandan-game-container .gd-seat.left .gd-opp-hand-wrapper, #guandan-game-container .gd-seat.right .gd-opp-hand-wrapper { flex-wrap:nowrap; max-width:none; padding-top:6px; }
+#guandan-game-container .gd-seat.left .gd-opp-card-back, #guandan-game-container .gd-seat.right .gd-opp-card-back { margin-top:0; }
+
+/* Centre: status pill and played cards on the felt. */
+#guandan-game-container .gd-center-status-bar { background:#06261acc; border-color:#f2cf7a40; color:#e7f1e8; border-radius:999px; box-shadow:0 4px 12px #0006; }
+#guandan-game-container .gd-center-status-bar.my-turn { color:#ffe7a8; border-color:#f2cf7a99; }
+#guandan-game-container .gd-trick-owner { color:#f6ead0; text-shadow:0 1px 2px #000a; }
+#guandan-game-container .gd-trick-empty { color:#bfe0cb; }
+#guandan-game-container .gd-trick .gd-card { box-shadow:-2px 3px 8px #0009 !important; border-radius:5px; }
+#guandan-game-container .gd-hand .gd-card { box-shadow:-3px 3px 9px #000a !important; }
+
+/* Pill actions as in the reference: blue 不出/提示, gold 出牌, green 理牌. Disabled keeps its colour, dimmed. */
+#guandan-game-container .gd-action-bar button { border-radius:999px; font-weight:800; letter-spacing:.06em; text-shadow:0 1px 1px #0005; box-shadow:0 5px 0 #00000059,0 8px 16px #0007,inset 0 1px #ffffff66; }
+#guandan-game-container .gd-action-bar [data-gd-pass], #guandan-game-container .gd-action-bar [data-gd-hint] { background:linear-gradient(180deg,#6aa2ff 0%,#2f6fe0 55%,#1f56c0 100%); border-color:#a9c8ff; color:#fff; }
+#guandan-game-container .gd-action-bar .gd-btn-play { background:linear-gradient(180deg,#fff0b8 0%,#f5c45a 55%,#d99a2b 100%); border-color:#fff3c6 !important; color:#3b2608; text-shadow:none; }
+#guandan-game-container .gd-action-bar [data-gd-sort] { background:linear-gradient(180deg,#7ad99a 0%,#2fa964 55%,#1e8a4c 100%); border-color:#b6f0c8; color:#fff; }
+#guandan-game-container .gd-action-bar [data-gd-clear] { background:linear-gradient(180deg,#3a4656,#232c38); border-color:#ffffff33; color:#e4e9f0; }
+#guandan-game-container .gd-action-bar button:disabled { opacity:.5; color:#ffffffcc !important; border-color:#ffffff40 !important; filter:saturate(.7); box-shadow:0 3px 0 #0004,inset 0 1px #ffffff33; }
+#guandan-game-container .gd-action-bar .gd-btn-play:disabled { color:#3b2608cc !important; }
+#guandan-game-container .gd-sort-tag { background:#fff3cf; color:#1e6b3e; }
+
+/* Right rail and exit: dark glass, gold accents. */
+#guandan-game-container .gd-header-tools { background:#0a0f16b3; border-color:#ffffff24; box-shadow:0 8px 20px #0008; }
+#guandan-game-container .gd-header-tools button { background:linear-gradient(180deg,#1d2733,#11171f); border-color:#ffffff26; color:#f1ece2; }
+#guandan-game-container .gd-tool-symbol { color:var(--gd-gold); }
+#guandan-game-container .gd-header-tools .gd-exit-btn { background:linear-gradient(180deg,#2a2015,#15100a); border-color:#d9b06a77; color:#f6dfa6; }
+#guandan-game-container .gd-clock-panel { background:#0a0f16d9; border-color:#d9b06a66; color:#ffe2a0; border-radius:999px; }
+
+/* PC: larger fans and plates. */
+@media (min-width:1024px) and (min-height:601px) {
+  #guandan-game-container .gd-seat.top .gd-opp-card-back { width:44px; margin-left:-24px; }
+  #guandan-game-container .gd-seat.left .gd-opp-card-back, #guandan-game-container .gd-seat.right .gd-opp-card-back { width:30px; height:auto; aspect-ratio:222 / 323; margin-left:-17px; }
+  #guandan-game-container .gd-seat.left .gd-opp-hand-wrapper, #guandan-game-container .gd-seat.right .gd-opp-hand-wrapper { margin-top:16px; }
+  #guandan-game-container .gd-player-avatar { width:52px; height:52px; }
+}
+/* Phone landscape: compact fans; side fans return when there is room. */
+@media (max-height:600px) {
+  #guandan-game-container .gd-sys-clock { top:max(10px,env(safe-area-inset-top)); right:calc(max(16px,env(safe-area-inset-right)) + 108px); min-height:30px; font-size:12px; padding:0 9px; }
+}
+@media (max-width:1023px) and (max-height:600px) and (orientation:landscape) {
+  #guandan-game-container .gd-sys-clock { right:calc(max(8px,env(safe-area-inset-right)) + 90px); }
+  #guandan-game-container .gd-seat.top .gd-opp-card-back:nth-child(1) { --fan:-14deg; }
+  #guandan-game-container .gd-seat.top .gd-opp-card-back:nth-child(2) { --fan:-7deg; }
+  #guandan-game-container .gd-seat.top .gd-opp-card-back:nth-child(3) { --fan:0deg; }
+  #guandan-game-container .gd-seat.top .gd-opp-card-back:nth-child(4) { --fan:7deg; }
+  #guandan-game-container .gd-seat.top .gd-opp-card-back:nth-child(5) { --fan:14deg; }
+}
+@media (max-width:1023px) and (min-width:760px) and (min-height:370px) and (max-height:600px) and (orientation:landscape) {
+  #guandan-game-container .gd-seat.left .gd-opp-hand-wrapper, #guandan-game-container .gd-seat.right .gd-opp-hand-wrapper { display:flex; margin-top:4px; padding:4px 0 0; }
+  #guandan-game-container .gd-seat.left .gd-opp-card-back, #guandan-game-container .gd-seat.right .gd-opp-card-back { width:20px; height:auto; aspect-ratio:222 / 323; margin-left:-11px; }
+  #guandan-game-container .gd-seat.left .gd-opp-card-back:nth-child(n+6), #guandan-game-container .gd-seat.right .gd-opp-card-back:nth-child(n+6) { display:none; }
+  #guandan-game-container .gd-seat.left .gd-opp-card-back:nth-child(1), #guandan-game-container .gd-seat.right .gd-opp-card-back:nth-child(1) { --fan:-14deg; }
+  #guandan-game-container .gd-seat.left .gd-opp-card-back:nth-child(2), #guandan-game-container .gd-seat.right .gd-opp-card-back:nth-child(2) { --fan:-7deg; }
+  #guandan-game-container .gd-seat.left .gd-opp-card-back:nth-child(3), #guandan-game-container .gd-seat.right .gd-opp-card-back:nth-child(3) { --fan:0deg; }
+  #guandan-game-container .gd-seat.left .gd-opp-card-back:nth-child(4), #guandan-game-container .gd-seat.right .gd-opp-card-back:nth-child(4) { --fan:7deg; }
+  #guandan-game-container .gd-seat.left .gd-opp-card-back:nth-child(5), #guandan-game-container .gd-seat.right .gd-opp-card-back:nth-child(5) { --fan:14deg; }
+}
+@media (max-width:700px) and (max-height:600px) and (orientation:landscape) {
+  #guandan-game-container .gd-sys-clock { display:none; }
+  #guandan-game-container .gd-seat.top .gd-opp-card-back:nth-child(1) { --fan:-8deg; }
+  #guandan-game-container .gd-seat.top .gd-opp-card-back:nth-child(2) { --fan:0deg; }
+  #guandan-game-container .gd-seat.top .gd-opp-card-back:nth-child(3) { --fan:8deg; }
+}
+@media (max-width:600px) and (orientation:portrait) {
+  #guandan-game-container .gd-sys-clock { display:none; }
+}
+/* Disabled actions keep their reference colours (overrides the legacy slate !important rule), dimmed. */
+#guandan-game-container .gd-action-bar [data-gd-pass]:disabled, #guandan-game-container .gd-action-bar [data-gd-hint]:disabled { background:linear-gradient(180deg,#6aa2ff 0%,#2f6fe0 55%,#1f56c0 100%) !important; }
+#guandan-game-container .gd-action-bar .gd-btn-play:disabled { background:linear-gradient(180deg,#fff0b8 0%,#f5c45a 55%,#d99a2b 100%) !important; }
+#guandan-game-container .gd-action-bar [data-gd-sort]:disabled { background:linear-gradient(180deg,#7ad99a 0%,#2fa964 55%,#1e8a4c 100%) !important; }
+#guandan-game-container .gd-action-bar button:disabled { opacity:.5 !important; cursor:not-allowed; }
+/* PC: info panel sits in the top-left corner over the rim, as in the reference, clear of the west plate. */
+@media (min-width:1024px) and (min-height:601px) {
+  #guandan-game-container .gd-header-info { top:max(16px,env(safe-area-inset-top)); left:max(20px,calc(50% - var(--gd-table-width) / 2 - 20px)); }
+}
+#guandan-game-container .gd-hand-navigation { color:#f2cf7a; }
+#guandan-game-container .gd-hand-navigation button { background:linear-gradient(180deg,#1d2733,#11171f); border-color:#d9b06a66; color:#f6dfa6; box-shadow:0 4px 10px #0008; }
+
+/* Realistic red card backs for opponent fans (new asset; the protected images/cards/back.png is untouched). */
+#guandan-game-container .gd-opp-card-back { background:url('card-back-red.svg') center / 100% 100% no-repeat; background-color:transparent; border:0; border-radius:3px; box-shadow:-2px 2px 4px #0009,0 0 0 .5px #00000040; }
+
+/* Player avatars: portrait inside the ring, initial as fallback. */
+#guandan-game-container .gd-player-avatar { position:relative; overflow:hidden; }
+#guandan-game-container .gd-player-avatar i { font-style:normal; }
+#guandan-game-container .gd-player-avatar.has-img i { display:none; }
+#guandan-game-container .gd-player-avatar img { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; border-radius:50%; pointer-events:none; }
+
+/* Hover lift on PC: the card under the mouse floats up (selected ones a little higher). */
+#guandan-game-container .gd-hand .gd-card.gd-hover { transform:translateY(-14px) !important; box-shadow:-3px 8px 16px #000b,0 0 0 2px #ffffff80 !important; }
+#guandan-game-container .gd-hand .gd-card.sel.gd-hover { transform:translateY(-16px) !important; }
+
+/* Messages in front of each player. */
+#guandan-game-container.gd-local-mode .gd-center-status-bar { display:none; }
+#guandan-game-container .gd-seat-msg { position:absolute; z-index:60; max-width:170px; padding:5px 12px; border-radius:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-size:13px; font-weight:800; letter-spacing:.04em; color:#2b1e08; background:linear-gradient(180deg,#fffaf0,#efe3c8); border:1px solid #fff; box-shadow:0 6px 14px #0009; pointer-events:none; animation:gd-msg-in .18s ease-out; }
+#guandan-game-container .gd-seat-msg[data-kind=turn] { background:linear-gradient(180deg,#ffe9a8,#f2c055); border-color:#fff3c8; color:#3a2606; }
+#guandan-game-container .gd-seat-msg[data-kind=think] { background:#0a0f16d9; border-color:#ffffff40; color:#f1ece2; font-weight:600; }
+#guandan-game-container .gd-seat-msg[data-kind=pass] { background:linear-gradient(180deg,#e6e9ee,#b9c1cc); border-color:#fff; color:#2f3743; }
+#guandan-game-container .gd-seat-msg[data-kind=tip] { background:linear-gradient(180deg,#fff2d6,#ffd28a); border-color:#fff; color:#5a2e00; }
+#guandan-game-container .gd-seat-msg[data-kind=done] { background:linear-gradient(180deg,#fff0b8,#e2a93c); border-color:#fff3c6; color:#3b2608; }
+#guandan-game-container .gd-seat.top .gd-seat-msg { top:calc(100% + 8px); left:0; }
+#guandan-game-container .gd-seat.left .gd-seat-msg { bottom:calc(100% + 6px); left:6px; }
+#guandan-game-container .gd-seat.right .gd-seat-msg { bottom:calc(100% + 6px); right:6px; }
+#guandan-game-container .gd-player-wrap .gd-seat-msg { bottom:calc(100% + 8px); left:4px; max-width:220px; }
+#guandan-game-container .gd-seat-msg::after { content:''; position:absolute; width:10px; height:10px; background:inherit; border:inherit; border-width:0 1px 1px 0; left:18px; bottom:-6px; transform:rotate(45deg); }
+#guandan-game-container .gd-seat.top .gd-seat-msg::after { bottom:auto; top:-6px; border-width:1px 0 0 1px; }
+#guandan-game-container .gd-seat.right .gd-seat-msg::after { left:auto; right:18px; }
+@keyframes gd-msg-in { from { opacity:0; transform:translateY(4px) scale(.96); } to { opacity:1; transform:none; } }
+@media (min-width:1024px) and (min-height:601px) { #guandan-game-container .gd-seat-msg { font-size:14px; padding:6px 14px; } }
+@media (max-height:600px) { #guandan-game-container .gd-seat-msg { font-size:11px; padding:3px 9px; border-radius:11px; max-width:150px; } #guandan-game-container .gd-player-wrap .gd-seat-msg { max-width:180px; } }
+@media (max-width:700px) and (max-height:600px) and (orientation:landscape) { #guandan-game-container .gd-player-wrap .gd-seat-msg { max-width:128px; } }
+@media (max-height:600px) { #guandan-game-container .gd-player-wrap .gd-seat-msg { max-width:128px; white-space:normal; line-height:1.3; } }
+
+/* Countdown anchored to the play control, outside the button's hit target. */
+#guandan-game-container .gd-clock-panel { display:none !important; }
+#guandan-game-container .gd-turn-clock { position:absolute; z-index:61; left:4px; bottom:calc(100% + 8px); display:inline-flex; align-items:center; gap:5px; height:34px; min-width:72px; padding:0 12px 0 8px; border-radius:17px; background:linear-gradient(180deg,#1a2330,#0b1017); border:1px solid #f2cf7a99; color:#ffe7a8; font-size:13px; box-shadow:0 6px 14px #0009,0 0 0 2px #f2cf7a22; pointer-events:none; font-variant-numeric:tabular-nums; }
+#guandan-game-container .gd-turn-clock b { font-size:18px; color:#fff3cf; }
+#guandan-game-container .gd-turn-clock span { width:16px; height:16px; border-radius:50%; border:2px solid #f2cf7a; background:linear-gradient(#f2cf7a,#f2cf7a) 50% 25%/2px 6px no-repeat,linear-gradient(#f2cf7a,#f2cf7a) 68% 52%/5px 2px no-repeat; box-sizing:border-box; }
+#guandan-game-container .gd-play-control { position:relative; display:flex; flex:0 0 auto; align-items:stretch; }
+#guandan-game-container .gd-play-control .gd-turn-clock { left:0; right:0; margin-inline:auto; width:max-content; bottom:calc(100% + 6px); box-sizing:border-box; }
+#guandan-game-container .gd-turn-clock[hidden] { display:none !important; }
+#guandan-game-container .gd-turn-clock[data-urgent] { border-color:#ff7b7b; color:#ffd2d2; box-shadow:0 6px 14px #0009,0 0 0 3px #ff4d4d55; animation:gd-urgent 1s ease-in-out infinite; }
+#guandan-game-container .gd-turn-clock[data-urgent] b { color:#ff9e9e; }
+#guandan-game-container .gd-turn-clock[data-urgent] span { border-color:#ff7b7b; }
+@keyframes gd-urgent { 50% { transform:scale(1.06); } }
+#guandan-game-container .gd-seat-msg[data-kind=ready] { background:linear-gradient(180deg,#e9ffe9,#9fe0b0); border-color:#fff; color:#0f4a26; }
+@media (max-height:600px) {
+  #guandan-game-container .gd-turn-clock { height:26px; min-width:58px; padding:0 9px 0 6px; font-size:11px; border-radius:13px; bottom:calc(100% + 6px); }
+  #guandan-game-container .gd-turn-clock b { font-size:14px; }
+  #guandan-game-container .gd-turn-clock span { width:13px; height:13px; }
+}
+
+/* Bomb burst never blocks card selection or play controls. */
+#guandan-game-container .gd-bomb-effect { position:absolute; z-index:180; top:40%; left:50%; width:240px; height:190px; transform:translate(-50%,-50%); pointer-events:none; }
+#guandan-game-container .gd-bomb-effect[hidden] { display:none; }
+#guandan-game-container .gd-bomb-burst { position:relative; height:100%; display:flex; flex-direction:column; align-items:center; justify-content:center; color:#fff3cd; text-shadow:0 3px 0 #742b07,0 0 12px #ff982b; animation:gd-bomb-pop 1.4s ease-out both; }
+#guandan-game-container .gd-bomb-burst svg { width:86px; height:86px; filter:drop-shadow(0 0 16px #ffb444); transform:rotate(-15deg); }
+#guandan-game-container .gd-bomb-burst strong { font-size:34px; letter-spacing:.12em; }
+#guandan-game-container .gd-bomb-burst small { font-size:12px; font-weight:700; margin-top:5px; }
+#guandan-game-container .gd-bomb-ring { position:absolute; width:100px; height:100px; top:30px; border:5px solid #ffdd83; border-radius:50%; box-shadow:0 0 35px #ff9c29,inset 0 0 25px #ffae45; animation:gd-bomb-ring .8s ease-out both; }
+#guandan-game-container .gd-bomb-sparks { position:absolute; inset:0; background:repeating-conic-gradient(from 8deg,#ffe49b 0 5deg,transparent 5deg 35deg); mask-image:radial-gradient(circle,transparent 0 28%,#000 30% 43%,transparent 63%); animation:gd-bomb-sparks .7s ease-out both; }
+@keyframes gd-bomb-pop { 0% { opacity:0; transform:scale(.4) rotate(-8deg); } 15% { opacity:1; transform:scale(1.1) rotate(3deg); } 28%,72% { opacity:1; transform:scale(1); } 100% { opacity:0; transform:scale(1.08) translateY(-12px); } }
+@keyframes gd-bomb-ring { from { opacity:1; transform:scale(.3); } to { opacity:0; transform:scale(2.3); } }
+@keyframes gd-bomb-sparks { from { opacity:1; transform:scale(.5) rotate(-10deg); } to { opacity:0; transform:scale(1.8) rotate(12deg); } }
+@media (max-height:600px) { #guandan-game-container .gd-bomb-effect { width:180px; height:140px; top:38%; } #guandan-game-container .gd-bomb-burst svg { width:60px; height:60px; } #guandan-game-container .gd-bomb-burst strong { font-size:25px; } #guandan-game-container .gd-bomb-ring { top:10px; } }
+@media (prefers-reduced-motion:reduce) { #guandan-game-container .gd-turn-clock, #guandan-game-container .gd-bomb-burst { animation:none; } #guandan-game-container .gd-bomb-ring, #guandan-game-container .gd-bomb-sparks { display:none; } }
+
+/* Play responsiveness: armed glow on a legal selection, press feedback, no double-tap zoom. */
+#guandan-game-container .gd-action-bar button { touch-action:manipulation; -webkit-user-select:none; user-select:none; }
+#guandan-game-container .gd-action-bar button:enabled:active { transform:translateY(3px) scale(.96) !important; box-shadow:0 2px 0 #00000059,0 3px 8px #0006,inset 0 1px #ffffff40 !important; transition-duration:.05s; }
+#guandan-game-container .gd-action-bar .gd-btn-play.is-ready { box-shadow:0 5px 0 #00000059,0 0 0 3px #fff3c6aa,0 0 22px #ffd36a99,inset 0 1px #ffffff66; animation:gd-ready 1.4s ease-in-out infinite; }
+@keyframes gd-ready { 50% { box-shadow:0 5px 0 #00000059,0 0 0 4px #fff3c6,0 0 30px #ffd36acc,inset 0 1px #ffffff66; } }
