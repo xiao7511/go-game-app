@@ -24,17 +24,18 @@ test('audio settings persist independently of Auth and recover from corrupted pr
   const restored=a.create().getSettings();expect(restored.musicEnabled).toBe(true);expect(restored.musicVolume).toBe(1);expect(restored.effectsVolume).toBe(0);expect(restored.promptVolume).toBe(.42);
   expect(a.values.size).toBe(1);
 });
-test('original Guandan music is available, other scenes do not create music elements',async()=>{
+test('Go and Guandan have independent classical choices; the result scene stops music',async()=>{
   const a=audio();const manager=a.create();manager.setSettings({musicEnabled:true});await manager.unlock();
-  for(const scene of ['lobby','go','result']){await manager.setScene(scene);expect(manager.getStatus().available).toBe(false);expect(manager.getStatus().playing).toBe(false);}
-  expect(a.elements).toHaveLength(0);
+  for(const scene of ['lobby','go']){await manager.setScene(scene);a.advance();expect(manager.getStatus().available).toBe(true);expect(manager.getStatus().playing).toBe(true);}
+  manager.setSettings({goTrack:'nocturne'});a.advance();await manager.setScene('go');a.advance();expect(manager.getStatus().trackId).toBe('nocturne');
+  await manager.setScene('result');a.advance();expect(manager.getStatus().available).toBe(false);expect(manager.getStatus().playing).toBe(false);
   await manager.setScene('guandan');a.advance();expect(manager.getStatus().playing).toBe(true);
   expect(a.elements.at(-1).src).toBe('assets/music/guandan-moonlight.mp3');expect(a.elements.at(-1).loop).toBe(true);
   manager.setSettings({musicEnabled:false});a.advance();expect(a.elements.at(-1).paused).toBe(true);
 });
 test('effects wait for interaction; effect/prompt mute and volume domains are independent',async()=>{
   const a=audio();const manager=a.create(); expect(await manager.playEffect('click')).toBe(false);
-  await manager.unlock();manager.setSettings({effectsVolume:.2,promptVolume:.7});
+  manager.setSettings({musicEnabled:false});await manager.unlock();manager.setSettings({effectsVolume:.2,promptVolume:.7});
   expect(await manager.playEffect('click')).toBe(true);expect(a.elements.at(-1).volume).toBe(.2);
   expect(await manager.playEffect('yourTurn')).toBe(true);expect(a.elements.at(-1).volume).toBe(.7);
   manager.setSettings({effectsEnabled:false});expect(a.elements[0].paused).toBe(true);expect(a.elements[1].paused).toBe(false);

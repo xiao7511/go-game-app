@@ -103,8 +103,9 @@ body.nobi-playing-go[data-go-mode=SINGLE_PLAYER] #room-panel { display:none; }
 .go-result-actions .go-result-primary { grid-column:1 / -1; color:#2b210f; border-color:#ffe2a0; background:linear-gradient(180deg,#ffe9b0,#dcae5c); }
 .go-result-actions [hidden] { display:none; }
 
-body.nobi-embedded .go-actions #surrender-btn, body.nobi-embedded #quit-game-btn, body.nobi-embedded [data-go-count], body.nobi-embedded [data-go-undo] { display:none !important; }
+body.nobi-embedded .go-actions #surrender-btn, body.nobi-embedded #quit-game-btn, body.nobi-embedded [data-go-count] { display:none !important; }
 body.nobi-embedded .go-rail { grid-template-columns:repeat(4,minmax(0,1fr)); }
+@media(max-height:600px) and (orientation:landscape){body.nobi-embedded .go-rail{grid-template-columns:1fr!important}}
 
 @media (max-width:1180px) and (min-height:601px) {
   body.nobi-playing-go .layout { grid-template-columns:clamp(220px,25vw,280px) minmax(0,1fr) 76px; gap:14px; }
@@ -156,7 +157,7 @@ body.nobi-embedded .go-rail { grid-template-columns:repeat(4,minmax(0,1fr)); }
 
 /* Portrait / narrow: players on top, board, then actions and tools. */
 @media (max-width:860px) and (orientation:portrait), (max-width:600px) and (min-height:601px) {
-  html, body.nobi-playing-go { overflow:hidden; }
+  body.nobi-playing-go { overflow:hidden; }
   body.nobi-playing-go .app { height:100dvh; }
   body.nobi-playing-go .layout { display:flex; flex-wrap:wrap; align-content:flex-start; gap:10px; overflow:auto; padding:max(10px,env(safe-area-inset-top)) max(12px,env(safe-area-inset-right)) max(12px,env(safe-area-inset-bottom)) max(12px,env(safe-area-inset-left)); }
   body.nobi-playing-go .sidebar-left, body.nobi-playing-go .sidebar-right { display:contents; }

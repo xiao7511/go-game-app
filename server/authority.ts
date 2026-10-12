@@ -2,7 +2,8 @@ import { randomUUID,randomInt } from 'node:crypto';
 import {competitiveConfig,guandanResult,scoreProposal} from './competitive-rules.ts';
 import {canonicalJson} from './protocol.ts';
 import {GuandanEngine} from './guandan-standard.ts';
-import {RULES_VERSION,initialSeries,ruleConfig} from '../ui/guandan-rules.mjs';
+import {dealCards} from './guandan-cards.ts';
+import {RULES_VERSION,HUAIAN_RULES_VERSION,isVersionedRules,initialSeries,ruleConfig} from '../ui/guandan-rules.mjs';
 import { rules } from './legacy-rules.ts';
 export class GameError extends Error {
  status:number;
@@ -18,12 +19,12 @@ export class Authority {
  persist:(room:any,uid:string,command:Command)=>Promise<void>;
  onChange:(room:any)=>void=()=>{};
  constructor(options:any={}) {this.now=options.now??Date.now;this.record=options.record??(async()=>{});this.persist=options.persist??(async()=>{});}
- create(id:string,kind:Kind,uid:string,competitive:any=null,rulesVersion:string=kind==='guandan'?RULES_VERSION:competitiveConfig.go.rules,series:any=null,configuration:any=null) {
+ create(id:string,kind:Kind,uid:string,competitive:any=null,rulesVersion:string=kind==='guandan'?HUAIAN_RULES_VERSION:competitiveConfig.go.rules,series:any=null,configuration:any=null) {
   if(!['go','guandan'].includes(kind)) fail('invalid game',400);
   if(kind==='go'&&rulesVersion!==competitiveConfig.go.rules)fail('unsupported rules version',400);
-  if(kind==='guandan'&&![RULES_VERSION,'nobi-single-hand-v1','legacy-guandan-v0'].includes(rulesVersion))fail('unsupported rules version',400);
+  if(kind==='guandan'&&![RULES_VERSION,HUAIAN_RULES_VERSION,'nobi-single-hand-v1','legacy-guandan-v0'].includes(rulesVersion))fail('unsupported rules version',400);
   if(this.rooms.size>=100) fail('room capacity reached',429);
-  const room={rulesVersion,initialSeries:kind==='guandan'&&rulesVersion===RULES_VERSION?structuredClone(series??{...initialSeries(),firstLeader:randomInt(4)}):null,rulesConfig:kind==='guandan'&&rulesVersion===RULES_VERSION?ruleConfig(configuration??{}):null,competitive,scoring:null,names:{},avatars:{},journal:[],deal:null,updatedAt:this.now(),lastAction:null,passCount:0,id,kind,owner:uid,seats:[uid],status:'waiting',version:0,turn:0,history:[],cache:new Map(),queue:Promise.resolve(),presence:new Map([[uid,this.now()]]),deadline:0,result:null,pending:null};
+  const room={rulesVersion,initialSeries:kind==='guandan'&&isVersionedRules(rulesVersion)?structuredClone(series??{...initialSeries(),firstLeader:randomInt(4)}):null,rulesConfig:kind==='guandan'&&isVersionedRules(rulesVersion)?ruleConfig({version:rulesVersion,...(configuration??{})}):null,competitive,scoring:null,names:{},avatars:{},journal:[],deal:null,updatedAt:this.now(),lastAction:null,passCount:0,id,kind,owner:uid,seats:[uid],status:'waiting',version:0,turn:0,history:[],cache:new Map(),queue:Promise.resolve(),presence:new Map([[uid,this.now()]]),deadline:0,result:null,pending:null};
   this.rooms.set(id,room);return this.view(room,uid);
  }
  room(id:string,uid:string){const r=this.rooms.get(id);if(!r) fail('room unavailable',404);if(!r.seats.includes(uid)) fail('participant required',403);return r;}
@@ -36,14 +37,14 @@ export class Authority {
  view(r:any,uid:string) {
   const seat=r.seats.indexOf(uid);if(seat<0) fail('participant required',403);
   const state=r.engine?.api.state;
-  const publicState=r.kind==='go'?{board:state?.board??[],blackCaptures:state?.blackCaptures??0,whiteCaptures:state?.whiteCaptures??0,moves:r.history.map((m:any)=>m.move),koPoint:r.engine?.api.getKo()??null,passCount:r.passCount,...(r.competitive?{scoring:r.scoring,rules:competitiveConfig.go}: {})}:{handCounts:state?.players.map((p:any)=>p.hand.length)??[],trick:state?.trick??null,lastPlayedTrick:state?.lastPlayedTrick??null,finishOrder:r.engine?.api.finishOrder()??[],level:r.engine instanceof GuandanEngine?r.engine.series.level:'2',...(r.rulesVersion===RULES_VERSION?{rulesVersion:r.rulesVersion,rulesConfig:r.rulesConfig,series:r.engine?.series??r.initialSeries,phase:r.engine?.state.phase??'waiting',tribute:r.engine?.publicTribute()??null}: {})};
+  const publicState=r.kind==='go'?{board:state?.board??[],blackCaptures:state?.blackCaptures??0,whiteCaptures:state?.whiteCaptures??0,moves:r.history.map((m:any)=>m.move),koPoint:r.engine?.api.getKo()??null,passCount:r.passCount,...(r.competitive?{scoring:r.scoring,rules:competitiveConfig.go}: {})}:{handCounts:state?.players.map((p:any)=>p.hand.length)??[],trick:state?.trick??null,lastPlayedTrick:state?.lastPlayedTrick??null,finishOrder:r.engine?.api.finishOrder()??[],level:r.engine instanceof GuandanEngine?r.engine.series.level:'2',...(isVersionedRules(r.rulesVersion)?{rulesVersion:r.rulesVersion,rulesConfig:r.rulesConfig,series:r.engine?.series??r.initialSeries,phase:r.engine?.state.phase??'waiting',tribute:r.engine?.publicTribute()??null}: {})};
   const protocol={rulesVersion:r.rulesVersion,matchId:r.id,roomId:r.id,gameType:r.kind,version:r.version,currentTurn:r.turn,players:r.seats.map((userId:string,seat:number)=>({userId,seat,nickname:r.names[userId]??("座位 "+(seat+1)),avatar:r.avatars?.[userId]??null})),publicState,privateState:r.kind==='guandan'?{seat,hand:state?.players[seat]?.hand??[],...(r.engine instanceof GuandanEngine?{tributeOptions:r.engine.tributeOptions(seat)}:{})}:{seat},status:r.status,lastAction:r.lastAction,updatedAt:new Date(r.updatedAt).toISOString(),deadline:r.deadline,...(r.competitive?{competitive:r.competitive}:{}),result:r.result?{matchId:r.id,gameType:r.kind,participants:r.seats,result:r.result,finishedAt:new Date(r.updatedAt).toISOString(),resultVersion:r.version,settlementStatus:r.result.ranked?'pending':'disabled'}:null};
   return structuredClone({...protocol,id:r.id,kind:r.kind,seats:r.seats,seat,status:r.status,version:r.version,turn:r.turn,result:r.result,pending:r.pending,trustedResult:protocol.result,
    ...(r.kind==='go'?{board:state?.board??[],blackCaptures:state?.blackCaptures??0,whiteCaptures:state?.whiteCaptures??0,moves:r.history.map((m:any)=>m.move),koPoint:r.engine?.api.getKo()??null}:{hand:state?.players[seat]?.hand??[],handCounts:state?.players.map((p:any)=>p.hand.length)??[],trick:state?.trick??null,finishOrder:r.engine?.api.finishOrder()??[]})});
  }
  continuation(previous:any,id:string){
-  if(previous.kind!=='guandan'||previous.rulesVersion!==RULES_VERSION||previous.status!=='ended'||previous.result?.reason!=='rules-complete'||previous.result.champion!==null)fail('continuation unavailable');
-  this.create(id,'guandan',previous.owner,previous.competitive,RULES_VERSION,previous.result.nextSeries,previous.rulesConfig);
+  if(previous.kind!=='guandan'||!isVersionedRules(previous.rulesVersion)||previous.status!=='ended'||previous.result?.reason!=='rules-complete'||previous.result.champion!==null)fail('continuation unavailable');
+  this.create(id,'guandan',previous.owner,previous.competitive,previous.rulesVersion,previous.result.nextSeries,previous.rulesConfig);
   const next=this.rooms.get(id);for(let i=1;i<4;i++)this.join(id,previous.seats[i],i);next.names=structuredClone(previous.names);next.avatars=structuredClone(previous.avatars??{});return next;
  }
  touch(id:string,uid:string){const r=this.room(id,uid);r.presence.set(uid,this.now());return this.view(r,uid);}
@@ -60,7 +61,11 @@ export class Authority {
   const seat=r.seats.indexOf(uid);
   if(c.type==='start') {
    if(r.status!=='waiting'||uid!==r.owner||r.seats.length!==(r.kind==='go'?2:4)) fail('start denied');
-   r.engine=r.kind==='guandan'&&r.rulesVersion===RULES_VERSION?new GuandanEngine(r.deal??undefined,r.initialSeries,r.rulesConfig):rules(r.kind,!!r.competitive);
+   if(r.kind==='guandan'&&r.rulesVersion===HUAIAN_RULES_VERSION){
+    r.deal??=dealCards();
+    if(!r.initialSeries.previousOrder&&!r.initialSeries.firstCard){const eligible=r.deal.flat().filter((card:any)=>card.kind==='normal'&&!(card.suit==='H'&&card.rank==='2'));const card=eligible[randomInt(eligible.length)];r.initialSeries.firstCard=structuredClone(card);r.initialSeries.firstLeader=r.deal.findIndex((hand:any)=>hand.some((item:any)=>item.id===card.id));}
+   }
+   r.engine=r.kind==='guandan'&&isVersionedRules(r.rulesVersion)?new GuandanEngine(r.deal??undefined,r.initialSeries,r.rulesConfig):rules(r.kind,!!r.competitive);
    if(r.kind==='guandan') {
     const hands=r.deal??(r.engine instanceof GuandanEngine?r.engine.state.players.map((p:any)=>p.hand):r.engine.GD.createNetworkDeal());r.deal=structuredClone(hands);
     if(!(r.engine instanceof GuandanEngine)&&!r.engine.GD.startNetworkGame(hands,r.seats.map((id:string)=>({uid:id,nickname:'Test player'})),0,0,()=>{},false)) fail('deal initialization failed',500);
@@ -130,12 +135,12 @@ export class Authority {
  async finish(r:any,result:any) {
   // Only rules, confirmed resignation, participant departure or server timeout create results.
   const eligible=!!r.competitive&&(r.kind==='guandan'?result.reason==='rules-complete': ['area-score','resignation','turn-timeout'].includes(result.reason)&&r.history.filter((m:any)=>!m.move.pass).length>=competitiveConfig.go.minMoves);
-  const verified={...result,...(r.rulesVersion===RULES_VERSION?{rulesVersion:r.rulesVersion,rulesConfig:r.rulesConfig}:{}),verifiedBy:'nobi-authority-v1',ranked:eligible,...(r.competitive?{seasonId:r.competitive.seasonId,rulesVersion:r.kind==='guandan'&&r.rulesVersion===RULES_VERSION?RULES_VERSION:competitiveConfig.version,eligibility:eligible?'eligible':'excluded-abnormal-or-insufficient-play'}:{})};
+  const verified={...result,...(isVersionedRules(r.rulesVersion)?{rulesVersion:r.rulesVersion,rulesConfig:r.rulesConfig}:{}),verifiedBy:'nobi-authority-v1',ranked:eligible,...(r.competitive?{seasonId:r.competitive.seasonId,rulesVersion:r.kind==='guandan'&&isVersionedRules(r.rulesVersion)?r.rulesVersion:competitiveConfig.version,eligibility:eligible?'eligible':'excluded-abnormal-or-insufficient-play'}:{})};
   try{await this.record(r,verified);}catch{r.status="blocked";fail("result persistence failed; room blocked",503);}
   r.result=verified;r.pending=null;r.scoring=null;r.status='ended';
  }
  currentState(r:any){return {publicState:this.view(r,r.owner).publicState,privateHands:r.kind==='guandan'?(r.engine?.api.state.players.map((p:any)=>p.hand)??null):null,status:r.status,turn:r.turn,pending:r.pending,result:r.result,lastAction:r.lastAction,...(r.competitive?{scoring:r.scoring,competitive:r.competitive}:{})};}
- exportState(r:any){return {rulesVersion:r.rulesVersion,formatVersion:r.rulesVersion===RULES_VERSION?2:1,...(r.rulesVersion===RULES_VERSION?{rulesVersion:r.rulesVersion,rulesConfig:r.rulesConfig,initialSeries:r.initialSeries}:{}),current:this.currentState(r),id:r.id,kind:r.kind,owner:r.owner,seats:r.seats,names:r.names,avatars:r.avatars,...(r.competitive?{competitive:r.competitive}:{}),deal:r.deal,journal:r.journal,deadline:r.deadline,updatedAt:r.updatedAt,version:r.version};}
+ exportState(r:any){return {rulesVersion:r.rulesVersion,formatVersion:isVersionedRules(r.rulesVersion)?2:1,...(isVersionedRules(r.rulesVersion)?{rulesVersion:r.rulesVersion,rulesConfig:r.rulesConfig,initialSeries:r.initialSeries}:{}),current:this.currentState(r),id:r.id,kind:r.kind,owner:r.owner,seats:r.seats,names:r.names,avatars:r.avatars,...(r.competitive?{competitive:r.competitive}:{}),deal:r.deal,journal:r.journal,deadline:r.deadline,updatedAt:r.updatedAt,version:r.version};}
  async restore(data:any) {
   const isolated=new Authority({now:this.now});const room=await isolated.replay(data);this.rooms.set(data.id,room);return room;
  }
@@ -144,7 +149,7 @@ export class Authority {
   const persist=this.persist,record=this.record,change=this.onChange;this.persist=async()=>{};this.record=async()=>{};this.onChange=()=>{};
   try {
    if(data.formatVersion!==1&&data.formatVersion!==2)throw Error('unsupported snapshot format');
-   if(data.formatVersion===2&&data.rulesVersion!==RULES_VERSION)throw Error('unsupported snapshot rules version');
+   if(data.formatVersion===2&&!isVersionedRules(data.rulesVersion))throw Error('unsupported snapshot rules version');
    this.create(data.id,data.kind,data.owner,data.competitive??null,data.rulesVersion??(data.kind==='guandan'?(data.competitive?'nobi-single-hand-v1':'legacy-guandan-v0'):competitiveConfig.go.rules),data.initialSeries,data.rulesConfig);for(let i=1;i<data.seats.length;i++)this.join(data.id,data.seats[i],i);
    const room=this.rooms.get(data.id);room.deal=data.deal;room.names=data.names??{};room.avatars=data.avatars??{};
    for(const event of data.journal??[]){at=event.at;if(event.timeout){await this.sweep();room.lastAction.actionId=event.actionId;room.journal.at(-1).actionId=event.actionId;}else await this.command(data.id,event.uid,event.command);}

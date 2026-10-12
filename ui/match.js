@@ -63,7 +63,7 @@
     if(avatars) {
       const selfName=solo?(window.state?.userNickname||'本地玩家'):(mine==='black'?view.blackName:view.whiteName);
       const otherName=solo?'阿尔法狗 (AI)':(mine==='black'?view.whiteName:view.blackName);
-      for(const [id,src] of [['user-avatar',avatars.self(selfName)],['opponent-avatar',solo?avatars.presets[4].src:avatars.forKey(otherName)]]) {
+      for(const [id,src] of [['user-avatar',solo?avatars.self(selfName):avatars.safe(view.players?.self?.avatar)||avatars.self(selfName)],['opponent-avatar',solo?avatars.presets[4].src:avatars.safe(view.players?.opponent?.avatar)||avatars.forKey(otherName)]]) {
         const img=document.getElementById(id);if(img && img.getAttribute('src')!==src) img.setAttribute('src',src);
       }
     }
@@ -125,12 +125,13 @@
   function showSettings() {
     const body=openPanel('音乐与对局设置');const settings=window.NobiAudio.getSettings();
     body.innerHTML='<p>舒缓古典钢琴；背景音乐、游戏音效与最后 10 秒倒计时提示可独立调整。</p>';
-    const choice=document.createElement('label');choice.className='match-music-choice';choice.textContent='掼蛋背景音乐';
-    const select=document.createElement('select');select.dataset.matchTrack='';select.setAttribute('aria-label','选择掼蛋背景音乐');
-    for(const track of window.NobiAudio.getTracks('guandan')){const option=document.createElement('option');option.value=track.id;option.textContent=track.composer+' · '+track.title;select.appendChild(option);}
-    select.value=settings.guandanTrack;choice.appendChild(select);body.appendChild(choice);
+    const scene=document.body.classList.contains('nobi-playing-go')?'go':'guandan',label=scene==='go'?'围棋':'掼蛋';
+    const choice=document.createElement('label');choice.className='match-music-choice';choice.textContent=label+'背景音乐';
+    const select=document.createElement('select');select.dataset.matchTrack=scene+'Track';select.setAttribute('aria-label','选择'+label+'背景音乐');
+    for(const track of window.NobiAudio.getTracks(scene)){const option=document.createElement('option');option.value=track.id;option.textContent=track.composer+' · '+track.title;select.appendChild(option);}
+    select.value=settings[scene+'Track'];choice.appendChild(select);body.appendChild(choice);
     const credit=document.createElement('p');credit.className='match-music-credit';credit.innerHTML='钢琴录音：Paul Pitman / Donald Betts / <a href="https://musopen.org" target="_blank" rel="noopener noreferrer">Musopen</a>。爆炸录音：<a href="https://freesound.org/people/qubodup/sounds/189778/" target="_blank" rel="noopener noreferrer">qubodup</a>（CC0，节选）。';body.appendChild(credit);
-    const preview=document.createElement('button');preview.type='button';preview.dataset.matchBombPreview='';preview.textContent='试听炸弹音效';body.appendChild(preview);
+    const preview=document.createElement('button');preview.type='button';preview.dataset.matchBombPreview='';preview.textContent='试听炸弹音效';if(scene==='guandan')body.appendChild(preview);
     for(const [domain,label] of [['music','背景音乐'],['effects','游戏音效'],['prompt','回合提示音']]) {
       const group=document.createElement('div');group.className='match-audio-group';
       group.innerHTML=`<label><input type="checkbox" data-match-audio="${domain}Enabled" ${settings[domain+'Enabled']?'checked':''}>${label}</label><label><span class="sr-only">${label}音量</span><input type="range" min="0" max="100" aria-label="${label}音量" data-match-audio="${domain}Volume" value="${Math.round(settings[domain+'Volume']*100)}"><output>${Math.round(settings[domain+'Volume']*100)}%</output></label>`;
@@ -154,7 +155,7 @@
     window.addEventListener('resize',()=>{if(estimateOn) drawEstimate(window.MP?.getViewState?.());});
     document.addEventListener('click',e=>{
       if(e.target.closest('[data-match-settings]')) showSettings();
-      if(e.target.closest('[data-match-chat]')) {const p=document.createElement('p');p.textContent='聊天服务尚未接入，本地不发送或存储消息。';openPanel('对局聊天').appendChild(p);}
+      if(e.target.closest('[data-match-chat]')) window.NobiRoomChat?.open();
       if(e.target.closest('[data-go-record],[data-go-record-result]')) showRecord();
       if(e.target.closest('[data-go-confirm]')) window.MP?.confirmPreview();
       if(e.target.closest('[data-go-cancel]')) window.MP?.cancelPreview();
@@ -169,7 +170,7 @@
       if(e.target.closest('[data-gd-exit],#quit-game-btn')) {closePanel();clock.reset();setEstimate(false);}
     });
     document.addEventListener('input',e=>{
-      if(e.target.matches('[data-match-track]')){window.NobiAudio.setSettings({guandanTrack:e.target.value});return;}
+      if(e.target.matches('[data-match-track]')){window.NobiAudio.setSettings({[e.target.dataset.matchTrack]:e.target.value});return;}
       if(!e.target.matches('[data-match-audio]')) return;
       const key=e.target.dataset.matchAudio;const value=e.target.type==='checkbox'?e.target.checked:Number(e.target.value)/100;
       window.NobiAudio.setSettings({[key]:value});const output=e.target.parentElement.querySelector('output');if(output) output.textContent=Math.round(value*100)+'%';

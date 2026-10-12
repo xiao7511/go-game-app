@@ -1,11 +1,15 @@
 // guandan-standard-v1: project profile, not an official certification.
 export const RULES_VERSION='guandan-standard-v1';
+export const HUAIAN_RULES_VERSION='guandan-huaian-2025-v1';
+export const isVersionedRules=version=>[RULES_VERSION,HUAIAN_RULES_VERSION].includes(version);
 export const RANKS=Object.freeze(['2','3','4','5','6','7','8','9','10','J','Q','K','A']);
-export const DEFAULT_RULES=Object.freeze({version:RULES_VERSION,steelTriples:2,aceLow:true,maxBomb:10,returnMax:10,returnExcludesLevel:true,returnFallback:'lowest',doubleAnti:'team-two-big-jokers',tributeTie:'clockwise',acePassPartnerMaxPlace:3,aceFailureLimit:3,aceFailureReset:'2',turnMs:120000,firstLeader:'secure-random',settlement:'per-hand',ambiguous:'lowest-winning'});
+export const LEGACY_RULES=Object.freeze({version:RULES_VERSION,steelTriples:2,aceLow:true,maxBomb:10,returnMax:10,returnExcludesLevel:true,returnFallback:'lowest',doubleAnti:'team-two-big-jokers',tributeTie:'clockwise',acePassPartnerMaxPlace:3,aceFailureLimit:3,aceFailureReset:'2',turnMs:120000,firstLeader:'secure-random',settlement:'per-hand',ambiguous:'lowest-winning'});
+// Full-series play under DB3208/T 235—2025, effective 2025-05-02.
+export const DEFAULT_RULES=Object.freeze({...LEGACY_RULES,version:HUAIAN_RULES_VERSION,aceFailureLimit:0,aceFailureReset:'A',firstLeader:'revealed-card',ambiguous:'highest-valid'});
 export function ruleConfig(input={}) {
- const config={...DEFAULT_RULES,...input};
- if(config.version!==RULES_VERSION||config.steelTriples!==2||config.maxBomb!==10||config.firstLeader!=='secure-random'||config.settlement!=='per-hand'||config.ambiguous!=='lowest-winning')throw Error('unsupported rules profile');
- if(typeof config.aceLow!=='boolean'||typeof config.returnExcludesLevel!=='boolean'||![2,3].includes(config.aceFailureLimit)||!['team-two-big-jokers','single-holder-two'].includes(config.doubleAnti)||!['clockwise'].includes(config.tributeTie)||config.returnMax!==10||config.returnFallback!=='lowest'||config.aceFailureReset!=='2'||config.acePassPartnerMaxPlace!==3||config.turnMs!==120000)throw Error('unsupported rules configuration');
+ const legacy=input.version===RULES_VERSION,base=legacy?LEGACY_RULES:DEFAULT_RULES,config={...base,...input};
+ if(!isVersionedRules(config.version)||config.steelTriples!==2||config.maxBomb!==10||config.firstLeader!==base.firstLeader||config.settlement!=='per-hand'||config.ambiguous!==base.ambiguous)throw Error('unsupported rules profile');
+ if(typeof config.aceLow!=='boolean'||typeof config.returnExcludesLevel!=='boolean'||!(legacy?[2,3]:[0]).includes(config.aceFailureLimit)||!(legacy?['team-two-big-jokers','single-holder-two']:['team-two-big-jokers']).includes(config.doubleAnti)||config.tributeTie!=='clockwise'||config.returnMax!==10||config.returnFallback!=='lowest'||config.aceFailureReset!==base.aceFailureReset||config.acePassPartnerMaxPlace!==3||config.turnMs!==120000||(!legacy&&(!config.aceLow||!config.returnExcludesLevel)))throw Error('unsupported rules configuration');
  return Object.freeze(config);
 }
 export const isWild=(c,level)=>c.kind==='normal'&&c.suit==='H'&&c.rank===level;
@@ -46,6 +50,7 @@ export function beats(next,previous){if(!next)return false;if(!previous)return t
 export function classify(cards,level='2',config=DEFAULT_RULES,previous=null,declaration=null){
  const all=combinations(cards,level,config);
  let choices=all.filter(c=>beats(c,previous)&&!(c.kind==='straight'&&all.some(x=>x.kind==='straightFlush'&&x.weight===c.weight)));
+ if(config.version===HUAIAN_RULES_VERSION){choices.sort((a,b)=>power(b)-power(a)||(!previous?(b.kind==='steel')-(a.kind==='steel'):0)||b.weight-a.weight);if(choices.length)choices=[choices[0]];}
  // A declared interpretation is a claim, never authority.
  if(declaration){if(typeof declaration!=='object'||Array.isArray(declaration)||typeof declaration.kind!=='string'||!Number.isFinite(declaration.weight))return null;choices=choices.filter(c=>c.kind===declaration.kind&&c.weight===declaration.weight);}
  return choices[0]??null;
@@ -56,10 +61,10 @@ export function upgradeSeries(series,order,config=DEFAULT_RULES){
  const level=series.teamLevels[winner];let champion=null;
  if(series.level==='A'){
   const activeTeam=series.activeTeam;
-  if(winner===activeTeam&&place<=config.acePassPartnerMaxPlace){champion=winner;next.champion=winner;}else{next.aceFailures[activeTeam]++;if(next.aceFailures[activeTeam]>=config.aceFailureLimit){next.teamLevels[activeTeam]=config.aceFailureReset;next.aceFailures[activeTeam]=0;}}
+  if(winner===activeTeam&&place<=config.acePassPartnerMaxPlace){champion=winner;next.champion=winner;}else if(config.version===RULES_VERSION){next.aceFailures[activeTeam]++;if(next.aceFailures[activeTeam]>=config.aceFailureLimit){next.teamLevels[activeTeam]=config.aceFailureReset;next.aceFailures[activeTeam]=0;}}
  }
  if(champion===null&&level!=='A')next.teamLevels[winner]=RANKS[Math.min(12,RANKS.indexOf(level)+upgrade)];
  next.activeTeam=winner;next.level=next.teamLevels[winner];next.previousOrder=order.slice();next.round=series.round+1;
- return {winner,finishOrder:order.slice(),placements:order.map((seat,i)=>({seat,place:i+1,team:seat%2})),upgrade,level:series.level,nextLevel:next.level,nextSeries:next,champion,rules:RULES_VERSION};
+ return {winner,finishOrder:order.slice(),placements:order.map((seat,i)=>({seat,place:i+1,team:seat%2})),upgrade,level:series.level,nextLevel:next.level,nextSeries:next,champion,rules:config.version};
 }
 export const initialSeries=()=>({firstLeader:0,round:1,teamLevels:['2','2'],level:'2',activeTeam:0,aceFailures:[0,0],previousOrder:null,champion:null});

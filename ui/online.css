@@ -26,3 +26,21 @@ body[data-room-phase=waiting] #game-frame,body[data-room-phase=waiting] #resign,
  body[data-room-phase=playing].room-controls-open #session>.operations{display:flex;position:fixed;left:8px;right:8px;top:110px;z-index:40;padding:8px;background:#10263ef7;border-radius:10px}
 }
  .room-directory{margin:24px 0;padding:18px;border:1px solid #36557d;border-radius:16px;background:#0e2039}.directory-heading,.directory-pages{display:flex;align-items:center;justify-content:space-between;gap:12px}.directory-heading h2{margin:0;font-size:20px}#room-list{padding:0;list-style:none;display:grid;gap:10px}#room-list li{display:flex;justify-content:space-between;align-items:center;gap:12px;background:#162e4e;border-radius:12px;padding:14px}#room-list li div{display:grid;gap:6px;min-width:0}#room-list li strong{overflow-wrap:anywhere}#room-list li small,#room-list-status{color:#bdcde3}#room-list li button{flex-shrink:0}.directory-pages button:disabled{opacity:.4}
+
+/* The same board layout as solo play, without a second room shell. */
+body[data-room-phase=playing],body[data-room-phase=ended]{height:100dvh;overflow:hidden}
+body:is([data-room-phase=playing],[data-room-phase=ended]) main{padding:0}
+body:is([data-room-phase=playing],[data-room-phase=ended]) #game-frame{position:fixed;inset:0;width:100%;height:100dvh;min-height:0;margin:0;border-radius:0;z-index:10}
+body:is([data-room-phase=playing],[data-room-phase=ended]) header,body:is([data-room-phase=playing],[data-room-phase=ended]) .room-bar,body:is([data-room-phase=playing],[data-room-phase=ended]) #session>.operations,body:is([data-room-phase=playing],[data-room-phase=ended]) #session>a,body:is([data-room-phase=playing],[data-room-phase=ended]) #session>#result,body:is([data-room-phase=playing],[data-room-phase=ended]) #settled-result{display:none}
+body:is([data-room-phase=playing],[data-room-phase=ended]) #room-controls-toggle{display:block;position:fixed;right:max(8px,env(safe-area-inset-right));top:max(8px,env(safe-area-inset-top));min-height:36px;z-index:30;background:#10263ef2;font-size:12px}
+body:is([data-room-phase=playing],[data-room-phase=ended]).room-controls-open #session>.operations{display:flex;position:fixed;left:8px;right:8px;top:56px;z-index:40;padding:16px;background:#10263ef7;border:1px solid #36557d;border-radius:14px;box-shadow:0 20px 60px #0009}
+body:is([data-room-phase=playing],[data-room-phase=ended]).room-controls-open #session>.room-bar{display:none!important}
+body:is([data-room-phase=playing],[data-room-phase=ended]) #notice:not(:empty){position:fixed;left:15%;right:15%;top:8px;z-index:45;background:#10263ef2;padding:8px;text-align:center;border-radius:8px}
+body:is([data-room-phase=playing],[data-room-phase=ended]).room-controls-open #result{display:block!important;position:fixed;left:8px;right:8px;top:190px;z-index:40;background:#10263ef7;padding:12px;border-radius:12px}
+#scoring:not([hidden]){position:fixed;inset:12%;z-index:50;overflow:auto;box-shadow:0 0 0 100vmax #0009}
+#room-roster li{display:grid;justify-items:center;text-align:center;gap:12px}#room-roster img{width:72px;height:72px;border:2px solid #4d84bd;border-radius:50%}#room-roster small{color:#a5bed8}
+body[data-room-phase=waiting] .room-bar{justify-content:center;padding:16px}body[data-room-phase=waiting] #players{font-size:18px}body[data-room-phase=waiting] #clock{display:none}
+#setup{max-width:760px;background:linear-gradient(140deg,#142e4b,#0a1b30);box-shadow:0 20px 80px #0004}#setup h1{font-size:28px;margin-top:0}#environment{color:#a8bed9}#create{background:linear-gradient(135deg,#2964d6,#1b88b6);font-weight:700}#room-list li:hover{background:#203f64}.room-directory{margin:12px 0 0}
+body[data-game-type=go]:is([data-room-phase=playing],[data-room-phase=ended]) #room-controls-toggle{top:auto;right:auto;left:178px;bottom:max(18px,env(safe-area-inset-bottom));min-height:44px}
+@media(max-height:550px) and (orientation:landscape){body[data-game-type=go]:is([data-room-phase=playing],[data-room-phase=ended]) #room-controls-toggle{left:126px;bottom:max(8px,env(safe-area-inset-bottom));min-height:44px}}
+@media(orientation:portrait){body[data-game-type=go]:is([data-room-phase=playing],[data-room-phase=ended]) #room-controls-toggle{left:12px;bottom:max(18px,env(safe-area-inset-bottom))}}

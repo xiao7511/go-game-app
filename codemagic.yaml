@@ -1,4 +1,5 @@
-# Manual workflows. Public Auth is fetched from the deployed site's verified config endpoint.
+# The release workflow follows production main pushes; simulator checks remain manual.
+# Public Auth is fetched from the deployed site's verified config endpoint.
 workflows:
   ios-simulator:
     name: Nobi iOS simulator verification
@@ -22,16 +23,27 @@ workflows:
     artifacts:
       - build/ios-simulator/Build/Products/Debug-iphonesimulator/*.app
       - /tmp/xcodebuild_logs/*.log
-  ios-testflight:
+  # A fresh workflow counter starts the first upload at BUILD_NUMBER=1.
+  # Keep this ID stable after the first release; failed builds also consume numbers.
+  ios-testflight-release:
     name: Nobi signed IPA and TestFlight
     instance_type: mac_mini_m2
     max_build_duration: 60
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: main
+          include: true
+          source: true
+      cancel_previous_builds: false
     integrations:
       app_store_connect: nobi-apple
     environment:
       vars:
         NOBI_ONLINE_URL: https://api.nobistudio.com/nobi-online
         APP_STORE_APPLE_ID: "6821625687"
+        NOBI_IOS_MARKETING_VERSION: "1.0"
       node: 24
       xcode: 26.6
       cocoapods: default
@@ -47,11 +59,14 @@ workflows:
         script: |
           set -euo pipefail
           xcode-project build-ipa --workspace ios/App/App.xcworkspace --scheme App
+          node scripts/verify-ios-release.mjs ipa
     artifacts:
       - build/ios/ipa/*.ipa
       - /tmp/xcodebuild_logs/*.log
     publishing:
       app_store_connect:
         auth: integration
-        submit_to_testflight: true
+        # Uploaded/processed builds are distributed through the internal TestFlight
+        # group in App Store Connect. External beta review needs separate contact data.
+        submit_to_testflight: false
         submit_to_app_store: false

@@ -588,11 +588,11 @@
     for (let d = 0; d < 2; d++) {
       for (const suit of GD_SUITS) {
         for (const rank of RANKS) {
-          deck.push({ id: uid(), kind: 'normal', rank, suit: suit.key, symbol: suit.symbol, color: suit.color });
+          deck.push({ id: uid(), deck:d, kind: 'normal', rank, value:RANKS.indexOf(rank)+2,suit: suit.key, symbol: suit.symbol, color: suit.color });
         }
       }
-      deck.push({ id: uid(), kind: 'joker', label: '小王', rank: '小王', suit: 'J', symbol: '🃏', color: 'red', value: 16 });
-      deck.push({ id: uid(), kind: 'joker', label: '大王', rank: '大王', suit: 'J', symbol: '🃏', color: 'black', value: 17 });
+      deck.push({ id: uid(), deck:d, kind: 'joker', label: '小王', rank: 'BJ', suit: 'J', symbol: '🃏', color: 'red', value: 16 });
+      deck.push({ id: uid(), deck:d, kind: 'joker', label: '大王', rank: 'RJ', suit: 'J', symbol: '🃏', color: 'black', value: 17 });
     }
     for (let i = deck.length - 1; i > 0; i--) {
       const j = (Math.random() * (i + 1)) | 0;
@@ -623,7 +623,7 @@
         if (state.gameMode === 'NET_BATTLE') return;
         if (state.trick) passTurn(0); else {
           const me = state.players[0];
-          if (me?.hand.length) playCards(0, [sortCards(me.hand)[0]]);
+          if(state.soloEngine)soloCommand(state.soloEngine.state.phase==='tribute'?'tribute':'play',state.soloEngine.state.phase==='tribute'?{cardId:state.soloEngine.tributeOptions(0)[0]}:{cardIds:[sortCards(me.hand)[0].id]});else if (me?.hand.length) playCards(0, [sortCards(me.hand)[0]]);
         }
       }
     };
@@ -634,7 +634,7 @@
   function paintTurnClock() {
     const node = state.root?.querySelector('[data-gd-turn-clock]');
     if (!node) return;
-    node.hidden = !state.active || state.currentTurn !== 0 || !!(state.standardMode && state.authorityPublic?.phase !== 'play');
+    node.hidden = !state.active || state.currentTurn !== 0 || !!(state.standardMode && state.authorityPublic?.phase !== 'playing');
     node.querySelector('b').textContent = String(state.countdown);
     node.toggleAttribute('data-urgent', state.countdown <= 10);
   }
@@ -659,6 +659,27 @@
 
   function startNewRound() {
     if (state.gameMode === 'NET_BATTLE') return;
+    startHuaianSolo();return;
+  }
+
+  async function startHuaianSolo(){
+    const root=state.root,loading=state.soloLoad=(state.soloLoad||0)+1;state.active=false;
+    try{
+      const [rules,{GuandanEngine}]=await Promise.all([import('./ui/guandan-rules.mjs'),import('./ui/guandan-engine.mjs')]);if(state.root!==root||!root||state.soloLoad!==loading)return;
+      const hands=createNetworkDeal(),series=state.soloNextSeries??rules.initialSeries();
+      if(!series.previousOrder){const eligible=hands.flat().filter(c=>c.kind==='normal'&&!(c.suit==='H'&&c.rank==='2')),card=eligible[Math.floor(Math.random()*eligible.length)];series.firstCard=card;series.firstLeader=hands.findIndex(h=>h.some(c=>c.id===card.id));}
+      state.standardRules=rules;state.soloEngine=new GuandanEngine(hands,series);state.soloVersion=0;state.soloRoom='solo-'+uid();state.soloDeadline=Date.now()+rules.DEFAULT_RULES.turnMs;state.soloResultShown=false;state.selected.clear();state.playedCards.clear();root.querySelector('[data-gd-result]')?.remove();window.NobiAudio?.setScene('guandan');renderSoloSnapshot();
+    }catch{if(state.root===root)showToast('规则载入失败，请返回大厅重试');}
+  }
+  function renderSoloSnapshot(){
+    const e=state.soloEngine,s=e.state,series=e.series;
+    applyAuthoritySnapshot({roomId:state.soloRoom,version:state.soloVersion,rulesVersion:state.standardRules.HUAIAN_RULES_VERSION,players:SEATS.map((seat,i)=>({seat:i,nickname:i===0?getUserNickname():seat.name,avatar:i===0?window.NobiAvatars?.self(getUserNickname()):window.NobiAvatars?.presets[i+1]?.src})),privateState:{seat:0,hand:sortCards(s.players[0].hand),tributeOptions:e.tributeOptions(0)},publicState:{handCounts:s.players.map(p=>p.hand.length),trick:s.trick,lastPlayedTrick:s.lastPlayedTrick,finishOrder:e.order,level:series.level,series,rulesConfig:e.config,phase:s.phase,tribute:e.publicTribute()},currentTurn:s.currentTurn,status:s.active?'playing':'ended',deadline:state.soloDeadline},soloCommand,true);
+    state.gameMode='SINGLE_PLAYER';state.aiDelay=performance.now()+700;state.roundNumber=series.round;state.teamLevels=series.teamLevels.map(rank=>RANKS.indexOf(rank));
+    if(!s.active&&!state.soloResultShown){state.soloResultShown=true;const result=e.result();state.soloNextSeries=result.champion===null?result.nextSeries:null;state.teamLevels=result.nextSeries.teamLevels.map(rank=>RANKS.indexOf(rank));window.NobiAudio?.setScene('result');showRoundResult({winTeam:result.winner,levelGained:result.upgrade,before:RANKS.indexOf(series.teamLevels[result.winner]),order:result.finishOrder});if(result.champion!==null){state.root.querySelector('#gd-result-title').textContent=(result.champion===0?'我方':'对方')+'打过 A · 全场获胜';state.root.querySelector('[data-gd-next-round]').textContent='重新开始';}}
+  }
+  function soloCommand(type,payload={},seat=0){const e=state.soloEngine;if(!e?.state.active)return;const ok=type==='play'?e.play(seat,payload.cardIds,payload.combination):type==='pass'?e.pass(seat):['tribute','return-tribute'].includes(type)?e.tribute(seat,payload.cardId):false;if(!ok){if(seat===0)showToast('操作不符合当前规则，请重新选择');return;}state.soloVersion++;state.soloDeadline=Date.now()+e.config.turnMs;renderSoloSnapshot();}
+
+  function startLegacyRound() {
     window.NobiAudio?.setScene('guandan');
     const deck = makeDeck(); 
     finishOrder = [];
@@ -1191,6 +1212,7 @@
   }
 
   function triggerAIMove() {
+    if(state.soloEngine){const e=state.soloEngine,s=e.state,seat=s.currentTurn;if(!s.active||seat===0||state.busy||performance.now()<state.aiDelay)return;state.busy=true;try{if(s.phase==='tribute')soloCommand(s.tribute.phase==='give'?'tribute':'return-tribute',{cardId:e.tributeOptions(seat)[0]},seat);else{const hand=sortCards(s.players[seat].hand),candidates=[bestOpening(hand),chooseFollowMove(hand,s.trick),...hand.map(c=>[c])];for(const group of groupsByValue(hand).values())for(let n=2;n<=Math.min(group.length,10);n++)candidates.push(group.slice(0,n));const cards=candidates.find(cards=>cards?.length&&state.standardRules.classify(cards,e.series.level,e.config,s.trick));soloCommand(cards?'play':'pass',cards?{cardIds:cards.map(c=>c.id)}:{},seat);}}finally{state.busy=false;}return;}
     if (!state.active || state.busy || state.currentTurn === 0) return;
     if (state.gameMode === 'NET_BATTLE' && (!state.network?.isHost || !state.players[state.currentTurn]?.isBot)) return;
     if (performance.now() < state.aiDelay) return;
@@ -1321,6 +1343,7 @@
       const a=nodes.findIndex(n=>n.dataset.cardId===gesture.start),b=nodes.findIndex(n=>n.dataset.cardId===end);
       if(a<0 || b<0) return;
       state.selected=new Set(gesture.before);
+      state.combination=null;
       for(let i=Math.min(a,b);i<=Math.max(a,b);i++) {
         if(gesture.select) state.selected.add(nodes[i].dataset.cardId); else state.selected.delete(nodes[i].dataset.cardId);
       }
@@ -1336,8 +1359,8 @@
     on(hand,'pointerdown',e=>{
       const node=e.target.closest('[data-card-id]');
       if(!node || !canSelect() || gesture || !e.isPrimary || e.button!==0) return;
-      e.preventDefault(); hand.setPointerCapture(e.pointerId);
-      gesture={pointerId:e.pointerId,start:node.dataset.cardId,before:new Set(state.selected),select:!state.selected.has(node.dataset.cardId)};
+      e.preventDefault();try{hand.setPointerCapture(e.pointerId);}catch{}
+      gesture={pointerId:e.pointerId,start:node.dataset.cardId,x:e.clientX,y:e.clientY,dragged:false,before:new Set(state.selected),select:!state.selected.has(node.dataset.cardId)};
       if(e.pointerType!=='mouse') setHover(node.dataset.cardId);
       applyRange(gesture.start);
     });
@@ -1353,6 +1376,8 @@
     on(hand,'pointermove',e=>{
       if(!gesture || gesture.pointerId!==e.pointerId) return;
       if(!canSelect()) { gesture=null; renderTable(); return; }
+      if(!gesture.dragged&&Math.abs(e.clientX-gesture.x)<8)return;
+      gesture.dragged=true;
       const node=document.elementFromPoint(e.clientX,e.clientY)?.closest('[data-card-id]');
       if(node && hand.contains(node)) { applyRange(node.dataset.cardId); if(e.pointerType!=='mouse') setHover(node.dataset.cardId); }
     });
@@ -1360,9 +1385,9 @@
       if(!gesture || gesture.pointerId!==e.pointerId) return;
       if(cancel) state.selected=gesture.before;
       gesture=null;
-      if(e.pointerType!=='mouse') state.hoverCardId=null;
+      setHover(null);
       if(hand.hasPointerCapture(e.pointerId)) hand.releasePointerCapture(e.pointerId);
-      playGDSound('click'); renderTable();
+      playGDSound('click');paint();refreshSelectionUI();renderStandardStatus();
     };
     on(hand,'pointerup',e=>finish(e,false));
     on(hand,'pointercancel',e=>finish(e,true));
@@ -1428,7 +1453,7 @@
     clearTimeout(state.bombTimer); state.bombKey = null; state.clockKey = null; state.turnDeadline = null;
     state.active = false; offAll();
     if (state.gameMode === 'NET_BATTLE') window.GD_MP?.stopNetMatch?.();
-    state.authoritativeSend=null;state.network = null; state.gameMode = 'SINGLE_PLAYER';
+    state.authoritativeSend=null;state.soloEngine=null;state.soloNextSeries=null;state.network = null; state.gameMode = 'SINGLE_PLAYER';
     if (state.root) state.root.remove();
     state.root = null;
     if (state.styleNode) state.styleNode.remove();
@@ -1448,7 +1473,7 @@
   // ===== 进入单机模式对局核心控制 =====
   function initGameMatch(mode) {
     clearTimeout(state.bombTimer); state.bombKey = null; state.clockKey = null; state.turnDeadline = null;
-    if(mode!=='NET_BATTLE')state.authoritativeSend=null;
+    if(mode!=='NET_BATTLE'){state.authoritativeSend=null;state.soloEngine=null;state.soloNextSeries=null;}
     if (mode) state.gameMode = mode === 'NET_BATTLE' ? mode : 'SINGLE_PLAYER';
     if (state.selectedGame !== 'guandan') {
       alert(`温馨提示：当前仅支持“江苏掼蛋”对局，其他游戏开发中，敬请期待！`);
@@ -1674,7 +1699,7 @@
     const mySeat=snapshot.privateState.seat, pub=snapshot.publicState;
     const localSeat=remote=>(remote-mySeat+4)%4;
     state.authoritativeSend=send;state.gameMode='NET_BATTLE';state.network={mySeat,isHost:false,send:()=>{},sequence:snapshot.version};
-    state.standardMode=snapshot.rulesVersion==='guandan-standard-v1';state.authorityPublic=pub;state.ranked=!!snapshot.competitive;state.tributeOptions=snapshot.privateState.tributeOptions??[];
+    state.standardMode=['guandan-standard-v1','guandan-huaian-2025-v1'].includes(snapshot.rulesVersion);state.authorityPublic=pub;state.ranked=!!snapshot.competitive;state.tributeOptions=snapshot.privateState.tributeOptions??[];
     if(state.standardMode&&!state.standardRules&&!state.rulesLoading){state.rulesLoading=true;import('./ui/guandan-rules.mjs').then(rules=>{state.standardRules=rules;renderTable();}).catch(()=>showToast('规则模块无法载入，请刷新'));}
     state.currentRankIndex=Math.max(0,RANKS.indexOf(pub.level??'2'));state.currentTurn=localSeat(snapshot.currentTurn);
     state.players=SEATS.map((base,local)=>{const remote=(local+mySeat)%4;return {...base,name:snapshot.players[remote]?.nickname??'等待加入',userId:snapshot.players[remote]?.userId,avatar:window.NobiAvatars?.safe(snapshot.players[remote]?.avatar),isBot:false,hand:local===0?snapshot.privateState.hand:{length:pub.handCounts?.[remote]??0},rankOutOrder:pub.finishOrder?.includes(remote)?pub.finishOrder.indexOf(remote)+1:null};});

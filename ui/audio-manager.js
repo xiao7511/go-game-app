@@ -1,12 +1,12 @@
 (() => {
   'use strict';
   const KEY='nobi.audio.v1';
-  const defaults=Object.freeze({musicEnabled:true,musicVolume:.35,effectsEnabled:true,effectsVolume:.8,promptEnabled:true,promptVolume:.7,guandanTrack:'moonlight'});
+  const defaults=Object.freeze({musicEnabled:true,musicVolume:.35,effectsEnabled:true,effectsVolume:.8,promptEnabled:true,promptVolume:.7,guandanTrack:'moonlight',goTrack:'dreaming'});
   function normalize(input={}) {
     const output={...defaults};
     for(const key of Object.keys(defaults)) {
       if(typeof defaults[key]==='boolean') { if(typeof input[key]==='boolean') output[key]=input[key]; }
-      else if(key==='guandanTrack') { if(['moonlight','nocturne','dreaming'].includes(input[key])) output[key]=input[key]; }
+      else if(key.endsWith('Track')) { if(['moonlight','nocturne','dreaming'].includes(input[key])) output[key]=input[key]; }
       else if(typeof input[key]==='number' && Number.isFinite(input[key])) output[key]=Math.max(0,Math.min(1,input[key]));
     }
     return output;
@@ -34,7 +34,7 @@
     let scene='lobby', unlocked=false, suspended=false, blocked=null, epoch=0, interruptions=0, current=null;
     const active=new Set(), fades=new Map(), listeners=new Set();
     const getTracks=next=>Object.freeze([...(manifest.tracks?.[next] || [])]);
-    const selectedTrack=()=>scene==='guandan'?(getTracks(scene).find(track=>track.id===settings.guandanTrack) || manifest.scenes[scene]):manifest.scenes[scene];
+    const selectedTrack=()=>['go','guandan'].includes(scene)?(getTracks(scene).find(track=>track.id===settings[scene+'Track']) || manifest.scenes[scene]):manifest.scenes[scene];
     const status=()=>Object.freeze({scene,unlocked,suspended,blocked,available:!!selectedTrack(),trackId:selectedTrack()?.id || null,playing:!!current && !current.paused});
     const emit=()=>listeners.forEach(fn=>fn(status()));
     function stopFade(audio) { if(fades.has(audio)) { cancel(fades.get(audio)); fades.delete(audio); } }
@@ -113,4 +113,5 @@
   document.addEventListener('visibilitychange',()=>document.hidden?window.NobiAudio.suspend():window.NobiAudio.resume());
   window.addEventListener('pagehide',()=>window.NobiAudio.suspend());
   window.addEventListener('pageshow',()=>window.NobiAudio.resume());
+  window.addEventListener('storage',event=>{if(event.key===KEY){try{window.NobiAudio.setSettings(JSON.parse(event.newValue||'{}'));}catch{}}});
 })();

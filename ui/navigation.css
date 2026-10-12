@@ -1,0 +1,9 @@
+/* Scope viewport locking to matches, leaving all lobby/account pages scrollable. */
+html:not(.nobi-viewport-match) { height:auto; min-height:100%; overflow-x:hidden; overflow-y:auto; }
+html:not(.nobi-viewport-match) body { height:auto; min-height:100dvh; overflow:visible; }
+html.nobi-viewport-match { height:100%; overflow:hidden; }
+.nobi-playing-go .layout, .nobi-playing-go .sidebar, .chat-messages, dialog {
+  -webkit-overflow-scrolling:touch;
+  overscroll-behavior-y:contain;
+}
+html:not(.nobi-viewport-match) { -webkit-overflow-scrolling:touch; }

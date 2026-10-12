@@ -9,6 +9,7 @@ import android.view.WindowManager;
 import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsCompat;
 import androidx.core.view.WindowInsetsControllerCompat;
+import androidx.activity.OnBackPressedCallback;
 
 public class MainActivity extends BridgeActivity {
     private void immersive() {
@@ -31,6 +32,16 @@ public class MainActivity extends BridgeActivity {
             getWindow().setAttributes(attributes);
         }
         immersive();
+        // Use the same guarded navigation as the touch gesture, including room exit
+        // confirmation. At the home screen, background the app rather than exit it.
+        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+            @Override public void handleOnBackPressed() {
+                getBridge().getWebView().evaluateJavascript(
+                    "Boolean(window.NobiNavigation && window.NobiNavigation.back())",
+                    handled -> { if (!"true".equals(handled)) moveTaskToBack(true); }
+                );
+            }
+        });
     }
 
     @Override public void onResume() { super.onResume(); immersive(); }

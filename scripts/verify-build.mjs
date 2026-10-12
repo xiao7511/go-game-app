@@ -9,7 +9,7 @@ export function verifyBuild(target='web',base=path.join(root,'dist',target)) {
     const source=fs.readFileSync(path.join(base,entry.path),'utf8');
     if(sha256(extractRegion(source,entry.region))!==entry.baseline_sha256) throw new Error('Changed compiled Go rendering: '+entry.region);
   }
-  for(const name of ['ui/avatars.js',...Array.from({length:8},(_,id)=>`ui/avatar-presets/${id}.svg`),'ui/guandan-rules.mjs','ui/audio-manifest.js','ui/audio-manager.js','ui/rankings.js','ui/match.js','ui/match.css','ui/online.js','ui/online.css','ui/request-timeout.js']) {
+  for(const name of ['ui/navigation.js','ui/navigation.css','ui/go-match.css','ui/avatars.js',...Array.from({length:8},(_,id)=>`ui/avatar-presets/${id}.svg`),'ui/guandan-rules.mjs','ui/guandan-engine.mjs','ui/guandan-deal.mjs','ui/account-info.js','ui/room-chat.js','ui/room-chat.css','ui/audio-manifest.js','ui/audio-manager.js','ui/rankings.js','ui/match.js','ui/match.css','ui/online.js','ui/online.css','ui/request-timeout.js']) {
     if(sha256(fs.readFileSync(path.join(base,name)))!==sha256(fs.readFileSync(path.join(root,name)))) throw new Error('Stale UI module: '+name);
   }
   for(const name of ['index.html','login.html','register.html','game.html','online.html','online-config.js','game.js','multiplayer-ext.js','guandan-game.js','guandan-mp-ext.js','config.js','supabaseClient.js','config.local.js','platform.js','vendor/supabase.js','ui/registry.js','ui/lobby.js','ui/lobby.css','ui/tokens.css','ui/auth.css','ui/brand.svg']) {
