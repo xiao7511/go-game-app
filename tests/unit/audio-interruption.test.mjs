@@ -4,7 +4,7 @@ test('an effect resolving after background/resume cannot revive an untracked sou
   let complete,paused=true;
   const c=sandbox();load('ui/audio-manifest.js',c);load('ui/audio-manager.js',c);
   const manager=c.NobiAudioFactory.create({makeAudio:()=>({volume:1,play:()=>new Promise(resolve=>{complete=()=>{paused=false;resolve();};}),pause(){paused=true;}})});
-  await manager.unlock();const pending=manager.playEffect('click');manager.suspend();await manager.resume();complete();
+  manager.setSettings({musicEnabled:false});await manager.unlock();const pending=manager.playEffect('click');manager.suspend();await manager.resume();complete();
   expect(await pending).toBe(false);expect(paused).toBe(true);
 });
 

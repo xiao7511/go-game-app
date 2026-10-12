@@ -1,20 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="围棋 Pro">
-  <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#1b2633"/>
-      <stop offset="100%" stop-color="#0f1720"/>
-    </linearGradient>
-    <radialGradient id="stone" cx="32%" cy="28%" r="70%">
-      <stop offset="0%" stop-color="#ffffff"/>
-      <stop offset="55%" stop-color="#e8edf3"/>
-      <stop offset="100%" stop-color="#aeb6c1"/>
-    </radialGradient>
-  </defs>
-  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
-  <g opacity="0.18" stroke="#f6c453" stroke-width="10" fill="none">
-    <path d="M120 140h272M120 198h272M120 256h272M120 314h272M120 372h272M140 120v272M198 120v272M256 120v272M314 120v272M372 120v272"/>
-  </g>
-  <circle cx="182" cy="190" r="38" fill="#111"/>
-  <circle cx="330" cy="322" r="38" fill="url(#stone)"/>
-  <circle cx="256" cy="256" r="118" fill="none" stroke="#f6c453" stroke-width="16" opacity="0.9"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Nobi 游戏">
+  <defs><linearGradient id="blue" x2="0" y2="1"><stop stop-color="#2469ca"/><stop offset="1" stop-color="#134691"/></linearGradient></defs>
+  <rect width="512" height="512" fill="url(#blue)"/>
+  <rect x="94" y="94" width="324" height="324" rx="56" fill="none" stroke="#f5f9ff" stroke-width="19"/>
+  <path d="M164 348V164h39l106 125V164h39v184h-39L203 223v125z" fill="#f5f9ff"/>
 </svg>

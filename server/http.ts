@@ -10,6 +10,7 @@ import { localCredentials, localUrl } from '../scripts/local-supabase.mjs';
 import { localSql, literal } from '../scripts/local-db.mjs';
 import {accountAvatar} from './account-avatar.mjs';
 import {roomDirectory} from './room-directory.mjs';
+import {RULES_VERSION} from '../ui/guandan-rules.mjs';
 export async function startServer(options:any={}) {
  const config=options.backend??await localCredentials();
  if(config.url!==localUrl) throw new Error('BLOCKED: authority only supports the dedicated local Supabase');
@@ -32,7 +33,7 @@ export async function startServer(options:any={}) {
   const data=loadRoom(id);if(!data)throw new GameError('room unavailable',404);
   let room=authority.rooms.get(id);
   if(data.snapshot&&(!room||room.status==='blocked'||room.storedVersion!==data.snapshot.version)) {room=await authority.restore(data.snapshot);room.storedVersion=data.snapshot.version;}
-  if(!room){authority.create(id,data.kind,data.owner);room=authority.rooms.get(id);for(let seat=1;seat<data.seats.length;seat++)authority.join(id,data.seats[seat],seat);}
+  if(!room){authority.create(id,data.kind,data.owner,null,data.kind==='guandan'?RULES_VERSION:undefined);room=authority.rooms.get(id);for(let seat=1;seat<data.seats.length;seat++)authority.join(id,data.seats[seat],seat);}
   if(room.owner!==data.owner||room.kind!==data.kind||!room.seats.every((uid:string,seat:number)=>data.seats[seat]===uid))throw new GameError('room identity integrity failure',503);
   if(room.status==='waiting'&&data.seats.length>room.seats.length){for(let seat=room.seats.length;seat<data.seats.length;seat++)authority.join(id,data.seats[seat],seat);saveRoom(authority,room);authority.onChange(room);}
   return room;
@@ -83,7 +84,8 @@ export async function startServer(options:any={}) {
     if(body.competitive&&identity?.is_anonymous)throw new GameError('registered identity required',403);
     const competition=body.competitive&&durable?currentSeason():null;if(body.competitive&&!competition)throw new GameError('no active isolated test season',409);
     const id=options.createRoom?await options.createRoom(body.kind,uid):await request('/rest/v1/rpc/create_room',token,{game_kind:body.kind},'game');
-    authority.create(id,body.kind,uid,competition);const created=authority.rooms.get(id);created.names[uid]=nickname;created.avatars[uid]=avatar;result=authority.view(created,uid);if(durable)saveRoom(authority,authority.rooms.get(id));
+    // The existing isolated rating schema is locked to its historical rules profile.
+    authority.create(id,body.kind,uid,competition,body.kind==='guandan'?RULES_VERSION:undefined);const created=authority.rooms.get(id);created.names[uid]=nickname;created.avatars[uid]=avatar;result=authority.view(created,uid);if(durable)saveRoom(authority,authority.rooms.get(id));
    } else {
     const route=/^\/rooms\/([0-9a-f-]{36})(?:\/(join|commands|events|continue))?$/.exec(url.pathname);
     if(!route) throw new GameError('route unavailable',404);

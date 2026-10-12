@@ -8,8 +8,8 @@
     Object.freeze({id:'dreaming',title:'梦幻曲 · Op.15 No.7',composer:'舒曼',credit:'Donald Betts / Musopen',src:'assets/music/guandan-dreaming.mp3',license})
   ]);
   window.NobiAudioManifest = Object.freeze({
-    scenes: Object.freeze({ lobby:null, guandan:tracks[0], go:null, result:null }),
-    tracks:Object.freeze({guandan:tracks}),
+    scenes: Object.freeze({ lobby:tracks[2], guandan:tracks[0], go:tracks[2], result:null }),
+    tracks:Object.freeze({guandan:tracks,go:tracks}),
     effects: Object.freeze({
       click:'assets/sounds/button-25.mp3', pass:'assets/sounds/button-25.mp3',
       placeStone:'assets/sounds/button-22.mp3', capture:'assets/sounds/button-21.mp3',

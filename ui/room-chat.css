@@ -1,0 +1,11 @@
+.nobi-chat-dialog{width:min(480px,94vw);max-height:min(620px,88dvh);padding:0;border:1px solid #3b6294;border-radius:20px;background:#0d203c;color:#eef5ff;box-shadow:0 24px 90px #0009;font-family:system-ui,sans-serif;overflow:hidden}
+.nobi-chat-dialog::backdrop{background:#030b18ad;backdrop-filter:blur(3px)}
+.nobi-chat-dialog header{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 18px;background:#132b4b;border-bottom:1px solid #294568}
+.nobi-chat-dialog h2{margin:0;font-size:19px}.nobi-chat-dialog button{min-height:44px;border:1px solid #4973a5;border-radius:10px;padding:8px 14px;background:#245ab0;color:#fff;font:inherit;cursor:pointer}
+.nobi-chat-dialog button:disabled{opacity:.5}.nobi-chat-dialog header button{background:#1d3756;font-size:13px}
+.chat-note,.chat-status{margin:0;padding:10px 18px;font-size:12px;color:#a9bedb}.chat-status:empty{padding-top:0;padding-bottom:12px}
+.chat-messages{list-style:none;padding:6px 16px;margin:0;overflow:auto;height:min(330px,42dvh);overscroll-behavior:contain;display:flex;flex-direction:column;gap:10px}
+.chat-messages li{padding:10px 12px;background:#193453;border-radius:12px;flex-shrink:0}.chat-messages strong{font-size:13px;color:#e9ca87}.chat-messages time{float:right;font-size:11px;color:#9fb6d2}.chat-messages p{margin:6px 0 0;font-size:14px;line-height:1.6;white-space:pre-wrap;overflow-wrap:anywhere}
+.chat-messages .chat-empty,.nobi-chat-dialog>.chat-empty{color:#afc2da;text-align:center;padding:30px 18px;line-height:1.7;background:transparent}
+.chat-composer{display:flex!important;gap:8px;padding:12px 16px 0}.chat-composer input{flex:1;width:0;min-height:44px;box-sizing:border-box;border:1px solid #45668f;background:#08182c;border-radius:10px;color:#fff;padding:10px 12px;font:inherit}.chat-composer button{flex:0 0 auto;min-width:66px}
+@media(max-height:500px){.nobi-chat-dialog{max-height:94dvh}.chat-messages{height:36dvh}.nobi-chat-dialog header{padding:8px 14px}.chat-note{padding:5px 16px}.chat-composer{padding-top:8px}}

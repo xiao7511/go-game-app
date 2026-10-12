@@ -1149,6 +1149,13 @@
     document.body.classList.add('nobi-playing-go','in-game-match');document.body.classList.remove('nobi-playing-guandan');
     if($('game-selection'))$('game-selection').style.display='none';const app=document.querySelector('.app');if(app)app.style.display='grid';
     resizeCanvas();drawFullBoard();updateProfilePanels();window.dispatchEvent(new CustomEvent('nobi:go-view'));
+    const me=snapshot.players.find(p=>p.seat===snapshot.privateState.seat),other=snapshot.players.find(p=>p.seat!==snapshot.privateState.seat);
+    state.authorityPlayers={self:me,opponent:other};window.state.userNickname=me?.nickname||'棋手';
+    window.state.uid=me?.userId;
+    for(const [id,value] of [['user-nickname',me?.nickname||'棋手'],['opponent-nickname',other?.nickname||'等待对手'],['user-rank','已登录'],['opponent-rank',other?'已就位':'等待加入']])if($(id))$(id).textContent=value;
+    if($('local-player-panel')?.querySelector('h2'))$('local-player-panel').querySelector('h2').textContent='我的棋手';
+    for(const [id,value] of [['local-player-status',connected?'已连接':'正在同步'],['local-player-side','执色：'+(state.myColor==='black'?'黑棋':'白棋')],['local-player-turn',snapshot.status==='ended'?'对局结束':state.currentTurn===state.myColor?'轮到你':'等待对手'],['opponent-status',other?'房间玩家':'等待加入'],['opponent-side','执色：'+(state.myColor==='black'?'白棋':'黑棋')],['opponent-activity',snapshot.status==='ended'?'对局结束':state.currentTurn!==state.myColor?'对方回合':'等待落子']])if($(id))$(id).textContent=value;
+    window.dispatchEvent(new CustomEvent('nobi:go-view'));
   }
   window.MP = {
     applyAuthoritySnapshot,
@@ -1160,7 +1167,7 @@
       board:getBoardSnapshot(),blackCaptures:state.blackCaptures,whiteCaptures:state.whiteCaptures,
       geometry:{padding:state.padding,cellSize:state.cellSize},
       ended:state.matchEnded || (state.gameMode==='MULTIPLAYER' && state.room?.status==='ended'),moveNumber:state.viewMoves.length,
-      preview:state.previewMove ? {...state.previewMove} : null,canUndo:state.gameMode==='SINGLE_PLAYER' && !state.matchEnded && state.undoStack.length>0,
+      players:state.authorityPlayers,preview:state.previewMove ? {...state.previewMove} : null,canUndo:state.gameMode==='SINGLE_PLAYER' ? !state.matchEnded && state.undoStack.length>0 : !!state.authoritativeSend&&!state.isSyncing&&!state.matchEnded&&state.viewMoves.length>=2,
       moves:state.viewMoves.map(move=>({...move})),latestVisible:state.blinkingMove?.visible ?? true,blackName:state.roomContext.blackName,whiteName:state.roomContext.whiteName}),
   };
 
