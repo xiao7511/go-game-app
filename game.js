@@ -84,6 +84,13 @@
     });
   }).catch(()=>console.warn('[Auth] Session unavailable'));
   window.addEventListener('DOMContentLoaded',()=>{
+    window.NobiNavigation?.setBackHandler(()=>{
+      if(!document.body.classList.contains('in-game-match')) return false;
+      if(!confirm('退出当前单机对局并返回大厅？')) return true;
+      const exit=document.querySelector(window.selectedGameId==='go'?'#quit-game-btn':'[data-gd-exit]');
+      exit?.click();
+      return true;
+    });
     window.renderAppCentralLobby();
     document.addEventListener('click',e=>{
       if(!document.body.classList.contains('in-game-match')) return;

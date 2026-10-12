@@ -109,7 +109,8 @@
     if(!valid.includes(requested) && requested) state.notice='入口不可用，已返回大厅';
     if(state.route==='home' && window.NobiGames.platform()==='mobile') state.query='';
     render(); if(state.notice) notify(state.notice);
-    window.scrollTo?.({top:0,behavior:'instant'});
+    if(window.NobiNavigation) window.NobiNavigation.routeRendered();
+    else window.scrollTo?.({top:0,behavior:'instant'});
     window.NobiAudio?.setScene(state.route==='music'?(state.audioScene || 'lobby'):'lobby');
   }
   function mount(element) {

@@ -5,6 +5,16 @@
  let sdk,user,snapshot,connected=false,pending=null,controller=null,failures=0,generation=0,frameReady=false,reconnecting=null;
  let channel=null,realtimeEpoch=0,realtimeRetries=0,realtimeTimer=null,versionTimer=null,realtimeEvents=0;
  const entryGame=new URLSearchParams(location.search).get('game')==='go'?'go':'guandan';
+ let returning=false;
+ window.NobiNavigation?.setBackHandler(()=>{
+  if(!snapshot)return false;
+  if(returning)return true;
+  if(!connected||pending){notice('请等待连接恢复或上一操作确认后返回');return true;}
+  if(snapshot.status!=='ended'&&!confirm(snapshot.status==='playing'?'退出当前联机对局？退出会结束本局。':'返回房间列表？你可以从列表再次进入当前房间。'))return true;
+  returning=true;
+  (async()=>{try{if(snapshot.status==='playing')await command('leave');if(pending||snapshot.status==='playing'){notice('退出尚未确认，请恢复连接后重试');return;}await $('new-room').onclick();}catch(error){notice(error.message);}finally{returning=false;}})();
+  return true;
+ });
  const chatListeners=new Set();let chatRoom='';
  function connectChat(){if(!snapshot||chatRoom===snapshot.roomId)return;chatRoom=snapshot.roomId;const room=chatRoom;const transport={roomId:room,load:async()=>await(await request('/rooms/'+room+'/chat')).json(),send:async body=>await(await request('/rooms/'+room+'/chat',body)).json(),subscribe:fn=>{chatListeners.add(fn);return()=>chatListeners.delete(fn);}};window.NobiRoomChat?.connect(transport);$('game-frame').querySelector('iframe')?.contentWindow.NobiRoomChat?.connect(transport);}
  let focusedArena='';const arenaMedia=window.matchMedia('(max-height:550px) and (orientation:landscape)');

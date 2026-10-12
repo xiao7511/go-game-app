@@ -1,4 +1,5 @@
-# Manual workflows. Public Auth is fetched from the deployed site's verified config endpoint.
+# The release workflow follows production main pushes; simulator checks remain manual.
+# Public Auth is fetched from the deployed site's verified config endpoint.
 workflows:
   ios-simulator:
     name: Nobi iOS simulator verification
@@ -28,6 +29,14 @@ workflows:
     name: Nobi signed IPA and TestFlight
     instance_type: mac_mini_m2
     max_build_duration: 60
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: main
+          include: true
+          source: true
+      cancel_previous_builds: false
     integrations:
       app_store_connect: nobi-apple
     environment:
@@ -57,5 +66,7 @@ workflows:
     publishing:
       app_store_connect:
         auth: integration
-        submit_to_testflight: true
+        # Uploaded/processed builds are distributed through the internal TestFlight
+        # group in App Store Connect. External beta review needs separate contact data.
+        submit_to_testflight: false
         submit_to_app_store: false

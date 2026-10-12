@@ -157,7 +157,7 @@ body.nobi-embedded .go-rail { grid-template-columns:repeat(4,minmax(0,1fr)); }
 
 /* Portrait / narrow: players on top, board, then actions and tools. */
 @media (max-width:860px) and (orientation:portrait), (max-width:600px) and (min-height:601px) {
-  html, body.nobi-playing-go { overflow:hidden; }
+  body.nobi-playing-go { overflow:hidden; }
   body.nobi-playing-go .app { height:100dvh; }
   body.nobi-playing-go .layout { display:flex; flex-wrap:wrap; align-content:flex-start; gap:10px; overflow:auto; padding:max(10px,env(safe-area-inset-top)) max(12px,env(safe-area-inset-right)) max(12px,env(safe-area-inset-bottom)) max(12px,env(safe-area-inset-left)); }
   body.nobi-playing-go .sidebar-left, body.nobi-playing-go .sidebar-right { display:contents; }
