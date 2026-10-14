@@ -30,3 +30,9 @@ test('production online configuration requires a clean HTTPS endpoint and correc
  for(const url of ['http://play.example','https://u:p@play.example','https://play.example/path?token=x'])expect(()=>deviceOnlineConfig({NOBI_ONLINE_URL:url},auth)).toThrow();
  expect(()=>deviceOnlineConfig({NOBI_ONLINE_URL:'https://play.example',NOBI_DEVICE_ONLINE:'USB_LOCAL_AUTH_VERIFIED'},auth)).toThrow();
 });
+
+test('directory excludes ended and blocked rooms before counting and paginating',()=>{
+ const rooms=['ended','blocked','waiting','playing'].map((status,i)=>({id:String(i),kind:'go',status,owner:'a',names:{a:'棋手'},seats:['a'],updatedAt:i}));
+ const list=roomDirectory(rooms,'a');expect(list.total).toBe(2);expect(list.rooms.map(r=>r.status)).toEqual(['playing','waiting']);
+ expect(roomDirectory(rooms,'a',new URLSearchParams('offset=1')).rooms).toHaveLength(1);
+});

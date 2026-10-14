@@ -1,4 +1,4 @@
-# The release workflow follows production main pushes; simulator checks remain manual.
+# Both workflows are started manually. Build a signed test IPA without uploading it.
 # Public Auth is fetched from the deployed site's verified config endpoint.
 workflows:
   ios-simulator:
@@ -26,17 +26,9 @@ workflows:
   # A fresh workflow counter starts the first upload at BUILD_NUMBER=1.
   # Keep this ID stable after the first release; failed builds also consume numbers.
   ios-testflight-release:
-    name: Nobi signed IPA and TestFlight
+    name: Nobi signed test IPA (manual)
     instance_type: mac_mini_m2
     max_build_duration: 60
-    triggering:
-      events:
-        - push
-      branch_patterns:
-        - pattern: main
-          include: true
-          source: true
-      cancel_previous_builds: false
     integrations:
       app_store_connect: nobi-apple
     environment:
@@ -62,11 +54,7 @@ workflows:
           node scripts/verify-ios-release.mjs ipa
     artifacts:
       - build/ios/ipa/*.ipa
+      - build/ios/release-version.json
       - /tmp/xcodebuild_logs/*.log
-    publishing:
-      app_store_connect:
-        auth: integration
-        # Uploaded/processed builds are distributed through the internal TestFlight
-        # group in App Store Connect. External beta review needs separate contact data.
-        submit_to_testflight: false
-        submit_to_app_store: false
+    # No publishing section: uploading and TestFlight distribution are human actions.
+    # Preserve the workflow ID, nobi-apple integration and existing signing identities.

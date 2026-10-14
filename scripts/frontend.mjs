@@ -6,6 +6,7 @@ import { root, verifyCards, verifyRegions } from './verify-assets.mjs';
 import { publicConfig } from './public-config.mjs';
 import { verifyBuild } from './verify-build.mjs';
 import { deviceOnlineConfig } from './device-online-config.mjs';
+import { copyAppDownloads } from './app-download-assets.mjs';
 
 const action = process.argv[2] || 'build';
 const target = process.argv[3] === 'mobile' ? 'mobile' : 'web';
@@ -31,6 +32,7 @@ if (action !== 'preview') {
   for (const name of ['images/cards', 'assets/sounds', 'assets/music', 'ui']) await fs.cp(path.join(root, name), path.join(publicDir, name), { recursive: true });
   for (const name of ['manifest.json', 'icon-192-v1.png', 'icon-512-v1.png', 'apple-touch-icon-v1.png', 'favicon-v1.ico', 'icon.svg']) await fs.copyFile(path.join(root, name), path.join(publicDir, name));
   if (target === 'web') {
+    await copyAppDownloads(publicDir);
     await fs.copyFile(path.join(root, 'CNAME'), path.join(publicDir, 'CNAME'));
     await fs.cp(path.join(root, 'pc'), path.join(publicDir, 'pc'), { recursive: true });
   }

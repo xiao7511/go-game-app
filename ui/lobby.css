@@ -271,3 +271,34 @@ body.in-game-match #app-perfect-selector-mask { display: none !important; }
 .avatar-actions .outline-button { flex: 1; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; }
 .lobby-music-choice { display:grid; gap:8px; padding:12px 0; font-weight:700; }
 .lobby-music-choice select { width:100%; min-height:44px; padding:8px 10px; border:1px solid #45618a; border-radius:10px; background:#10223d; color:#f7ead1; font-size:14px; }
+.lobby-live-rooms, .lobby-friends { margin-top:24px; }
+.lobby-section-head { display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:18px; }
+.lobby-section-head h2 { margin:0 0 6px; font-size:19px; color:#f3e5c4; }
+.lobby-section-head p { margin:0; font-size:12px; color:#a9bbdb; }
+.lobby-section-head .outline-button { flex-shrink:0; min-height:44px; }
+.lobby-friend-list, .lobby-room-list { list-style:none; margin:0; padding:0; display:grid; gap:10px; }
+.lobby-friend-list li, .lobby-room-list li { display:flex; align-items:center; gap:12px; padding:14px; border:1px solid #2b446e; border-radius:14px; background:linear-gradient(110deg,#142d50,#0b1c34); }
+.lobby-portrait { width:48px; height:48px; flex-shrink:0; object-fit:cover; border-radius:50%; border:1px solid #769bcc; }
+.lobby-row-copy { flex:1; min-width:0; }
+.lobby-row-copy strong { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#eff4ff; font-size:15px; }
+.lobby-row-copy small { display:block; margin-top:6px; color:#a9bbdb; font-size:12px; line-height:1.5; }
+.lobby-friend-count { font-size:12px; color:#d8c391; text-align:right; flex-shrink:0; }
+.lobby-friend-count b { font-size:18px; }
+.lobby-live-badge { flex-shrink:0; border-radius:20px; padding:5px 9px; color:#9ae2bf; background:#183d35; font-size:11px; }
+.lobby-live-badge::before { content:''; display:inline-block; width:6px; height:6px; margin-right:5px; border-radius:50%; background:#82d6a8; }
+.lobby-room-list .outline-button { flex-shrink:0; min-height:44px; padding:10px 12px; font-size:12px; text-align:center; }
+.lobby-live-rooms > .text-link { display:inline-flex; margin-top:18px; }
+.lobby-directory-pages { display:flex; align-items:center; justify-content:center; gap:14px; margin-top:20px; font-size:12px; }
+@media (max-width:700px) {
+ .lobby-section-head { gap:10px; }
+ .lobby-section-head h2 { font-size:17px; }
+ .lobby-friend-list li, .lobby-room-list li { gap:10px; padding:12px; flex-wrap:wrap; }
+ .lobby-portrait { width:42px; height:42px; }
+ .lobby-row-copy small { font-size:11px; }
+ .lobby-friend-count { width:100%; padding-left:52px; text-align:left; }
+ .lobby-room-list li { display:grid; grid-template-columns:42px minmax(0,1fr) auto; }
+ .lobby-room-list .lobby-portrait { grid-column:1; grid-row:1 / 3; }
+ .lobby-room-list .lobby-row-copy { grid-column:2 / -1; }
+ .lobby-room-list .lobby-live-badge { grid-column:2; grid-row:2; justify-self:start; }
+ .lobby-room-list .outline-button { grid-column:3; grid-row:2; }
+}

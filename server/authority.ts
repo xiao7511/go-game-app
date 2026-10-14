@@ -31,14 +31,34 @@ export class Authority {
  join(id:string,uid:string,seat:number) {
   const r=this.rooms.get(id);if(!r) fail('room unavailable',404);
   if(r.seats.includes(uid)) return this.view(r,uid);
+  if(r.removedPlayers?.includes(uid))fail('房主已将你移出此房间',403);
   if(r.status!=='waiting'||seat!==r.seats.length||seat>=(r.kind==='go'?2:4)) fail('room full or seat conflict');
-  r.seats.push(uid);r.presence.set(uid,this.now());r.version++;r.updatedAt=this.now();this.onChange(r);return this.view(r,uid);
+  r.seats.push(uid);r.presence.set(uid,this.now());r.version++;if(r.lobbyVersion!==undefined)r.lobbyVersion=r.version;r.updatedAt=this.now();this.onChange(r);return this.view(r,uid);
+ }
+ async removePlayer(id:string,uid:string,input:any) {
+  const r=this.room(id,uid);
+  if(uid!==r.owner)fail('只有房主可以移除玩家',403);
+  if(typeof input?.requestId!=='string'||!/^[a-zA-Z0-9_-]{8,80}$/.test(input.requestId)||typeof input.target!=='string'||!Number.isSafeInteger(input.expectedVersion))fail('移除请求不正确',400);
+  const receipt=r.removalReceipts?.find((entry:any)=>entry.requestId===input.requestId);
+  if(receipt){if(receipt.target!==input.target)fail('移除请求编号已被使用',409);return this.view(r,uid);}
+  if(r.status!=='waiting')fail('只能在开始对局前移除玩家',409);
+  if(input.expectedVersion!==r.version)fail('房间已更新，请重试',409);
+  const seat=r.seats.indexOf(input.target);
+  if(seat<1)fail('不能移除房主或空闲席位',400);
+  if((r.removalReceipts?.length??0)>=128)fail('房间移除操作过多，请创建新房间',429);
+  r.seats.splice(seat,1);r.presence.delete(input.target);
+  r.removedPlayers=[...(r.removedPlayers??[]),input.target];
+  r.removalReceipts=[...(r.removalReceipts??[]),{requestId:input.requestId,target:input.target}];
+  // Persist a baseline for the final waiting roster before replaying game commands.
+  r.version++;r.lobbyVersion=r.version;r.updatedAt=this.now();
+  try{await this.persist(r,uid,{requestId:input.requestId,expectedVersion:input.expectedVersion,type:'remove-player',target:input.target});}catch{r.status='blocked';fail('移除保存失败，请重新连接',503);}
+  this.onChange(r);return this.view(r,uid);
  }
  view(r:any,uid:string) {
   const seat=r.seats.indexOf(uid);if(seat<0) fail('participant required',403);
   const state=r.engine?.api.state;
-  const publicState=r.kind==='go'?{board:state?.board??[],blackCaptures:state?.blackCaptures??0,whiteCaptures:state?.whiteCaptures??0,moves:r.history.map((m:any)=>m.move),koPoint:r.engine?.api.getKo()??null,passCount:r.passCount,...(r.competitive?{scoring:r.scoring,rules:competitiveConfig.go}: {})}:{handCounts:state?.players.map((p:any)=>p.hand.length)??[],trick:state?.trick??null,lastPlayedTrick:state?.lastPlayedTrick??null,finishOrder:r.engine?.api.finishOrder()??[],level:r.engine instanceof GuandanEngine?r.engine.series.level:'2',...(isVersionedRules(r.rulesVersion)?{rulesVersion:r.rulesVersion,rulesConfig:r.rulesConfig,series:r.engine?.series??r.initialSeries,phase:r.engine?.state.phase??'waiting',tribute:r.engine?.publicTribute()??null}: {})};
-  const protocol={rulesVersion:r.rulesVersion,matchId:r.id,roomId:r.id,gameType:r.kind,version:r.version,currentTurn:r.turn,players:r.seats.map((userId:string,seat:number)=>({userId,seat,nickname:r.names[userId]??("座位 "+(seat+1)),avatar:r.avatars?.[userId]??null})),publicState,privateState:r.kind==='guandan'?{seat,hand:state?.players[seat]?.hand??[],...(r.engine instanceof GuandanEngine?{tributeOptions:r.engine.tributeOptions(seat)}:{})}:{seat},status:r.status,lastAction:r.lastAction,updatedAt:new Date(r.updatedAt).toISOString(),deadline:r.deadline,...(r.competitive?{competitive:r.competitive}:{}),result:r.result?{matchId:r.id,gameType:r.kind,participants:r.seats,result:r.result,finishedAt:new Date(r.updatedAt).toISOString(),resultVersion:r.version,settlementStatus:r.result.ranked?'pending':'disabled'}:null};
+  const publicState=r.kind==='go'?{board:state?.board??[],blackCaptures:state?.blackCaptures??0,whiteCaptures:state?.whiteCaptures??0,moves:r.history.map((m:any)=>m.move),koPoint:r.engine?.api.getKo()??null,passCount:r.passCount,...(r.competitive||r.scoring?{scoring:r.scoring}:{}),...(r.competitive?{rules:competitiveConfig.go}:{})}:{handCounts:state?.players.map((p:any)=>p.hand.length)??[],trick:state?.trick??null,lastPlayedTrick:state?.lastPlayedTrick??null,finishOrder:r.engine?.api.finishOrder()??[],level:r.engine instanceof GuandanEngine?r.engine.series.level:'2',...(isVersionedRules(r.rulesVersion)?{rulesVersion:r.rulesVersion,rulesConfig:r.rulesConfig,series:r.engine?.series??r.initialSeries,phase:r.engine?.state.phase??'waiting',tribute:r.engine?.publicTribute()??null}: {})};
+  const protocol={rulesVersion:r.rulesVersion,matchId:r.id,roomId:r.id,gameType:r.kind,version:r.version,currentTurn:r.turn,canRemovePlayers:uid===r.owner&&r.status==='waiting',players:r.seats.map((userId:string,seat:number)=>({userId,seat,nickname:r.names[userId]??("座位 "+(seat+1)),avatar:r.avatars?.[userId]??null})),publicState,privateState:r.kind==='guandan'?{seat,hand:state?.players[seat]?.hand??[],...(r.engine instanceof GuandanEngine?{tributeOptions:r.engine.tributeOptions(seat)}:{})}:{seat},status:r.status,lastAction:r.lastAction,updatedAt:new Date(r.updatedAt).toISOString(),deadline:r.deadline,...(r.competitive?{competitive:r.competitive}:{}),result:r.result?{matchId:r.id,gameType:r.kind,participants:r.seats,result:r.result,finishedAt:new Date(r.updatedAt).toISOString(),resultVersion:r.version,settlementStatus:r.result.ranked?'pending':'disabled'}:null};
   return structuredClone({...protocol,id:r.id,kind:r.kind,seats:r.seats,seat,status:r.status,version:r.version,turn:r.turn,result:r.result,pending:r.pending,trustedResult:protocol.result,
    ...(r.kind==='go'?{board:state?.board??[],blackCaptures:state?.blackCaptures??0,whiteCaptures:state?.whiteCaptures??0,moves:r.history.map((m:any)=>m.move),koPoint:r.engine?.api.getKo()??null}:{hand:state?.players[seat]?.hand??[],handCounts:state?.players.map((p:any)=>p.hand.length)??[],trick:state?.trick??null,finishOrder:r.engine?.api.finishOrder()??[]})});
  }
@@ -101,8 +121,15 @@ export class Authority {
  }
  async go(r:any,seat:number,c:Command) {
   const s=r.engine.api.state;
+  if(c.type==='score-request'){
+   if(r.scoring||r.pending)fail('confirmation pending');r.pending={type:'score',seat};return;
+  }
+  if(c.type==='score-accept'||c.type==='score-reject'){
+   if(r.pending?.type!=='score'||r.pending.seat===seat)fail('opponent scoring confirmation required');
+   r.pending=null;if(c.type==='score-accept')r.scoring={phase:'proposal',proposal:null,confirmed:[]};return;
+  }
   if(c.type.startsWith('score-')||c.type==='resume-play'){
-   if(!r.competitive||!r.scoring)fail('scoring unavailable');if(r.pending)fail('confirmation pending');
+   if(!r.scoring)fail('scoring unavailable');if(r.pending)fail('confirmation pending');
    if(c.type==='resume-play'){r.scoring=null;r.passCount=0;return;}
    if(c.type==='score-dispute'){r.scoring={phase:'disputed',proposal:null,confirmed:[]};return;}
    if(c.type==='score-propose'){let proposal;try{proposal=scoreProposal(s.board,(c.dead??[]) as number[][],(c.neutral??[]) as number[][]);}catch{fail('invalid scoring proposal',400);}
@@ -140,7 +167,7 @@ export class Authority {
   r.result=verified;r.pending=null;r.scoring=null;r.status='ended';
  }
  currentState(r:any){return {publicState:this.view(r,r.owner).publicState,privateHands:r.kind==='guandan'?(r.engine?.api.state.players.map((p:any)=>p.hand)??null):null,status:r.status,turn:r.turn,pending:r.pending,result:r.result,lastAction:r.lastAction,...(r.competitive?{scoring:r.scoring,competitive:r.competitive}:{})};}
- exportState(r:any){return {rulesVersion:r.rulesVersion,formatVersion:isVersionedRules(r.rulesVersion)?2:1,...(isVersionedRules(r.rulesVersion)?{rulesVersion:r.rulesVersion,rulesConfig:r.rulesConfig,initialSeries:r.initialSeries}:{}),current:this.currentState(r),id:r.id,kind:r.kind,owner:r.owner,seats:r.seats,names:r.names,avatars:r.avatars,...(r.competitive?{competitive:r.competitive}:{}),deal:r.deal,journal:r.journal,deadline:r.deadline,updatedAt:r.updatedAt,version:r.version};}
+ exportState(r:any){return {rulesVersion:r.rulesVersion,formatVersion:isVersionedRules(r.rulesVersion)?2:1,...(isVersionedRules(r.rulesVersion)?{rulesVersion:r.rulesVersion,rulesConfig:r.rulesConfig,initialSeries:r.initialSeries}:{}),...(r.lobbyVersion!==undefined?{lobbyVersion:r.lobbyVersion,removedPlayers:r.removedPlayers,removalReceipts:r.removalReceipts}:{}),current:this.currentState(r),id:r.id,kind:r.kind,owner:r.owner,seats:r.seats,names:r.names,avatars:r.avatars,...(r.competitive?{competitive:r.competitive}:{}),deal:r.deal,journal:r.journal,deadline:r.deadline,updatedAt:r.updatedAt,version:r.version};}
  async restore(data:any) {
   const isolated=new Authority({now:this.now});const room=await isolated.replay(data);this.rooms.set(data.id,room);return room;
  }
@@ -151,7 +178,7 @@ export class Authority {
    if(data.formatVersion!==1&&data.formatVersion!==2)throw Error('unsupported snapshot format');
    if(data.formatVersion===2&&!isVersionedRules(data.rulesVersion))throw Error('unsupported snapshot rules version');
    this.create(data.id,data.kind,data.owner,data.competitive??null,data.rulesVersion??(data.kind==='guandan'?(data.competitive?'nobi-single-hand-v1':'legacy-guandan-v0'):competitiveConfig.go.rules),data.initialSeries,data.rulesConfig);for(let i=1;i<data.seats.length;i++)this.join(data.id,data.seats[i],i);
-   const room=this.rooms.get(data.id);room.deal=data.deal;room.names=data.names??{};room.avatars=data.avatars??{};
+   const room=this.rooms.get(data.id);room.deal=data.deal;room.names=data.names??{};room.avatars=data.avatars??{};if(data.lobbyVersion!==undefined){if(!Number.isSafeInteger(data.lobbyVersion)||data.lobbyVersion<data.seats.length-1||!Array.isArray(data.removedPlayers)||!Array.isArray(data.removalReceipts))throw Error('invalid waiting roster baseline');room.version=room.lobbyVersion=data.lobbyVersion;room.removedPlayers=data.removedPlayers;room.removalReceipts=data.removalReceipts;}
    for(const event of data.journal??[]){at=event.at;if(event.timeout){await this.sweep();room.lastAction.actionId=event.actionId;room.journal.at(-1).actionId=event.actionId;}else await this.command(data.id,event.uid,event.command);}
    room.deadline=data.deadline;room.updatedAt=data.updatedAt;if(room.version!==data.version)throw new Error('snapshot replay version mismatch');if(data.current&&canonicalJson(this.currentState(room))!==canonicalJson(data.current))throw new Error('snapshot and replay state mismatch');return room;
   } finally {this.now=clock;this.persist=persist;this.record=record;this.onChange=change;}

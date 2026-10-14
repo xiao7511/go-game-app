@@ -7,18 +7,19 @@ $taskId=[Guid]::NewGuid().ToString('N').Substring(0,8)
 $taskStage=[IO.Path]::GetFullPath((Join-Path $taskRepo ('.nobi-isolated/mobile-device/ios-source-'+$taskId)))
 if(!$taskStage.StartsWith($taskRepo+[IO.Path]::DirectorySeparatorChar,[StringComparison]::OrdinalIgnoreCase)){throw 'Unsafe export directory'}
 $taskNames=@('.gitattributes','package.json','package-lock.json','capacitor.config.ts','CNAME','index.html','login.html','register.html','game.html','online.html','config.js','supabaseClient.js','platform.js','game.js','multiplayer-ext.js','guandan-game.js','guandan-mp-ext.js','manifest.json','icon-192-v1.png','icon-512-v1.png','apple-touch-icon-v1.png','favicon-v1.ico','icon.svg','tooling/package.json','tooling/package-lock.json','tooling/sdk-entry.js','www/multiplayer-ext.js','www/game.js','www/game.html','docs/nobi-v2/asset-manifest.json','docs/nobi-v2/guandan-audio-provenance.md','docs/nobi-v2/mobile-device-testing.md','docs/nobi-v2/testflight-preparation.md')
-$taskNames+=@('frontend.mjs','public-config.mjs','online-public-config.mjs','device-online-config.mjs','verify-assets.mjs','verify-build.mjs','security-audit.mjs','prepare-mobile-test.mjs','verify-mobile-assets.mjs','ios-readiness.mjs','ios-prepare-mac.sh') | ForEach-Object {'scripts/'+$_}
-foreach($taskFolder in @('ui','images/cards','assets/music','assets/sounds','ios')){
+$taskNames+=@('codemagic.yaml','vitest.config.mjs','playwright.config.mjs','online-config.js','docs/nobi-v2/ios-manual-test-package.md','scripts/export-ios-preparation.ps1','android/app/build.gradle','android/app/src/androidTest/java/com/getcapacitor/myapp/ExampleInstrumentedTest.java','android/app/src/main/res/values/strings.xml')
+$taskNames+=Get-ChildItem -LiteralPath (Join-Path $taskRepo 'scripts') -File | Where-Object {$_.Extension -in @('.mjs','.sh')} | ForEach-Object {'scripts/'+$_.Name}
+foreach($taskFolder in @('ui','images/cards','assets/music','assets/sounds','ios','server','tests','pc')){
  foreach($taskFile in Get-ChildItem -LiteralPath (Join-Path $taskRepo $taskFolder) -File -Recurse){
   if(!$taskFile.FullName.StartsWith($taskRepo+[IO.Path]::DirectorySeparatorChar,[StringComparison]::OrdinalIgnoreCase)){throw 'Unexpected source path'}
   $taskRelative=$taskFile.FullName.Substring($taskRepo.Length+1).Replace('\','/')
-  if($taskRelative -match '(^|/)(build|Pods|public|output|DerivedData|xcuserdata|\.git)(/|$)' -or $taskRelative -match '(capacitor\.config\.json|config\.xml|\.DS_Store)$'){continue}
+  if($taskRelative -match '(^|/)(build|Pods|output|DerivedData|xcuserdata|\.git)(/|$)' -or $taskRelative -match '(config\.xml|\.DS_Store)$'){continue}
   $taskNames+=$taskRelative
  }
 }
 $taskManifest=@()
 foreach($taskName in ($taskNames | Sort-Object -Unique)){
- if($taskName -match '\.(key|pem|p12|pfx|jks|keystore|mobileprovision|csr|cer|crt)$' -or $taskName -match '(^|/)\.env' -or $taskName -match '\.local\.js$'){throw 'Forbidden source export file'}
+ if($taskName -match '\.(key|pem|p12|pfx|jks|keystore|mobileprovision|csr|cer|crt)$' -or $taskName -match '(^|/)\.env' -or ($taskName -match '\.local\.js$' -and $taskName -ne 'ios/App/App/public/config.local.js')){throw 'Forbidden source export file'}
  $taskSource=[IO.Path]::GetFullPath((Join-Path $taskRepo $taskName))
  if(!$taskSource.StartsWith($taskRepo+[IO.Path]::DirectorySeparatorChar,[StringComparison]::OrdinalIgnoreCase)){throw 'Source outside workspace'}
  if($taskName -match '\.(js|mjs|json|html|ts|md|swift|sh)$'){
@@ -36,10 +37,18 @@ foreach($taskName in ($taskNames | Sort-Object -Unique)){
  Copy-Item -LiteralPath $taskSource -Destination $taskDest
  $taskManifest+=@{path=$taskName;sha256=(Get-FileHash -LiteralPath $taskDest -Algorithm SHA256).Hash.ToLowerInvariant()}
 }
+$taskCommit=(& git -C $taskRepo rev-parse HEAD).Trim()
+if($LASTEXITCODE -ne 0 -or $taskCommit -notmatch '^[a-f0-9]{40}$'){throw 'Cannot record source commit'}
+$taskBranch=(& git -C $taskRepo branch --show-current).Trim()
+$taskChanged=@(& git -C $taskRepo diff --name-only HEAD)+@(& git -C $taskRepo ls-files --others --exclude-standard)
+$taskSourceChanges=@($taskChanged | Where-Object {$_ -in $taskNames})
+$taskInfo=@{gitCommit=$taskCommit;gitBranch=$taskBranch;uncommittedSourceFiles=$taskSourceChanges;bundleId='cn.obsmd.gogame';appleId='6821625687';marketingVersion='1.0';packageType='ios-source-and-prepared-resources';signedIpa='NOT_BUILT';testflightUpload='NOT_RUN';workflow='ios-testflight-release'}
+[IO.File]::WriteAllText((Join-Path $taskStage 'package-info.json'),(ConvertTo-Json -InputObject $taskInfo -Depth 4))
+$taskManifest+=@{path='package-info.json';sha256=(Get-FileHash -LiteralPath (Join-Path $taskStage 'package-info.json') -Algorithm SHA256).Hash.ToLowerInvariant()}
 [IO.File]::WriteAllText((Join-Path $taskStage 'source-manifest.json'),(ConvertTo-Json -InputObject $taskManifest -Depth 4))
 $taskOutput=Join-Path $taskRepo 'dist/mobile-device'
 [IO.Directory]::CreateDirectory($taskOutput) | Out-Null
-$taskZip=Join-Path $taskOutput ('Nobi-ios-preparation-'+$taskId+'.zip')
+$taskZip=Join-Path $taskOutput ('Nobi-ios-test-source-20261014-'+$taskId+'.zip')
 $taskZipStream=[IO.File]::Open($taskZip,[IO.FileMode]::CreateNew)
 $taskArchive=[IO.Compression.ZipArchive]::new($taskZipStream,[IO.Compression.ZipArchiveMode]::Create)
 try {

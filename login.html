@@ -12,7 +12,7 @@
   <script src="platform.js"></script><script src="ui/navigation.js"></script>
   <script src="config.local.js"></script>
   <script src="config.js"></script>
-  <script src="supabaseClient.js"></script> <!-- config.js 是处理合并逻辑的文件 -->
+  <script src="supabaseClient.js"></script><script src="ui/auth-session.js"></script> <!-- config.js 是处理合并逻辑的文件 -->
   <title>登录 · Nobi 游戏</title>
   <link rel="icon" href="ui/brand.svg" type="image/svg+xml">
   <link rel="manifest" href="manifest.json">
@@ -66,16 +66,17 @@
     .error-msg { color: #ff4d4f; font-size: 0.85rem; margin-top: 8px; display: none; }
   </style>
   <link rel="stylesheet" href="ui/auth.css">
-<link rel="stylesheet" href="ui/navigation.css"></head>
+<link rel="stylesheet" href="ui/navigation.css"><link rel="stylesheet" href="ui/app-downloads.css"><script src="ui/app-release.js"></script><script src="ui/app-downloads.js"></script></head>
 <body>
   <div class="card">
     <h1 class="nobi-brand"><img src="ui/brand.svg" alt=""><div><b>Nobi</b> <span>游戏</span><small>NOBI GAMES</small></div></h1>
     <p class="desc">请登录以开启您的对局</p>
-    <form id="login-form" onsubmit="handleLogin(event)">
+    <form id="login-form" hidden onsubmit="handleLogin(event)">
       <input type="email" id="login-email" placeholder="邮箱地址" required autocomplete="email">
       <input type="password" id="login-password" placeholder="密码" required autocomplete="current-password">
       <button type="submit" id="login-btn">登录</button>
     </form>
+    <div data-app-downloads></div>
     <p class="error-msg" id="login-error"></p>
     <div class="link-row">
       没有账号？<a href="register.html">用户注册</a>
@@ -99,7 +100,7 @@
       // requireClient waits for asynchronous public configuration before authenticating.
       const client = await window.NobiServices.requireClient();
       
-      const { data, error } = await client.auth.signInWithPassword({ email, password });
+      const { data, error } = await window.NobiServices.signInOnce({ email, password });
       if (error) throw error;
       if (!data?.user?.id || !data.session) throw new Error('登录未建立有效会话，请重试');
 
@@ -112,7 +113,7 @@
       };
       
       sessionStorage.setItem('userInfo', JSON.stringify(userInfo));
-      window.location.href = 'game.html';
+      window.location.replace(window.NobiAuthDestination || 'game.html');
     } catch (err) {
       // 针对不同类型的错误给出更友好的提示
       console.error('Login Detail:', err);

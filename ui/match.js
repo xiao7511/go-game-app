@@ -49,7 +49,7 @@
     const solo=view.mode==='SINGLE_PLAYER';
     document.querySelectorAll('[data-go-mode-label]').forEach(el=>{el.textContent=solo?'人机对局':view.room?'好友对战':'在线对战';});
     text('[data-go-move-count]',String(view.moveNumber));
-    const count=document.querySelector('[data-go-count]');if(count){count.hidden=!solo;count.disabled=!solo||view.ended||!view.myColor;}
+    const count=document.querySelector('[data-go-count]');if(count){const online=document.body.classList.contains('nobi-embedded');count.hidden=!solo&&!online;count.disabled=(!solo&&!online)||view.ended||!view.myColor||(online&&(!window.parent.NobiOnline?.getConnection().connected||window.parent.NobiOnline?.getConnection().pending||!!window.parent.NobiOnline?.getSnapshot()?.pending));}
     const rematch=document.querySelector('[data-go-rematch]');if(rematch) rematch.hidden=!solo;
     // Player cards: own colour first; clocks and captures follow the stone colour shown.
     const mine=view.myColor||'black',theirs=mine==='black'?'white':'black';
