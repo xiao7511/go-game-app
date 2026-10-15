@@ -3,6 +3,7 @@ import path from 'node:path';
 import vm from 'node:vm';
 import {createHash} from 'node:crypto';
 import {root} from './verify-assets.mjs';
+export const webDownloadAssets=['ui/app-release.js','ui/app-downloads.js','ui/app-downloads.css'];
 export async function appRelease(){const context={window:{}};vm.runInNewContext(await fs.readFile(path.join(root,'ui/app-release.js'),'utf8'),context,{timeout:100});return context.window.NobiAppRelease;}
 export async function copyAppDownloads(publicDir){
  const release=await appRelease(),file=release.android.file;
