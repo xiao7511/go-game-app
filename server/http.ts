@@ -10,6 +10,7 @@ import { localCredentials, localUrl } from '../scripts/local-supabase.mjs';
 import { localSql, literal } from '../scripts/local-db.mjs';
 import {accountAvatar} from './account-avatar.mjs';
 import {roomDirectory} from './room-directory.mjs';
+import {accountSummary} from './account-summary.mjs';
 import {RULES_VERSION} from '../ui/guandan-rules.mjs';
 export async function startServer(options:any={}) {
  const config=options.backend??await localCredentials();
@@ -75,9 +76,9 @@ export async function startServer(options:any={}) {
     else if(req.method==='GET'&&url.pathname.startsWith('/admin/results/'))result=matchResult(uid,url.pathname.slice(15),true);
     else if(req.method==='GET'&&url.pathname.startsWith('/results/'))result=matchResult(uid,url.pathname.slice(9));
     else throw new GameError('route unavailable',404);
-   } else if(req.method==='GET'&&url.pathname==='/rooms') {
+   } else if(req.method==='GET'&&['/rooms','/me/summary'].includes(url.pathname)) {
     if(durable){const ids=JSON.parse(localSql("select coalesce(json_agg(id),'[]'::json) from game.rooms;")||'[]');for(const id of ids)await ensure(id);}
-    result=roomDirectory(authority.rooms.values(),uid,url.searchParams);
+    result=url.pathname==='/me/summary'?accountSummary(authority.rooms.values(),uid,url.searchParams.get('game')):roomDirectory(authority.rooms.values(),uid,url.searchParams);
    } else if(req.method==='POST'&&url.pathname==='/rooms') {
     if(!['go','guandan'].includes(body.kind)) throw new GameError('invalid game',400);
     if(body.competitive!==undefined&&typeof body.competitive!=='boolean')throw new GameError('invalid competitive mode',400);

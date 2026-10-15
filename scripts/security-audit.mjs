@@ -74,7 +74,7 @@ if (process.argv[1] && path.resolve(process.argv[1])===fileURLToPath(import.meta
     for(const name of names) {
       if(/^(?:\.nobi-isolated|\.nobi-stage)\//.test(name))throw new Error('Generated credential/staging directory forbidden: '+name);
       if(sensitiveExtension.test(name) || /(^|\/)\.env(?!\.example$)/.test(name)) throw new Error('Forbidden staged material: '+name);
-      const data=execFileSync('git',['show',':'+name],{cwd:stagedRoot,maxBuffer:16*1024*1024});
+      const data=execFileSync('git',['show',':'+name],{cwd:stagedRoot,maxBuffer:(/\.apk$/i.test(name)?64:16)*1024*1024});
       if(/-----BEGIN (?:RSA |EC |ENCRYPTED )?PRIVATE KEY-----|sb_secret_[a-zA-Z0-9_-]+/.test(data.toString('utf8'))) throw new Error('Secret in staged file: '+name);
     }
     console.log('Staged-material guard PASS');

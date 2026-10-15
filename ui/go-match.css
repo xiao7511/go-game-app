@@ -103,8 +103,11 @@ body.nobi-playing-go[data-go-mode=SINGLE_PLAYER] #room-panel { display:none; }
 .go-result-actions .go-result-primary { grid-column:1 / -1; color:#2b210f; border-color:#ffe2a0; background:linear-gradient(180deg,#ffe9b0,#dcae5c); }
 .go-result-actions [hidden] { display:none; }
 
-body.nobi-embedded .go-actions #surrender-btn, body.nobi-embedded #quit-game-btn, body.nobi-embedded [data-go-count] { display:none !important; }
-body.nobi-embedded .go-rail { grid-template-columns:repeat(4,minmax(0,1fr)); }
+body.nobi-embedded .go-actions { grid-template-columns:repeat(2,minmax(0,1fr)); }
+body.nobi-embedded .go-actions #surrender-btn { grid-column:auto; }
+body.nobi-embedded .go-actions [data-go-count] { display:block; }
+body.nobi-embedded .go-actions [data-go-undo] { grid-column:1 / -1; }
+body.nobi-embedded .go-rail { grid-template-columns:repeat(5,minmax(0,1fr)); }
 @media(max-height:600px) and (orientation:landscape){body.nobi-embedded .go-rail{grid-template-columns:1fr!important}}
 
 @media (max-width:1180px) and (min-height:601px) {

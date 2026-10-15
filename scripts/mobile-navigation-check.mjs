@@ -40,8 +40,8 @@ async function swipe(x,y,endX,endY,cancel=false){
 }
 const pass=name=>{checks.push(name);console.log('PASS: '+name);};
 try{
- await page.goto(origin+'/online.html?game=guandan');await expect(page.locator('#connection')).toHaveText('电脑联机服务就绪');
- await page.locator('#email').fill(fixture.accounts[0].email);await page.locator('#password').fill(fixture.accounts[0].password);await page.locator('#login button').click();await expect(page.locator('#rooms')).toBeVisible();
+ await page.goto(origin+'/online.html?game=guandan');await expect(page.locator('#connection')).toHaveText('请登录后加入房间');
+ await page.locator('#auth-entry').click();await expect(page.locator('#login-form')).toBeVisible();await page.locator('#login-email').fill(fixture.accounts[0].email);await page.locator('#login-password').fill(fixture.accounts[0].password);await page.locator('#login-btn').click();await expect(page.locator('#rooms')).toBeVisible();
  await page.goto(origin+'/game.html#/me');await expect(page.locator('[data-avatar-preset="2"]')).toBeVisible();
  await expect.poll(()=>page.evaluate(()=>getComputedStyle(document.documentElement).overflowY)).toBe('auto');
  await swipe(190,500,190,140);await expect.poll(()=>page.evaluate(()=>scrollY)).toBeGreaterThan(80);pass('Portrait profile scrolls vertically through native touch input');
@@ -66,8 +66,8 @@ try{
  await expect.poll(()=>page.evaluate(()=>NobiOnline.getSnapshot()?.status)).toBe('waiting');
  const roomId=await page.evaluate(()=>NobiOnline.getSnapshot().roomId);
  const opponentContext=await browser.newContext({viewport:{width:806,height:360},hasTouch:true,isMobile:true});await opponentContext.grantPermissions(['local-network-access'],{origin});await opponentContext.route('**/*',routeHandler);
- const opponent=await opponentContext.newPage();await opponent.goto(origin+'/online.html?game=go');await expect(opponent.locator('#login')).toBeVisible();
- await opponent.locator('#email').fill(fixture.accounts[1].email);await opponent.locator('#password').fill(fixture.accounts[1].password);await opponent.locator('#login button').click();await expect(opponent.locator('[data-room-join="'+roomId+'"]')).toBeVisible();await opponent.locator('[data-room-join="'+roomId+'"]').click();
+ const opponent=await opponentContext.newPage();await opponent.goto(origin+'/online.html?game=go');await expect(opponent.locator('#auth-gate')).toBeVisible();await opponent.locator('#auth-entry').click();await expect(opponent.locator('#login-form')).toBeVisible();
+ await opponent.locator('#login-email').fill(fixture.accounts[1].email);await opponent.locator('#login-password').fill(fixture.accounts[1].password);await opponent.locator('#login-btn').click();await expect(opponent.locator('[data-room-join="'+roomId+'"]')).toBeVisible();await opponent.locator('[data-room-join="'+roomId+'"]').click();
  await expect.poll(()=>page.evaluate(()=>NobiOnline.getSnapshot()?.players.length)).toBe(2);await expect(page.locator('#start')).toBeEnabled();await page.locator('#start').click();await expect.poll(()=>page.evaluate(()=>NobiOnline.getSnapshot()?.status)).toBe('playing');
  await context.setOffline(true);await expect.poll(()=>page.evaluate(()=>NobiOnline.getConnection().connected)).toBe(false);await page.evaluate(()=>NobiNavigation.back());assert.equal(await page.evaluate(()=>NobiOnline.getSnapshot()?.status),'playing');pass('Disconnected room back keeps room context until authority confirms exit');
  await context.setOffline(false);await expect.poll(()=>page.evaluate(()=>NobiOnline.getConnection().connected),{timeout:15000}).toBe(true);

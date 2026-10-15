@@ -11,6 +11,7 @@ import {accountAvatar} from './account-avatar.mjs';
 import {roomDirectory} from './room-directory.mjs';
 import {createRoomChat} from './room-chat.mjs';
 import {accountSummary} from './account-summary.mjs';
+import {createInvitations} from './game-invitations.mjs';
 import {RULES_VERSION} from '../ui/guandan-rules.mjs';
 
 export function onlineAuthenticator(config,request=fetch) {
@@ -36,10 +37,14 @@ export async function startDeviceServer({authenticate,database,port=55440,now,ho
  const save=room=>{try{return store.run(room.id,JSON.stringify(authority.exportState(room)));}catch(error){room.status='blocked';throw error;}};
  for(const row of db.prepare('SELECT state FROM rooms').all())await authority.restore(JSON.parse(row.state));
  const streams=new Set();
- authority.onChange=room=>{for(const stream of streams)if(stream.room===room.id)stream.response.write('event: state\ndata: '+JSON.stringify(authority.view(room,stream.uid))+'\n\n');};
+ authority.onChange=room=>{for(const stream of streams)if(stream.room===room.id){if(!room.seats.includes(stream.uid)){stream.response.write('event: removed\ndata: {"message":"房主已将你移出房间"}\n\n');stream.response.end();}else stream.response.write('event: state\ndata: '+JSON.stringify(authority.view(room,stream.uid))+'\n\n');}};
  // Joining changes only a waiting room. Publish after its snapshot has reached SQLite.
  const publish=authority.onChange;
  authority.onChange=room=>{save(room);publish(room);};
+ const invitations=createInvitations(db,{rooms:authority.rooms,createRoom:(uid,user,kind)=>{
+  if([...authority.rooms.values()].filter(r=>r.owner===uid&&r.status==='waiting').length>=10)throw new GameError('请先使用已有等待房间',429);
+  const id=randomUUID();authority.create(id,kind,uid);const room=authority.rooms.get(id);room.names[uid]=user.name;room.avatars[uid]=user.avatar;try{save(room);return room;}catch(error){authority.rooms.delete(id);throw error;}
+ },joinRoom:(room,uid,user)=>{const notify=authority.onChange;authority.onChange=()=>{};try{authority.join(room.id,uid,room.seats.length);room.names[uid]=user.name;room.avatars[uid]=user.avatar;save(room);}finally{authority.onChange=notify;}},changed:publish,now:now??Date.now});
  const allowed=new Set(['capacitor://localhost','http://localhost','https://localhost',...[5178,4173,4174,4175,5189].flatMap(port=>['127.0.0.1','localhost'].map(host=>'http://'+host+':'+port))]);
  for(const origin of origins)allowed.add(origin);
  const rates=new Map();
@@ -62,13 +67,16 @@ export async function startDeviceServer({authenticate,database,port=55440,now,ho
    const identity=room=>{room.names[uid]=name;room.avatars[uid]=avatar;};
    let result;
    if(req.method==='GET'&&url.pathname==='/me/summary')result=accountSummary(authority.rooms.values(),uid,url.searchParams.get('game'));
+   else if(req.method==='GET'&&url.pathname==='/me/invitations')result=invitations.list(uid);
+   else if(req.method==='POST'&&url.pathname==='/invitations')result=invitations.send(uid,{name,avatar},body);
+   else if(req.method==='POST'&&/^\/invitations\/[a-f0-9-]{36}\/(accept|decline|cancel)$/.test(url.pathname)){const parts=url.pathname.split('/');result=await invitations.respond(uid,{name,avatar},parts[2],parts[3]);}
    else if(req.method==='GET'&&url.pathname==='/rooms')result=roomDirectory(authority.rooms.values(),uid,url.searchParams);
    else if(req.method==='POST'&&url.pathname==='/rooms'){
     if(body.competitive)throw new GameError('电脑联机测试暂不计入线上积分',400);
     if([...authority.rooms.values()].filter(r=>r.owner===uid&&r.status==='waiting').length>=10)throw new GameError('请先使用已创建的房间（最多 10 个等待房间）',429);
     const id=randomUUID();authority.create(id,body.kind,uid,null,body.kind==='guandan'?(body.rulesVersion??RULES_VERSION):undefined);const room=authority.rooms.get(id);identity(room);save(room);result=authority.view(room,uid);
    }else{
-    const route=/^\/rooms\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(?:\/(join|commands|events|continue|chat))?$/.exec(url.pathname);
+    const route=/^\/rooms\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(?:\/(join|kick|commands|events|continue|chat))?$/.exec(url.pathname);
     if(!route)throw new GameError('route unavailable',404);
     const [,id,action]=route;
     let room=authority.rooms.get(id);
@@ -82,6 +90,8 @@ export async function startDeviceServer({authenticate,database,port=55440,now,ho
       if(!sent.duplicate)for(const stream of streams)if(stream.room===room.id&&room.seats.includes(stream.uid))stream.response.write('event: chat\ndata: '+JSON.stringify(sent.message)+'\n\n');
       return sent;
      });room.queue=task.catch(()=>{});result=await task;
+    }else if(req.method==='POST'&&action==='kick'){
+     const task=room.queue.then(()=>authority.removePlayer(id,uid,body));room.queue=task.catch(()=>{});result=await task;
     }else if(req.method==='POST'&&action==='join'){
      const task=room.queue.then(()=>{authority.join(id,uid,room.seats.includes(uid)?room.seats.indexOf(uid):room.seats.length);identity(room);save(room);publish(room);return authority.view(room,uid);});room.queue=task.catch(()=>{});result=await task;
     }else if(req.method==='GET'&&action==='events'){

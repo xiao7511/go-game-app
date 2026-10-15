@@ -3,6 +3,16 @@ import { Authority } from '../../server/authority.ts';
 const envelope=(type,expectedVersion,extra={})=>({type,expectedVersion,requestId:'test-'+Math.random().toString(36).slice(2),...extra});
 async function go(options={}) {const a=new Authority(options);a.create('room','go','black');a.join('room','white',1);await a.command('room','black',envelope('start',1));return a;}
 describe('Phase 3A authority (offline rules and serialization)',()=>{
+ it('social Go counting requires opponent approval and both score confirmations, survives replay and stays unranked',async()=>{
+  const a=await go();await a.command('room','black',envelope('score-request',2));
+  await expect(a.command('room','black',envelope('score-accept',3))).rejects.toThrow('opponent');
+  await a.command('room','white',envelope('score-accept',3));
+  const saved=a.exportState(a.rooms.get('room')),restored=new Authority();await restored.restore(saved);
+  expect(restored.view(restored.rooms.get('room'),'white').publicState.scoring.phase).toBe('proposal');
+  await a.command('room','black',envelope('score-propose',4,{dead:[],neutral:[]}));const proposal=a.rooms.get('room').scoring.proposal;
+  await expect(a.command('room','black',envelope('score-confirm',5,{proposalId:proposal.proposalId}))).rejects.toThrow('opponent');
+  await a.command('room','white',envelope('score-confirm',5,{proposalId:proposal.proposalId}));expect(a.rooms.get('room').result).toMatchObject({reason:'area-score',ranked:false});
+ });
  it('rejects unknown games and unauthorized snapshots',()=>{const a=new Authority();expect(()=>a.create('x','chess','u')).toThrow('invalid game');a.create('r','go','u');expect(()=>a.room('r','outsider')).toThrow('participant');});
  it('owner cannot start before all required seats join',async()=>{const a=new Authority();a.create('r','guandan','u');await expect(a.command('r','u',envelope('start',0))).rejects.toThrow('start denied');});
  it('serializes racing commands against the same state version',async()=>{const a=await go();const results=await Promise.allSettled([a.command('room','black',envelope('move',2,{row:0,col:0})),a.command('room','black',envelope('move',2,{row:1,col:1}))]);expect(results.map(r=>r.status)).toEqual(['fulfilled','rejected']);expect(a.view(a.rooms.get('room'),'black').moves).toHaveLength(1);});

@@ -9,7 +9,7 @@
   <script src="platform.js"></script><script src="ui/navigation.js"></script>
   <script src="config.local.js"></script>
   <script src="config.js"></script>
-  <script src="supabaseClient.js"></script>
+  <script src="supabaseClient.js"></script><script src="ui/auth-session.js"></script>
   <title>注册 · Nobi 游戏</title>
   <link rel="icon" href="ui/brand.svg" type="image/svg+xml">
   <link rel="manifest" href="manifest.json">
@@ -64,12 +64,12 @@
     .success-msg { color: #4caf50; font-size: 0.85rem; margin-top: 8px; display: none; }
   </style>
   <link rel="stylesheet" href="ui/auth.css">
-<link rel="stylesheet" href="ui/navigation.css"></head>
+<link rel="stylesheet" href="ui/navigation.css"><link rel="stylesheet" href="ui/app-downloads.css"><script src="ui/app-release.js"></script><script src="ui/app-downloads.js"></script></head>
 <body>
   <div class="card">
     <h1 class="nobi-brand"><img src="ui/brand.svg" alt=""><div><b>Nobi</b> <span>游戏</span><small>NOBI GAMES</small></div></h1>
     <p>创建 Nobi 账号，开启好友对局</p>
-    <form id="register-form" onsubmit="handleRegister(event)">
+    <form id="register-form" hidden onsubmit="handleRegister(event)">
       <input type="email" id="reg-email" placeholder="邮箱地址" required autocomplete="email">
       <input type="password" id="reg-password" placeholder="密码（至少6位）" required minlength="6" autocomplete="new-password">
       <input type="text" id="reg-nickname" placeholder="昵称（选填）" autocomplete="off">
@@ -83,6 +83,7 @@
       </select>
       <button type="submit" id="reg-btn">注册</button>
     </form>
+    <div data-app-downloads></div>
     <p class="error-msg" id="reg-error"></p>
     <p class="success-msg" id="reg-success"></p>
     <div class="back-link">
@@ -110,6 +111,7 @@
         if (!window.NobiServices?.requireClient) throw new Error('注册服务未加载，请刷新页面');
         const client = await window.NobiServices.requireClient();
         
+        if(await window.NobiServices.signedUser()){window.location.replace(window.NobiAuthDestination||'game.html');return;}
         const { data, error } = await client.auth.signUp({
           email: email,
           password: password,
