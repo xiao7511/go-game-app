@@ -1,5 +1,5 @@
-// Public download metadata. Android is the exact previously delivered 1.0.2 test package.
+// Public download metadata. Android bytes/hash identify the verified signed upgrade APK.
 window.NobiAppRelease=Object.freeze({
- android:Object.freeze({file:'Nobi-android-1.0.2.apk',version:'1.0.2',bytes:22972313,sha256:'828f76853b72268c1e5bc5802a2ecb0b70341e16346011b21bb33dfdc6d406b3'}),
- ios:Object.freeze({mode:'internal',testFlight:'https://apps.apple.com/app/testflight/id899247664'})
+ android:Object.freeze({file:'Nobi-android-1.0.3.apk',version:'1.0.3',bytes:22982295,sha256:'ff839de7206c568a49ad425fb32453c42db734c547afbcd716791b4dd91eec11'}),
+ ios:Object.freeze({mode:'public',invitationUrl:'https://testflight.apple.com/join/JSrJ2eYE',testFlight:'https://apps.apple.com/app/testflight/id899247664'})
 });

@@ -6,7 +6,7 @@ import { root, verifyCards, verifyRegions } from './verify-assets.mjs';
 import { publicConfig } from './public-config.mjs';
 import { verifyBuild } from './verify-build.mjs';
 import { deviceOnlineConfig } from './device-online-config.mjs';
-import { copyAppDownloads } from './app-download-assets.mjs';
+import { copyAppDownloads, webDownloadAssets } from './app-download-assets.mjs';
 
 const action = process.argv[2] || 'build';
 const target = process.argv[3] === 'mobile' ? 'mobile' : 'web';
@@ -30,6 +30,9 @@ if (action !== 'preview') {
   await fs.mkdir(publicDir, { recursive: true });
   for (const name of scripts) await fs.copyFile(path.join(root, name), path.join(publicDir, name));
   for (const name of ['images/cards', 'assets/sounds', 'assets/music', 'ui']) await fs.cp(path.join(root, name), path.join(publicDir, name), { recursive: true });
+  // Download metadata contains the APK hash. Keep it Web-only so an APK never
+  // embeds its own download hash and native assets remain independently verifiable.
+  if(target==='mobile')for(const name of webDownloadAssets)await fs.rm(path.join(publicDir,name),{force:true});
   for (const name of ['manifest.json', 'icon-192-v1.png', 'icon-512-v1.png', 'apple-touch-icon-v1.png', 'favicon-v1.ico', 'icon.svg']) await fs.copyFile(path.join(root, name), path.join(publicDir, name));
   if (target === 'web') {
     await copyAppDownloads(publicDir);
@@ -58,6 +61,7 @@ if (action !== 'preview') {
     let html = await fs.readFile(path.join(root, name), 'utf8');
     html = html.replace(/<script src="https:\/\/cdn\.jsdelivr\.net\/npm\/@supabase\/supabase-js@2"><\/script>/g, '<script src="vendor/supabase.js"></script>');
     if (target === 'mobile') html = html.replace(/<script src="pc\/cs16-adapter.js"><\/script>/g, '');
+    if (target === 'mobile') html = html.replace(/<script src="ui\/app-(?:release|downloads)\.js"><\/script>/g,'').replace(/<link rel="stylesheet" href="ui\/app-downloads\.css">/g,'');
     await fs.writeFile(path.join(stage, name), html);
   }
 }
