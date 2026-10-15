@@ -1,11 +1,13 @@
 import {test,expect} from '../../tooling/node_modules/@playwright/test/index.mjs';
 import path from 'node:path';
 import {accessibleHand} from './guandan-layout-helpers.mjs';
+import {dealHuaianTurn} from './guandan-fixture.mjs';
 const shots=path.resolve(process.env.NOBI_MATCH_SCREENSHOT_DIR || 'docs/nobi-v2/screenshots/phase-2');
 const mobile={hasTouch:true,userAgent:'Mozilla/5.0 (Linux; Android 14) Mobile'};
 async function launch(page,game,port=4173) {
   await page.goto(`http://127.0.0.1:${port}/game.html`);
   await page.locator(`[data-launch="${game}"]`).click();
+  if(game==='guandan')await dealHuaianTurn(page);
 }
 
 test('touch tap, drag, cancellation and vertical swipe cannot accidentally play cards',async({browser})=>{
@@ -83,7 +85,7 @@ test('mobile five-page review keeps navigation, touch targets, scroll and safe r
     await expect(page.locator('#app-perfect-selector-mask')).toHaveAttribute('data-route',route);
     if(route==='rank') await expect(page.locator('[data-ranking-status]')).toHaveAttribute('data-ranking-status','unavailable');
     await expect(page.locator('[data-id="cs16"]')).toHaveCount(0);
-    expect(await page.evaluate(()=>scrollY)).toBe(0);
+    await expect.poll(()=>page.evaluate(()=>scrollY)).toBe(0);
     for(const width of [320,360,390]) {
       await page.setViewportSize({width,height:844});
       expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
@@ -159,6 +161,6 @@ test('game audio scenes, mute and settings persist across game/lobby boundaries'
   await page.getByRole('button',{name:'关闭面板'}).click();await page.locator('[data-gd-exit]').click();
   expect(await page.evaluate(()=>window.NobiAudio.getStatus().scene)).toBe('lobby');
   await page.locator('[data-launch="go"]').click();expect(await page.evaluate(()=>window.NobiAudio.getStatus().scene)).toBe('go');
-  expect(await page.evaluate(()=>window.NobiAudio.getStatus().available)).toBe(false);
+  expect(await page.evaluate(()=>window.NobiAudio.getStatus().available)).toBe(true);
   await page.reload();expect(await page.evaluate(()=>window.NobiAudio.getSettings().effectsEnabled)).toBe(false);
 });

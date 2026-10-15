@@ -46,7 +46,7 @@ test('mobile real screens, small viewports and bottom navigation contain no PC e
     await page.setViewportSize({width:390,height:844});
   }
   await page.locator('.nobi-bottom-nav').getByRole('link',{name:'好友',exact:true}).click();
-  await expect(page.getByText('好友服务尚未接入')).toBeVisible();
+  await expect(page.getByText('登录后查看对战好友', {exact:true})).toBeVisible();
   expect(errors).toEqual([]); await context.close();
 });
 
@@ -84,7 +84,7 @@ test('ranking filters, profile and legacy game exit keep the shell usable', asyn
   await expect(page.locator('#app-perfect-selector-mask')).toBeVisible();
 });
 
-test('music settings persist on refresh, use real effects and report absent BGM',async({page})=>{
+test('music settings persist on refresh, expose classical BGM and use real effects',async({page})=>{
   await page.setViewportSize({width:390,height:844});
   await page.goto('http://127.0.0.1:4174/game.html#/music');
   await page.getByRole('checkbox',{name:'背景音乐开关',exact:true}).check();
@@ -96,7 +96,8 @@ test('music settings persist on refresh, use real effects and report absent BGM'
   await expect(page.getByRole('checkbox',{name:'背景音乐开关',exact:true})).toBeChecked();
   await expect(page.getByRole('checkbox',{name:'游戏音效开关',exact:true})).not.toBeChecked();
   await expect(page.locator('#music-volume')).toHaveValue('23');await expect(page.locator('#effects-volume')).toHaveValue('41');await expect(page.locator('#prompt-volume')).toHaveValue('67');
-  await expect(page.locator('[data-audio-status]')).toContainText('暂无授权背景音乐');
+  expect(await page.evaluate(()=>NobiAudio.getStatus().available)).toBe(true);
+  await expect(page.getByLabel('选择围棋背景音乐').locator('option')).toHaveCount(3);
   await page.getByRole('button',{name:'围棋',exact:true}).click();
   expect(await page.evaluate(()=>window.NobiAudio.getStatus().scene)).toBe('go');
   await page.getByRole('checkbox',{name:'游戏音效开关',exact:true}).check();

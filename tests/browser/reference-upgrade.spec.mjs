@@ -1,5 +1,6 @@
 import { test, expect } from '../../tooling/node_modules/@playwright/test/index.mjs';
 import path from 'node:path';
+import {dealHuaianTurn} from './guandan-fixture.mjs';
 const shots=path.resolve(process.env.NOBI_SCREENSHOT_DIR || 'docs/nobi-v2/screenshots/reference-upgrade');
 
 test('mobile subpages return to profile and scene controls retain keyboard focus', async ({ browser }) => {
@@ -20,9 +21,9 @@ test('mobile subpages return to profile and scene controls retain keyboard focus
   const links=await page.locator('.profile-links').boundingBox();
   const picker=await page.locator('.avatar-picker').boundingBox();
   expect(identity.y+identity.height<=links.y && links.y+links.height<=picker.y).toBe(true);
-  await page.locator('[data-avatar-preset="0"]').click();
+  await expect(page.locator('[data-avatar-preset="0"]')).toBeDisabled();
   await expect(page.locator('[data-avatar-preset="0"]')).toHaveAttribute('aria-pressed','false');
-  await expect(page.locator('.nobi-status')).toHaveText('请先登录后更换头像');
+  await expect(page.getByRole('link',{name:'登录 / 注册',exact:true})).toBeVisible();
   await page.reload();
   await expect(page.locator('[data-avatar-preset="0"]')).toHaveAttribute('aria-pressed','false');
   await context.close();
@@ -50,6 +51,7 @@ test('landscape press feedback preserves the full 44px Guandan touch target', as
   const page=await context.newPage();
   await page.goto('http://127.0.0.1:4174/game.html');
   await page.locator('[data-launch="guandan"]').click();
+  await dealHuaianTurn(page);
   const hint=page.locator('[data-gd-hint]');
   await expect(hint).toBeEnabled();
   const before=await hint.boundingBox();

@@ -28,3 +28,11 @@ jobs:
         run: docker build -f infrastructure/production/Dockerfile -t nobi-online:ci .
       - run: node tooling/node_modules/@playwright/test/cli.js install --with-deps chromium
       - run: npm run test:browser
+      - name: Save browser failure traces
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-failure-traces
+          path: test-results/
+          if-no-files-found: ignore
+          retention-days: 7

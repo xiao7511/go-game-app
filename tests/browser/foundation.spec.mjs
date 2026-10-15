@@ -20,6 +20,9 @@ test('dev and real build pages/resources load; private files are not served', as
 });
 
 test('login/register load bundled SDK and index redirects under a subpath', async ({page}) => {
+  // No production Auth configuration is available in CI. A public fixture lets
+  // the signed-session guard establish that this browser is logged out.
+  await page.route('**/config.local.js',route=>route.fulfill({contentType:'application/javascript',body:'window.CONFIG={SUPABASE_URL:"https://auth.fixture.invalid",SUPABASE_ANON_KEY:"public-fixture"};'}));
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
   await page.goto('http://127.0.0.1:4175/go-game-app/index.html');
   await expect(page).toHaveURL('http://127.0.0.1:4175/go-game-app/login.html');
