@@ -21,7 +21,7 @@ if(nativeConfig.appId!=='cn.obsmd.gogame'||nativeConfig.server?.url)throw new Er
 const result={checkedAt:new Date().toISOString(),staticPreparation:'PASS',assets:verifyBuild('mobile',path.join(root,'ios/App/App/public')),
  bundleId:nativeConfig.appId,minimumOS:'13.0',icon:'1024px opaque RGB',privacy:'UserDefaults CA92.1 + bundled Capacitor manifests',
  archive:'NOT_RUN',testFlightUpload:'NOT_RUN',testFlightReady:false,
- remaining:['Human-triggered Codemagic macOS/Xcode build and signed IPA export','Reuse existing nobi-apple integration and signing identities','Unique build number selected by the stable Codemagic workflow and Apple history','Human upload and internal TestFlight build assignment','Run real iPhone testing']};
+ remaining:['Human-triggered Codemagic macOS/Xcode build, signed IPA export and Apple upload','Reuse existing nobi-apple integration and signing identities','Unique build number selected by the stable Codemagic workflow and Apple history','Human internal TestFlight build assignment after Apple processing','Run real iPhone testing']};
 fs.mkdirSync('.nobi-isolated/mobile-device',{recursive:true});
 fs.writeFileSync('.nobi-isolated/mobile-device/ios-readiness.json',JSON.stringify(result,null,2));
 console.log(JSON.stringify(result));

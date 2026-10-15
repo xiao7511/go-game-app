@@ -1,6 +1,7 @@
 import {test,expect} from '../../tooling/node_modules/@playwright/test/index.mjs';
 import path from 'node:path';
 import {accessibleHand} from './guandan-layout-helpers.mjs';
+import {dealHuaianTurn} from './guandan-fixture.mjs';
 
 const shots=path.resolve(process.env.NOBI_GUANDAN_SCREENSHOT_DIR || 'docs/nobi-v2/screenshots/guandan-v21');
 const overlap=(a,b)=>a.x<b.right-.5&&a.right>b.x+.5&&a.y<b.bottom-.5&&a.bottom>b.y+.5;
@@ -11,10 +12,11 @@ for(const [name,width,height,mobile] of [['pc',1440,900,false],['mobile-landscap
     const page=await context.newPage();const errors=[];page.on('pageerror',e=>errors.push(e.message));
     await page.goto(`http://127.0.0.1:${mobile?4174:4173}/game.html`);
     await page.locator('[data-launch="guandan"]').click();
+    await dealHuaianTurn(page);
     await expect(page.locator('[data-gd-hand] .gd-card')).toHaveCount(27);
     await expect(page.locator('.gd-player-avatar')).toHaveCount(4);
     await expect(page.locator('.gd-player-info[aria-current="true"]')).toHaveCount(1);
-    await expect(page.locator('[data-gd-score]')).toContainText('非积分');
+    await expect(page.locator('[data-gd-score]')).toContainText('普通对局');
     await expect.poll(()=>page.locator('[data-gd-hand] img').evaluateAll(images=>images.every(i=>i.complete&&i.naturalWidth===222&&i.naturalHeight===323&&new URL(i.src).pathname.includes('/images/cards/')))).toBe(true);
     if(width<height&&mobile){
       await expect(page.locator('#gd-landscape-tips')).toBeVisible();

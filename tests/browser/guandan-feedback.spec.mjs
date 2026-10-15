@@ -1,5 +1,6 @@
 import {test,expect} from '../../tooling/node_modules/@playwright/test/index.mjs';
 import {verifyDevServer} from '../../scripts/verify-dev-server.mjs';
+import {dealHuaianTurn} from './guandan-fixture.mjs';
 const base='http://127.0.0.1:5178';
 test.beforeAll(async()=>{await verifyDevServer();});
 
@@ -21,17 +22,20 @@ async function launch(page){
   await expect(page.locator('[data-gd-hand] .gd-card')).toHaveCount(27);
 }
 async function deal(page,bomb=false){
-  return page.evaluate(bomb=>{
-    const deck=window.GD.createNetworkDeal().flat();
-    const chosen=bomb?deck.filter(c=>c.kind==='normal'&&c.rank==='5').slice(0,4):[];
-    const remaining=deck.filter(c=>!chosen.includes(c));
-    const first=[...chosen,...remaining.splice(0,27-chosen.length)];
-    const hands=[first,...[0,1,2].map(()=>remaining.splice(0,27))];
-    const seats=[0,1,2,3].map(i=>({uid:'feedback-'+i,nickname:'玩家 '+i,avatar:window.NobiAvatars.presets[i+2].src}));
-    window.GD.startNetworkGame(hands,seats,0,0,()=>{},false);
-    return chosen.map(c=>c.id);
-  },bomb);
+  return dealHuaianTurn(page,{bomb});
 }
+
+test('solo reveals the actual first leader and uses the Huaian turn duration',async({page})=>{
+  await launch(page);
+  await page.waitForFunction(()=>window.GD?.state.soloEngine);
+  const first=await page.evaluate(()=>{
+    const {soloEngine:e,soloDeadline}=GD.state;
+    return {leader:e.series.firstLeader,holder:e.state.players.findIndex(p=>p.hand.some(c=>c.id===e.series.firstCard.id)),
+      turn:e.state.currentTurn,duration:e.config.turnMs,remaining:soloDeadline-Date.now()};
+  });
+  expect(first.holder).toBe(first.leader);expect(first.turn).toBe(first.leader);
+  expect(first.duration).toBe(120000);expect(first.remaining).toBeGreaterThan(118000);
+});
 
 for(const [label,width,height]of [['pc',1440,900],['landscape',844,390],['small-landscape',568,320]]){
   test(`5178 ${label}: clock above play, final ten cue once each second, hide after play`,async({page})=>{
@@ -42,12 +46,14 @@ for(const [label,width,height]of [['pc',1440,900],['landscape',844,390],['small-
     expect(a.y+a.height).toBeLessThanOrEqual(b.y-3);
     expect(Math.abs(a.x+a.width/2-b.x-b.width/2)).toBeLessThan(1);
     expect(a.y).toBeGreaterThanOrEqual(0);
-    await page.clock.runFor(19000);
+    await page.clock.runFor(109000);
     await expect(clock.locator('b')).toHaveText('11');
     expect(await page.evaluate(()=>audioPlays.filter(s=>s.endsWith('guandan-countdown.wav')).length)).toBe(0);
     await page.clock.runFor(10000);
     await expect(clock.locator('b')).toHaveText('1');
     expect(await page.evaluate(()=>audioPlays.filter(s=>s.endsWith('guandan-countdown.wav')).length)).toBe(10);
+    const urgent=await clock.boundingBox(),button=await play.boundingBox();
+    expect(Math.abs(urgent.x+urgent.width/2-button.x-button.width/2)).toBeLessThan(1);
     await page.locator('[data-gd-hint]').click();await play.click();
     await expect(clock).toBeHidden();
     await expect(page.locator('.gd-seat-msg[data-kind="think"],.gd-seat-msg[data-kind="play"]')).toHaveCount(0);
@@ -93,7 +99,8 @@ test('5178: local classical music plays, mute stops it and leaving returns to lo
   await expect.poll(()=>page.evaluate(()=>NobiAudio.getStatus().playing)).toBe(true);
   await page.getByRole('button',{name:'关闭面板'}).click();await page.locator('[data-gd-exit]').click();
   await expect.poll(()=>page.evaluate(()=>NobiAudio.getStatus().scene)).toBe('lobby');
-  await expect.poll(()=>page.evaluate(()=>NobiAudio.getStatus().playing)).toBe(false);
+  await expect.poll(()=>page.evaluate(()=>NobiAudio.getStatus().playing)).toBe(true);
+  expect(await page.evaluate(()=>NobiAudio.getStatus().trackId)).toBe('dreaming');
 });
 
 test('5178: three classical recordings decode, in-game selection persists and lobby can preview it',async({page})=>{

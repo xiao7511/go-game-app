@@ -1,10 +1,12 @@
 import {test,expect} from '../../tooling/node_modules/@playwright/test/index.mjs';
 import {accessibleHand} from './guandan-layout-helpers.mjs';
+import {dealHuaianTurn} from './guandan-fixture.mjs';
 
 test('narrow landscape browsing retains selected physical cards and fixed confirmation',async({browser})=>{
   const context=await browser.newContext({viewport:{width:667,height:375},hasTouch:true});
   const page=await context.newPage();await page.goto('http://127.0.0.1:4174/game.html');
   await page.locator('[data-launch="guandan"]').click();
+  await dealHuaianTurn(page);
   await accessibleHand(page);
   const first=page.locator('[data-gd-hand] .gd-card').first(),last=page.locator('[data-gd-hand] .gd-card').last();
   const firstId=await first.getAttribute('data-card-id'),lastId=await last.getAttribute('data-card-id');
@@ -29,7 +31,7 @@ for(const viewport of [{width:852,height:393},{width:667,height:375},{width:568,
   await expect(page.locator('[data-gd-hand] .gd-card')).toHaveCount(27);
   // Layout fixture only, not a claimed competitive play: use real physical cards/PNG renderer.
   await page.evaluate(()=>{
-    const hands=window.GD.state.players.map(p=>p.hand),cards=hands[1].slice(0,10);
+    const hands=window.GD.createNetworkDeal(),cards=hands[1].slice(0,10);
     window.GD.applyAuthoritySnapshot({rulesVersion:'guandan-standard-v1',competitive:false,version:1,status:'playing',currentTurn:0,
       players:Array.from({length:4},(_,i)=>({nickname:['南家测试玩家','东家测试玩家','北家测试玩家','西家测试玩家'][i]})),
       privateState:{seat:0,hand:hands[0]},publicState:{level:'2',handCounts:[27,17,27,27],finishOrder:[],phase:'play',
