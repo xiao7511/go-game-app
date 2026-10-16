@@ -18,7 +18,8 @@
   };
   window.renderAppCentralLobby = function() {
     if(window.isLoggingOut) return;
-    document.body.classList.remove('in-game-match','app-system-logged-out','nobi-playing-go','nobi-playing-guandan');
+    window.XQ?.destroy();
+    document.body.classList.remove('in-game-match','app-system-logged-out','nobi-playing-go','nobi-playing-guandan','nobi-playing-xiangqi');
     let mask = document.getElementById('app-perfect-selector-mask');
     if(!mask) { mask=document.createElement('div'); mask.id='app-perfect-selector-mask'; document.body.appendChild(mask); }
     mask.style.setProperty('display','block');
@@ -40,13 +41,15 @@
         location.href='online.html?game='+game.gameId;return;
       }
       if(game.gameId==='cs16') { if(window.NobiPlatform.canUsePCGames()) await window.NobiPC?.launch(mode); return; }
-      const launchers={ guandan: mode==='NET'?window.GD_MP?.startNetMatch:window.GD?.initGameMatch, go: mode==='NET'?window.MP?.createRoom:window.MP?.startAIGame };
+      if(game.gameId==='xiangqi')await window.NobiXiangqiReady;
+      const launchers={ guandan: mode==='NET'?window.GD_MP?.startNetMatch:window.GD?.initGameMatch, go: mode==='NET'?window.MP?.createRoom:window.MP?.startAIGame,xiangqi:window.XQ?.startSolo };
       const launcher=launchers[game.gameId];
       if(typeof launcher!=='function') { window.NobiLobby.notify('游戏引擎尚未就绪'); return; }
       document.body.classList.add('in-game-match','nobi-playing-'+game.gameId);
       document.getElementById('app-perfect-selector-mask')?.style.setProperty('display','none');
       window.NobiAudio?.setScene(game.musicScene);
-      if(game.gameId==='guandan') {
+      if(game.gameId==='xiangqi'){window.XQ.startSolo();}
+      else if(game.gameId==='guandan') {
         if(mode==='NET') await window.GD_MP.startNetMatch(room);
         else window.GD.initGameMatch('SINGLE_PLAYER');
       } else {
@@ -87,6 +90,7 @@
     window.NobiNavigation?.setBackHandler(()=>{
       if(!document.body.classList.contains('in-game-match')) return false;
       if(!confirm('退出当前单机对局并返回大厅？')) return true;
+      if(window.selectedGameId==='xiangqi'){window.XQ?.destroy();window.backToCentralLobby();return true;}
       const exit=document.querySelector(window.selectedGameId==='go'?'#quit-game-btn':'[data-gd-exit]');
       exit?.click();
       return true;

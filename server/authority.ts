@@ -5,12 +5,13 @@ import {GuandanEngine} from './guandan-standard.ts';
 import {dealCards} from './guandan-cards.ts';
 import {RULES_VERSION,HUAIAN_RULES_VERSION,isVersionedRules,initialSeries,ruleConfig} from '../ui/guandan-rules.mjs';
 import { rules } from './legacy-rules.ts';
+import {XiangqiEngine,XIANGQI_RULES,XIANGQI_TURN_MS} from './xiangqi.ts';
 export class GameError extends Error {
  status:number;
  constructor(message:string,status=409){super(message);this.status=status;}
 }
 const fail=(message:string,status=409):never=>{throw new GameError(message,status)};
-type Kind='go'|'guandan';
+type Kind='go'|'guandan'|'xiangqi';
 type Command={requestId:string,expectedVersion:number,type:string,[key:string]:unknown};
 export class Authority {
  rooms=new Map<string,any>();
@@ -19,8 +20,9 @@ export class Authority {
  persist:(room:any,uid:string,command:Command)=>Promise<void>;
  onChange:(room:any)=>void=()=>{};
  constructor(options:any={}) {this.now=options.now??Date.now;this.record=options.record??(async()=>{});this.persist=options.persist??(async()=>{});}
- create(id:string,kind:Kind,uid:string,competitive:any=null,rulesVersion:string=kind==='guandan'?HUAIAN_RULES_VERSION:competitiveConfig.go.rules,series:any=null,configuration:any=null) {
-  if(!['go','guandan'].includes(kind)) fail('invalid game',400);
+ create(id:string,kind:Kind,uid:string,competitive:any=null,rulesVersion:string=kind==='guandan'?HUAIAN_RULES_VERSION:kind==='xiangqi'?XIANGQI_RULES:competitiveConfig.go.rules,series:any=null,configuration:any=null) {
+  if(!['go','guandan','xiangqi'].includes(kind)) fail('invalid game',400);
+  if(kind==='xiangqi'&&(competitive||rulesVersion!==XIANGQI_RULES))fail('象棋首版仅支持休闲规则，不计积分',400);
   if(kind==='go'&&rulesVersion!==competitiveConfig.go.rules)fail('unsupported rules version',400);
   if(kind==='guandan'&&![RULES_VERSION,HUAIAN_RULES_VERSION,'nobi-single-hand-v1','legacy-guandan-v0'].includes(rulesVersion))fail('unsupported rules version',400);
   if(this.rooms.size>=100) fail('room capacity reached',429);
@@ -32,7 +34,7 @@ export class Authority {
   const r=this.rooms.get(id);if(!r) fail('room unavailable',404);
   if(r.seats.includes(uid)) return this.view(r,uid);
   if(r.removedPlayers?.includes(uid))fail('房主已将你移出此房间',403);
-  if(r.status!=='waiting'||seat!==r.seats.length||seat>=(r.kind==='go'?2:4)) fail('room full or seat conflict');
+  if(r.status!=='waiting'||seat!==r.seats.length||seat>=(r.kind==='guandan'?4:2)) fail('room full or seat conflict');
   r.seats.push(uid);r.presence.set(uid,this.now());r.version++;if(r.lobbyVersion!==undefined)r.lobbyVersion=r.version;r.updatedAt=this.now();this.onChange(r);return this.view(r,uid);
  }
  async removePlayer(id:string,uid:string,input:any) {
@@ -56,11 +58,11 @@ export class Authority {
  }
  view(r:any,uid:string) {
   const seat=r.seats.indexOf(uid);if(seat<0) fail('participant required',403);
-  const state=r.engine?.api.state;
-  const publicState=r.kind==='go'?{board:state?.board??[],blackCaptures:state?.blackCaptures??0,whiteCaptures:state?.whiteCaptures??0,moves:r.history.map((m:any)=>m.move),koPoint:r.engine?.api.getKo()??null,passCount:r.passCount,...(r.competitive||r.scoring?{scoring:r.scoring}:{}),...(r.competitive?{rules:competitiveConfig.go}:{})}:{handCounts:state?.players.map((p:any)=>p.hand.length)??[],trick:state?.trick??null,lastPlayedTrick:state?.lastPlayedTrick??null,finishOrder:r.engine?.api.finishOrder()??[],level:r.engine instanceof GuandanEngine?r.engine.series.level:'2',...(isVersionedRules(r.rulesVersion)?{rulesVersion:r.rulesVersion,rulesConfig:r.rulesConfig,series:r.engine?.series??r.initialSeries,phase:r.engine?.state.phase??'waiting',tribute:r.engine?.publicTribute()??null}: {})};
+  const state=r.engine?.api?.state;
+  const publicState=r.kind==='xiangqi'?(r.engine?.publicState()??new XiangqiEngine().publicState()):r.kind==='go'?{board:state?.board??[],blackCaptures:state?.blackCaptures??0,whiteCaptures:state?.whiteCaptures??0,moves:r.history.map((m:any)=>m.move),koPoint:r.engine?.api.getKo()??null,passCount:r.passCount,...(r.competitive||r.scoring?{scoring:r.scoring}:{}),...(r.competitive?{rules:competitiveConfig.go}:{})}:{handCounts:state?.players.map((p:any)=>p.hand.length)??[],trick:state?.trick??null,lastPlayedTrick:state?.lastPlayedTrick??null,finishOrder:r.engine?.api.finishOrder()??[],level:r.engine instanceof GuandanEngine?r.engine.series.level:'2',...(isVersionedRules(r.rulesVersion)?{rulesVersion:r.rulesVersion,rulesConfig:r.rulesConfig,series:r.engine?.series??r.initialSeries,phase:r.engine?.state.phase??'waiting',tribute:r.engine?.publicTribute()??null}: {})};
   const protocol={rulesVersion:r.rulesVersion,matchId:r.id,roomId:r.id,gameType:r.kind,version:r.version,currentTurn:r.turn,canRemovePlayers:uid===r.owner&&r.status==='waiting',players:r.seats.map((userId:string,seat:number)=>({userId,seat,nickname:r.names[userId]??("座位 "+(seat+1)),avatar:r.avatars?.[userId]??null})),publicState,privateState:r.kind==='guandan'?{seat,hand:state?.players[seat]?.hand??[],...(r.engine instanceof GuandanEngine?{tributeOptions:r.engine.tributeOptions(seat)}:{})}:{seat},status:r.status,lastAction:r.lastAction,updatedAt:new Date(r.updatedAt).toISOString(),deadline:r.deadline,...(r.competitive?{competitive:r.competitive}:{}),result:r.result?{matchId:r.id,gameType:r.kind,participants:r.seats,result:r.result,finishedAt:new Date(r.updatedAt).toISOString(),resultVersion:r.version,settlementStatus:r.result.ranked?'pending':'disabled'}:null};
   return structuredClone({...protocol,id:r.id,kind:r.kind,seats:r.seats,seat,status:r.status,version:r.version,turn:r.turn,result:r.result,pending:r.pending,trustedResult:protocol.result,
-   ...(r.kind==='go'?{board:state?.board??[],blackCaptures:state?.blackCaptures??0,whiteCaptures:state?.whiteCaptures??0,moves:r.history.map((m:any)=>m.move),koPoint:r.engine?.api.getKo()??null}:{hand:state?.players[seat]?.hand??[],handCounts:state?.players.map((p:any)=>p.hand.length)??[],trick:state?.trick??null,finishOrder:r.engine?.api.finishOrder()??[]})});
+   ...(r.kind==='xiangqi'?{}:r.kind==='go'?{board:state?.board??[],blackCaptures:state?.blackCaptures??0,whiteCaptures:state?.whiteCaptures??0,moves:r.history.map((m:any)=>m.move),koPoint:r.engine?.api.getKo()??null}:{hand:state?.players[seat]?.hand??[],handCounts:state?.players.map((p:any)=>p.hand.length)??[],trick:state?.trick??null,finishOrder:r.engine?.api.finishOrder()??[]})});
  }
  continuation(previous:any,id:string){
   if(previous.kind!=='guandan'||!isVersionedRules(previous.rulesVersion)||previous.status!=='ended'||previous.result?.reason!=='rules-complete'||previous.result.champion!==null)fail('continuation unavailable');
@@ -80,28 +82,29 @@ export class Authority {
   if(r.cache.size>=10000) fail('operation limit reached',429);
   const seat=r.seats.indexOf(uid);
   if(c.type==='start') {
-   if(r.status!=='waiting'||uid!==r.owner||r.seats.length!==(r.kind==='go'?2:4)) fail('start denied');
+   if(r.status!=='waiting'||uid!==r.owner||r.seats.length!==(r.kind==='guandan'?4:2)) fail('start denied');
    if(r.kind==='guandan'&&r.rulesVersion===HUAIAN_RULES_VERSION){
     r.deal??=dealCards();
     if(!r.initialSeries.previousOrder&&!r.initialSeries.firstCard){const eligible=r.deal.flat().filter((card:any)=>card.kind==='normal'&&!(card.suit==='H'&&card.rank==='2'));const card=eligible[randomInt(eligible.length)];r.initialSeries.firstCard=structuredClone(card);r.initialSeries.firstLeader=r.deal.findIndex((hand:any)=>hand.some((item:any)=>item.id===card.id));}
    }
-   r.engine=r.kind==='guandan'&&isVersionedRules(r.rulesVersion)?new GuandanEngine(r.deal??undefined,r.initialSeries,r.rulesConfig):rules(r.kind,!!r.competitive);
+   r.engine=r.kind==='xiangqi'?new XiangqiEngine():r.kind==='guandan'&&isVersionedRules(r.rulesVersion)?new GuandanEngine(r.deal??undefined,r.initialSeries,r.rulesConfig):rules(r.kind,!!r.competitive);
    if(r.kind==='guandan') {
     const hands=r.deal??(r.engine instanceof GuandanEngine?r.engine.state.players.map((p:any)=>p.hand):r.engine.GD.createNetworkDeal());r.deal=structuredClone(hands);
     if(!(r.engine instanceof GuandanEngine)&&!r.engine.GD.startNetworkGame(hands,r.seats.map((id:string)=>({uid:id,nickname:'Test player'})),0,0,()=>{},false)) fail('deal initialization failed',500);
-   } else {
+   } else if(r.kind==='go') {
     Object.assign(r.engine.api.state,{board:Array.from({length:19},()=>Array(19).fill(0)),blackCaptures:0,whiteCaptures:0,koPoint:null});
    }
    r.status='playing';r.turn=r.kind==='guandan'?r.engine.api.state.currentTurn:0;
   } else {
    if(r.status!=='playing') fail('game is not active');
-   if(c.type==='leave') await this.finish(r,{reason:'player-left',loser:seat,winner:r.kind==='go'?1-seat:(seat%2===0?1:0)});
+   if(c.type==='leave') await this.finish(r,{reason:'player-left',loser:seat,winner:r.kind==='guandan'?(seat%2===0?1:0):1-seat});
    else if(c.type==='resign-request') {if(r.pending) fail('confirmation already pending');r.pending={type:'resign',seat};}
    else if(c.type==='resign-confirm') {
     if(r.pending?.type!=='resign'||r.pending.seat!==seat) fail('resignation must be confirmed by requester');
-    await this.finish(r,{reason:'resignation',loser:seat,winner:r.kind==='go'?1-seat:(seat%2===0?1:0)});
+    await this.finish(r,{reason:'resignation',loser:seat,winner:r.kind==='guandan'?(seat%2===0?1:0):1-seat});
    } else if(c.type==='cancel') {if(r.pending?.seat!==seat) fail('request owner required');r.pending=null;}
    else if(r.kind==='go') await this.go(r,seat,c);
+   else if(r.kind==='xiangqi') await this.xiangqi(r,seat,c);
    else {
     if(r.pending) fail('confirmation pending');
     if(seat!==r.turn) fail('wrong turn');
@@ -114,10 +117,33 @@ export class Authority {
     if(!r.engine.api.state.active){const order=r.engine.api.finishOrder();await this.finish(r,r.engine instanceof GuandanEngine?r.engine.result():r.competitive?guandanResult([...order,...[0,1,2,3].filter(seat=>!order.includes(seat))]):{reason:'rules-complete',winner:order[0]%2,finishOrder:order});}
    }
   }
-  r.version++;r.updatedAt=this.now();r.deadline=r.scoring?0:this.now()+competitiveConfig.turnMs;r.presence.set(uid,this.now());r.lastAction={actionId:c.requestId,actionType:c.type,actor:uid,version:r.version};
+  r.version++;r.updatedAt=this.now();r.deadline=r.kind==='xiangqi'?(r.status!=='playing'?0:['start','move','undo-accept'].includes(c.type)?this.now()+XIANGQI_TURN_MS:r.deadline):r.scoring?0:this.now()+competitiveConfig.turnMs;r.presence.set(uid,this.now());r.lastAction={actionId:c.requestId,actionType:c.type,actor:uid,version:r.version};
   r.journal.push({uid,command:structuredClone(c),at:r.updatedAt});
   try{await this.persist(r,uid,c);}catch{r.status="blocked";fail("persistence failed; room blocked",503);}
   const response=this.view(r,uid);r.cache.set(key,{body,response});this.onChange(r);return response;
+ }
+ async xiangqi(r:any,seat:number,c:Command) {
+  if(c.type==='draw-request'||c.type==='undo-request'){
+   if(r.pending)fail('已有申请等待确认');
+   if(c.type==='undo-request'&&r.history.length<2)fail('至少走完一轮后才能申请悔棋');
+   r.pending={type:c.type==='draw-request'?'draw':'undo',seat};return;
+  }
+  if(['draw-accept','draw-reject','undo-accept','undo-reject'].includes(c.type)){
+   const type=c.type.startsWith('draw-')?'draw':'undo';
+   if(r.pending?.type!==type||r.pending.seat===seat)fail('需要对手确认申请');
+   r.pending=null;
+   if(c.type==='draw-accept')await this.finish(r,{winner:null,reason:'agreed-draw'});
+   if(c.type==='undo-accept'){r.engine.game=r.history[r.history.length-2].before;r.history.splice(-2);r.turn=r.engine.game.turn;}
+   return;
+  }
+  if(r.pending)fail('申请确认中，请等待处理');
+  if(c.type!=='move')fail('象棋不支持此操作',400);
+  if(seat!==r.turn)fail('wrong turn');
+  if(!Number.isInteger(c.from)||!Number.isInteger(c.to))fail('需要有效的棋盘坐标',400);
+  const before=r.engine.game;let after;
+  try{after=r.engine.move(c.from,c.to);}catch{fail('走法不合法，请重新选择');}
+  r.history.push({before,move:after.log.at(-1)});r.turn=after.turn;
+  if(after.result)await this.finish(r,after.result);
  }
  async go(r:any,seat:number,c:Command) {
   const s=r.engine.api.state;
@@ -185,7 +211,7 @@ export class Authority {
  }
  async sweep() {
   for(const r of this.rooms.values()) if(r.status==='playing'&&r.deadline&&this.now()>r.deadline) {
-   const task=r.queue.then(async()=>{if(r.status!=='playing'||this.now()<=r.deadline)return; await this.finish(r,{reason:'turn-timeout',loser:r.turn,winner:r.kind==='go'?1-r.turn:(r.turn%2===0?1:0)});r.version++;r.updatedAt=this.now();r.lastAction={actionId:randomUUID(),actionType:'server-timeout',version:r.version};r.journal.push({timeout:true,at:r.updatedAt,actionId:r.lastAction.actionId});try{await this.persist(r,r.owner,{requestId:r.lastAction.actionId,expectedVersion:r.version-1,type:'server-timeout'});}catch{r.status='blocked';throw new GameError('timeout persistence failed',503);}this.onChange(r);});r.queue=task.catch(()=>{});await task;
+   const task=r.queue.then(async()=>{if(r.status!=='playing'||this.now()<=r.deadline)return; await this.finish(r,{reason:'turn-timeout',loser:r.turn,winner:r.kind==='guandan'?(r.turn%2===0?1:0):1-r.turn});r.version++;r.updatedAt=this.now();r.lastAction={actionId:randomUUID(),actionType:'server-timeout',version:r.version};r.journal.push({timeout:true,at:r.updatedAt,actionId:r.lastAction.actionId});try{await this.persist(r,r.owner,{requestId:r.lastAction.actionId,expectedVersion:r.version-1,type:'server-timeout'});}catch{r.status='blocked';throw new GameError('timeout persistence failed',503);}this.onChange(r);});r.queue=task.catch(()=>{});await task;
   }
  }
 }

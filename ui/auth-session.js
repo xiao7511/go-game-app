@@ -2,7 +2,7 @@
 (() => {
  'use strict';
  const params=new URLSearchParams(location.search);
- const destination=params.get('return')==='online'?'online.html?game='+(params.get('game')==='go'?'go':'guandan'):'game.html';
+ const destination=params.get('return')==='online'?'online.html?game='+(['go','xiangqi'].includes(params.get('game'))?params.get('game'):'guandan'):'game.html';
  window.NobiAuthDestination=destination;
  addEventListener('DOMContentLoaded',()=>{
   const form=document.querySelector('#login-form,#register-form');

@@ -8,7 +8,7 @@ export function createInvitations(db,{rooms,createRoom,joinRoom,changed=()=>{},n
  function expire(uid){db.prepare("UPDATE game_invitations SET status='expired' WHERE status='pending' AND expires_at<=?").run(now());const pending=db.prepare("SELECT * FROM game_invitations WHERE status='pending' AND (sender=? OR recipient=?)").all(uid,uid);for(const row of pending){const room=rooms.get(row.room_id);if(!room||room.status!=='waiting'||room.removedPlayers?.includes(row.recipient))db.prepare("UPDATE game_invitations SET status='expired' WHERE id=?").run(row.id);}}
  function list(uid){expire(uid);return {invitations:db.prepare("SELECT * FROM game_invitations WHERE (recipient=? AND status='pending') OR (sender=? AND created_at>?) ORDER BY created_at DESC LIMIT 50").all(uid,uid,now()-86400000).map(row=>publicRow(row,uid))};}
  function send(uid,user,input){
-  if(!/^[a-f0-9]{64}$/.test(input?.friendKey??'')||!['go','guandan'].includes(input?.kind)||!/^[a-zA-Z0-9_-]{8,80}$/.test(input?.requestId??''))fail('邀请参数不正确',400);
+  if(!/^[a-f0-9]{64}$/.test(input?.friendKey??'')||!['go','guandan','xiangqi'].includes(input?.kind)||!/^[a-zA-Z0-9_-]{8,80}$/.test(input?.requestId??''))fail('邀请参数不正确',400);
   expire(uid);const replay=db.prepare('SELECT * FROM game_invitations WHERE sender=? AND request_id=? UNION SELECT i.* FROM invitation_requests r JOIN game_invitations i ON i.id=r.invitation_id WHERE r.sender=? AND r.request_id=? LIMIT 1').get(uid,input.requestId,uid,input.requestId);
   if(replay){if(replay.kind!==input.kind||friendKey(uid,replay.recipient)!==input.friendKey)fail('邀请请求编号已被使用');return publicRow(replay,uid);}
   let peer;
@@ -21,7 +21,7 @@ export function createInvitations(db,{rooms,createRoom,joinRoom,changed=()=>{},n
   const duplicate=db.prepare("SELECT * FROM game_invitations WHERE sender=? AND recipient=? AND kind=? AND status='pending'").get(uid,peer.id,input.kind);
   if(duplicate){db.prepare('INSERT INTO invitation_requests VALUES(?,?,?)').run(uid,input.requestId,duplicate.id);return publicRow(duplicate,uid);}
   if(db.prepare("SELECT count(*) AS n FROM game_invitations WHERE sender=? AND status='pending'").get(uid).n>=10)fail('待处理邀请过多，请等待好友回复',429);
-  const capacity=input.kind==='go'?2:4;
+  const capacity=input.kind==='guandan'?4:2;
   let room=[...rooms.values()].filter(r=>r.owner===uid&&r.kind===input.kind&&r.status==='waiting'&&(r.seats.includes(peer.id)||r.seats.length<capacity)&&!r.removedPlayers?.includes(peer.id)).sort((a,b)=>b.updatedAt-a.updatedAt)[0];
   const created=!room;db.exec('BEGIN');
   try {
@@ -46,7 +46,7 @@ export function createInvitations(db,{rooms,createRoom,joinRoom,changed=()=>{},n
    if(row.status==='accepted')return publicRow(row,uid);
    if(row.status!=='pending'||row.expires_at<=now()||room.status!=='waiting'||room.owner!==row.sender)fail('邀请已过期或对局已开始');
    if(room.removedPlayers?.includes(uid))fail('房主已将你移出此房间',403);
-   if(!room.seats.includes(uid)&&room.seats.length>=(room.kind==='go'?2:4))fail('房间已满，请让好友重新邀请');
+   if(!room.seats.includes(uid)&&room.seats.length>=(room.kind==='guandan'?4:2))fail('房间已满，请让好友重新邀请');
    db.exec('BEGIN');
    try{joinRoom(room,uid,user);db.prepare("UPDATE game_invitations SET status='accepted' WHERE id=?").run(id);db.exec('COMMIT');}
    catch(error){db.exec('ROLLBACK');room.status='blocked';throw error;}

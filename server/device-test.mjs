@@ -54,7 +54,7 @@ export async function startDeviceServer({authenticate,database,port=55440,now,ho
    if(req.headers.origin){if(!allowed.has(req.headers.origin))throw new GameError('origin denied',403);res.setHeader('Access-Control-Allow-Origin',req.headers.origin);res.setHeader('Vary','Origin');}
    if(req.method==='OPTIONS'){res.writeHead(204,{'Access-Control-Allow-Headers':'Authorization,Content-Type','Access-Control-Allow-Methods':'GET,POST,OPTIONS'});res.end();return;}
    const url=new URL(req.url??'/','http://127.0.0.1');
-   if(req.method==='GET'&&url.pathname==='/health'){res.writeHead(200,{'Content-Type':'application/json','Cache-Control':'no-store'});res.end(JSON.stringify({service:production?'nobi-online-authority-v1':'nobi-device-authority-v1',ranked:false,persistent:true,transport:production?'https':'usb',capabilities:['room-chat']}));return;}
+   if(req.method==='GET'&&url.pathname==='/health'){res.writeHead(200,{'Content-Type':'application/json','Cache-Control':'no-store'});res.end(JSON.stringify({service:production?'nobi-online-authority-v1':'nobi-device-authority-v1',ranked:false,persistent:true,transport:production?'https':'usb',capabilities:['room-chat','xiangqi']}));return;}
    if(production){const key=req.socket.remoteAddress,tick=Math.floor(Date.now()/60000);if(rates.size>10000)rates.clear();const count=rates.get(key);const next=count?.tick===tick?{tick,count:count.count+1}:{tick,count:1};rates.set(key,next);if(next.count>1200)throw new GameError('请求过于频繁，请稍后重试',429);}
    const token=/^Bearer (\S+)$/.exec(req.headers.authorization??'')?.[1];
    if(!token)throw new GameError('请先登录',401);

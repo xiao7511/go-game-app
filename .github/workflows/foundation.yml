@@ -23,7 +23,7 @@ jobs:
       - run: npm run build:mobile
       - run: npm run verify:build
       - run: npm run check:authority
-      - run: node --test tests/integration/device-online.test.mjs
+      - run: node --test tests/integration/device-online.test.mjs tests/integration/xiangqi-online.test.mjs
       - name: Build production authority container
         run: docker build -f infrastructure/production/Dockerfile -t nobi-online:ci .
       - run: node tooling/node_modules/@playwright/test/cli.js install --with-deps chromium

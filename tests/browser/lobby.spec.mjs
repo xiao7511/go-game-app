@@ -7,7 +7,7 @@ test('PC three-column lobby has keyboard cards, search and expandable catalogue'
   const errors=[]; page.on('pageerror',e=>errors.push(e.message));
   await page.goto('http://127.0.0.1:4173/game.html');
   await expect(page.locator('.nobi-sidebar')).toBeVisible(); await expect(page.locator('.nobi-right')).toBeVisible();
-  await expect(page.locator('.nobi-game-card')).toHaveCount(3);
+  await expect(page.locator('.nobi-game-card')).toHaveCount(4);
   const go=page.locator('[data-id="go"]'); await go.focus(); await go.press('Enter');
   await expect(page.locator('[data-id="go"]')).toHaveAttribute('aria-pressed','true');
   await page.getByRole('textbox',{name:'大厅游戏搜索'}).fill('CS');
@@ -62,11 +62,11 @@ test('mobile search and query/hash deep links reject PC-only games',async({page}
   await page.getByRole('textbox',{name:'搜索游戏',exact:true}).fill('CS');
   await expect(page.getByText('没有匹配的游戏')).toBeVisible();
   await page.locator('.nobi-bottom-nav').getByRole('link',{name:'首页',exact:true}).click();
-  await expect(page.locator('.nobi-game-card')).toHaveCount(2);
+  await expect(page.locator('.nobi-game-card')).toHaveCount(3);
   await page.locator('.nobi-bottom-nav').getByRole('link',{name:'游戏',exact:true}).click();
   await page.getByRole('textbox',{name:'搜索游戏',exact:true}).fill('CS');
   await page.evaluate(()=>{location.hash='/games/cs16';});
-  await expect(page.locator('.nobi-game-card')).toHaveCount(2);
+  await expect(page.locator('.nobi-game-card')).toHaveCount(3);
 });
 
 test('ranking filters, profile and legacy game exit keep the shell usable', async({page})=>{
