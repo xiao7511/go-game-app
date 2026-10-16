@@ -1,6 +1,10 @@
 import {createGame,legalMoves,play,inCheck,sideOf,square,pieceName,chooseMove,positionKey,resultText} from './xiangqi-engine.mjs';
+import {xiangqiMoveEffect} from './xiangqi-feedback.mjs';
 
 let root,game,mode='solo',seat=0,flipped=false,selected=null,preview=null,undo=[],send=null,available=true,thinking=false,worker=null,ticket=0,depth=2,lastStatus='',deadline=0,clock=null,layoutObserver=null;
+let audioRoom=null;
+function moveSound(before,after){const effect=xiangqiMoveEffect(before,after);if(effect)window.NobiAudio?.playEffect(effect);}
+function commitSoloMove(from,to){const before=game;game=play(game,from,to);selected=preview=null;render();moveSound(before,game);}
 const $=selector=>root.querySelector(selector);
 const text=(selector,value)=>{const node=$(selector);if(node.textContent!==value)node.textContent=value;};
 const coord=index=>{const i=flipped?89-index:index;return {x:(i%9+.5)/9*100,y:(Math.floor(i/9)+.5)/10*100};};
@@ -15,6 +19,7 @@ function mount(){
  root=document.createElement('section');root.id='nobi-xiangqi';root.className='nobi-xiangqi';root.setAttribute('aria-label','中国象棋对局');
  root.innerHTML=`<header class="xq-header"><div><span class="xq-eyebrow">NOBI · CHINESE CHESS</span><h1>中国象棋</h1></div><span class="xq-mode"></span><button type="button" data-xq="exit">返回大厅</button></header><div class="xq-layout"><div class="xq-arena"><div class="xq-player" data-player="opponent"><img alt=""><div><strong></strong><small></small></div><span data-xq-turn="opponent"></span></div><div class="xq-board-wrap"><div class="xq-board" role="group" aria-label="中国象棋棋盘">${grid()}<div class="xq-squares"></div></div></div><div class="xq-player" data-player="self"><img alt=""><div><strong></strong><small></small></div><span data-xq-turn="self"></span></div></div><aside class="xq-panel"><div class="xq-summary"><div class="xq-panel-title"><span class="xq-chip">红方先行</span><span data-xq-ply>第 1 回合</span></div><p class="xq-status" role="status" aria-live="polite"></p><p class="xq-instruction">点击棋子，再选择落点，确认后走棋。</p><div class="xq-confirm-row"><button type="button" class="xq-primary" data-xq="confirm">确认走棋</button><button type="button" data-xq="cancel">取消选择</button></div></div><div class="xq-quick-actions"><button type="button" data-xq="hint">走棋提示</button><button type="button" data-xq="undo">悔棋</button><button type="button" data-xq="chat" data-match-chat>聊天</button><button type="button" data-xq="options">更多</button></div><p class="xq-feedback" role="status"></p></aside></div><dialog class="xq-options" aria-labelledby="xq-options-title"><h2 id="xq-options-title">对局设置</h2><div class="xq-actions"><button type="button" data-xq="draw">申请和棋</button><button type="button" data-xq="resign">认输</button><button type="button" data-xq="flip">翻转棋盘</button><button type="button" data-xq="music">音乐：关</button><button type="button" data-xq="rules">玩法说明</button></div><div class="xq-solo-settings"><label>我执<select data-xq-side aria-label="选择执棋颜色"><option value="0">红方 · 先手</option><option value="1">黑方 · 后手</option></select></label><label>人机难度<select data-xq-depth aria-label="选择象棋人机难度"><option value="1">入门</option><option value="2" selected>标准</option><option value="3">进阶</option></select></label><button type="button" data-xq="restart">重新开局</button></div><details class="xq-record"><summary>棋谱 <span data-xq-record-count>0 步</span></summary><ol></ol></details><button type="button" data-xq="close-options">返回棋盘</button></dialog><dialog class="xq-dialog"><h2></h2><div class="xq-dialog-copy"></div><button type="button" data-xq="close-dialog">继续</button></dialog>`;
  document.body.append(root);
+ const effects=document.createElement('button');effects.type='button';effects.dataset.xq='effects';$('.xq-actions').append(effects);
  clock=setInterval(tick,1000);
  layoutObserver=new ResizeObserver(fitBoard);layoutObserver.observe($('.xq-arena'));
  const squares=$('.xq-squares');
@@ -52,6 +57,7 @@ function render(){
  text('[data-xq-turn="self"]',game.status==='playing'&&game.turn===seat?'走棋中':'');text('[data-xq-turn="opponent"]',game.status==='playing'&&game.turn!==seat?'走棋中':'');
  text('[data-xq-record-count]',game.ply+' 步');const list=$('.xq-record ol');list.replaceChildren(...game.log.slice(-60).map(entry=>{const item=document.createElement('li');item.textContent=(entry.side===0?'红 ':'黑 ')+entry.notation;return item;}));
  const audio=window.NobiAudio?.getSettings();text('[data-xq="music"]','音乐：'+(audio?.musicEnabled?'开':'关'));
+ text('[data-xq="effects"]','音效：'+(audio?.effectsEnabled?'开':'关'));$('[data-xq="effects"]').setAttribute('aria-pressed',String(!!audio?.effectsEnabled));
  if(result&&lastStatus!=='ended'){showDialog('本局结束',status);window.NobiAudio?.setScene('result');}lastStatus=game.status;
  tick();requestAnimationFrame(fitBoard);
 }
@@ -70,7 +76,7 @@ function stopAI(){ticket++;worker?.terminate();worker=null;thinking=false;}
 function askAI(hint=false){
  stopAI();const mine=++ticket,key=positionKey(game);thinking=!hint;if(!hint)render();else message('正在寻找走法…');
  const accept=move=>{if(!root||mine!==ticket||key!==positionKey(game))return;worker?.terminate();worker=null;thinking=false;if(!move){message('提示暂不可用，请直接选择棋子。');render();return;}
-  if(hint){selected=move.from;preview=move;message('提示已标出，点击“确认走棋”后执行。');render();}else{game=play(game,move.from,move.to);selected=preview=null;render();window.NobiAudio?.playEffect('button');}
+  if(hint){selected=move.from;preview=move;message('提示已标出，点击“确认走棋”后执行。');render();}else commitSoloMove(move.from,move.to);
  };
  try{worker=new Worker(new URL('./xiangqi-worker.mjs',import.meta.url),{type:'module'});worker.onmessage=event=>{if(event.data.ticket===mine)accept(event.data.error?null:event.data.move);};worker.onerror=()=>{if(root&&mine===ticket)accept(chooseMove(game,{depth:1,budgetMs:80,maxNodes:500}));};worker.postMessage({ticket:mine,game,depth});}
  catch{setTimeout(()=>{if(mine===ticket)accept(chooseMove(game,{depth:1,budgetMs:80,maxNodes:500}));},0);}
@@ -85,7 +91,7 @@ async function action(id){
  if(id==='confirm'&&preview&&canMove()){
   const move=preview;selected=preview=null;
   if(mode==='online'){available=false;render();await send('move',move);}
-  else{stopAI();undo.push(game);game=play(game,move.from,move.to);render();window.NobiAudio?.playEffect('button');if(game.status==='playing')askAI();}return;
+  else{stopAI();undo.push(game);commitSoloMove(move.from,move.to);if(game.status==='playing')askAI();}return;
  }
  if(id==='cancel'){selected=preview=null;message('');render();}
  if(id==='hint'&&canMove())askAI(true);
@@ -98,6 +104,7 @@ async function action(id){
  if(id==='draw')await send('draw-request');
  if(id==='resign'&&confirm('确认认输并结束本局？')){if(mode==='online')await send('resign-request');else{stopAI();game={...game,status:'ended',result:{winner:1-seat,reason:'resignation'}};render();}}
  if(id==='music'&&window.NobiAudio){const settings=window.NobiAudio.getSettings();window.NobiAudio.setSettings({musicEnabled:!settings.musicEnabled});window.NobiAudio.setScene('go');window.NobiAudio.unlock();render();}
+ if(id==='effects'&&window.NobiAudio){const settings=window.NobiAudio.getSettings();window.NobiAudio.setSettings({effectsEnabled:!settings.effectsEnabled});render();}
  if(id==='chat')window.NobiRoomChat?.open();
  if(id==='rules')showDialog('象棋玩法 · 休闲对局','红方先行。车走直线，马走日且不能蹩马腿，相（象）走田且不能塞象眼、不能过河；仕（士）和帅（将）在九宫内走，双方将帅不能照面。炮隔一个棋子吃子；兵卒只向前，过河后可横走，不能后退。选子后可再次点击取消，选择目标后确认走棋。将死或困毙的一方判负。本版单方连续长将循环判负，其他三次重复局面判和；连续 60 回合无吃子或兵卒前进判和。双方也可申请和棋。首版采用休闲循环裁定，不包含赛事长捉细则，联机对局暂不计积分。');
  if(id==='options')$('.xq-options').showModal();
@@ -109,14 +116,14 @@ async function action(id){
   destroy();window.backToCentralLobby?.();
  }
 }
-function startSolo(){mode='solo';available=true;mount();restart(0,true);}
+function startSolo(){mode='solo';audioRoom=null;available=true;mount();restart(0,true);}
 function applyAuthoritySnapshot(snapshot,command,enabled){
  if(snapshot.gameType!=='xiangqi')return;
- const first=!root||mode!=='online';mode='online';mount();seat=snapshot.privateState.seat;send=command;available=enabled;deadline=snapshot.deadline;
+ const first=!root||mode!=='online'||audioRoom!==snapshot.roomId,before=first?null:game;mode='online';audioRoom=snapshot.roomId;mount();seat=snapshot.privateState.seat;send=command;available=enabled;deadline=snapshot.deadline;
  const state=snapshot.publicState;
  if(snapshot.status==='waiting'){game={...createGame(),status:'waiting'};message('等待两位玩家就位，由房主开始对局。');}
  else{const changed=!game||game.ply!==state.ply||positionKey(game)!==state.positionKey;game={...state,status:snapshot.status,result:snapshot.result};if(changed){selected=preview=null;message('');}}
- if(first){flipped=seat===1;lastStatus='';}player('self',snapshot.players.find(p=>p.seat===seat),seat);player('opponent',snapshot.players.find(p=>p.seat!==seat),1-seat);render();
+ if(first){flipped=seat===1;lastStatus='';selected=preview=null;}player('self',snapshot.players.find(p=>p.seat===seat),seat);player('opponent',snapshot.players.find(p=>p.seat!==seat),1-seat);render();moveSound(before,game);
 }
-function destroy(){layoutObserver?.disconnect();layoutObserver=null;stopAI();clearInterval(clock);clock=null;deadline=0;root?.remove();root=null;game=null;selected=preview=null;undo=[];lastStatus='';}
+function destroy(){layoutObserver?.disconnect();layoutObserver=null;stopAI();clearInterval(clock);clock=null;deadline=0;audioRoom=null;root?.remove();root=null;game=null;selected=preview=null;undo=[];lastStatus='';}
 window.XQ=Object.freeze({startSolo,applyAuthoritySnapshot,destroy,getView:()=>game?{...game,selected,preview,seat,thinking}:null});

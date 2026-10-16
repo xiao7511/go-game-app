@@ -13,6 +13,7 @@
     effects: Object.freeze({
       click:'assets/sounds/button-25.mp3', pass:'assets/sounds/button-25.mp3',
       placeStone:'assets/sounds/button-22.mp3', capture:'assets/sounds/button-21.mp3',
+      xiangqiMove:'assets/sounds/xiangqi-move.wav', xiangqiCapture:'assets/sounds/xiangqi-capture.wav',
       invalidMove:'assets/sounds/button-12.mp3', yourTurn:'assets/sounds/button-3.mp3',
       countdown:'assets/sounds/guandan-countdown.wav', bomb:'assets/sounds/guandan-bomb.wav'
     })
