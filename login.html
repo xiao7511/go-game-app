@@ -116,7 +116,7 @@
       window.location.replace(window.NobiAuthDestination || 'game.html');
     } catch (err) {
       // 针对不同类型的错误给出更友好的提示
-      console.error('Login Detail:', err);
+      console.error('[Auth] Login failed', {name:err.name,status:err.status});
       errorEl.textContent = '登录失败: ' + (err.message || '未知错误');
       errorEl.style.display = 'block';
       btn.disabled = false;
