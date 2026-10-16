@@ -7,7 +7,8 @@ const coord=index=>{const i=flipped?89-index:index;return {x:(i%9+.5)/9*100,y:(M
 const grid=()=>{
  let lines='';for(let r=0;r<10;r++)lines+=`<path d="M50 ${r*100+50}H850"/>`;
  for(let c=0;c<9;c++)lines+=c===0||c===8?`<path d="M${c*100+50} 50V950"/>`:`<path d="M${c*100+50} 50V450M${c*100+50} 550V950"/>`;
- return `<svg viewBox="0 0 900 1000" aria-hidden="true"><g fill="none" stroke="#704d2d" stroke-width="2.2">${lines}<path d="M350 50L550 250M550 50L350 250M350 750L550 950M550 750L350 950"/></g><g fill="#624023" font-size="49" font-family="serif"><text x="180" y="518">楚 河</text><text x="550" y="518">汉 界</text></g></svg>`;
+ let marks='';for(const [c,r] of [[1,2],[7,2],[1,7],[7,7],...[3,6].flatMap(r=>[0,2,4,6,8].map(c=>[c,r]))]){const x=c*100+50,y=r*100+50;for(const dx of [-1,1])for(const dy of [-1,1])if((c>0||dx>0)&&(c<8||dx<0))marks+=`<path d="M${x+dx*13} ${y+dy*31}V${y+dy*13}H${x+dx*31}"/>`;}
+ return `<svg viewBox="0 0 900 1000" aria-hidden="true"><defs><linearGradient id="xq-river" x2="0" y2="1"><stop stop-color="#b68b4b" stop-opacity=".16"/><stop offset=".5" stop-color="#f9e4bd" stop-opacity=".5"/><stop offset="1" stop-color="#b68b4b" stop-opacity=".16"/></linearGradient></defs><rect x="50" y="450" width="800" height="100" fill="url(#xq-river)"/><rect x="39" y="39" width="822" height="922" rx="2" fill="none" stroke="#82572f" stroke-width="3"/><g fill="none" stroke="#79532e" stroke-width="2.2" stroke-linecap="square">${lines}<path d="M350 50L550 250M550 50L350 250M350 750L550 950M550 750L350 950"/></g><g fill="none" stroke="#79532e" stroke-width="2.8">${marks}</g><g fill="#805a35" font-size="47" font-family="STKaiti,KaiTi,serif" font-weight="600" letter-spacing="12"><text x="173" y="518">楚 河</text><text x="543" y="518">汉 界</text></g></svg>`;
 };
 function mount(){
  if(root)return;
