@@ -26,8 +26,14 @@ for(const kind of ['go','guandan','xiangqi'])test('Android online '+kind+' stays
   await expect.poll(()=>page.locator('#game-frame').evaluate(n=>{const r=n.getBoundingClientRect();return Math.abs(r.top)+Math.abs(r.left)+Math.abs(r.width-innerWidth)+Math.abs(r.height-innerHeight);})).toBeLessThan(2);
   const bounds=await frame.locator(root).evaluate(n=>({r:n.getBoundingClientRect().toJSON(),w:innerWidth,h:innerHeight,scroll:document.documentElement.scrollWidth}));
   expect(bounds.r.left).toBeGreaterThanOrEqual(-1);expect(bounds.r.right).toBeLessThanOrEqual(bounds.w+1);expect(bounds.r.bottom).toBeLessThanOrEqual(bounds.h+1);expect(bounds.scroll).toBeLessThanOrEqual(bounds.w+1);
+  if(kind==='xiangqi'){
+   await expect.poll(()=>frame.locator(root).evaluate(n=>n.scrollHeight-n.clientHeight)).toBeLessThanOrEqual(1);
+   const primary=await frame.locator('.xq-header button,.xq-player,.xq-board,.xq-confirm-row button,.xq-quick-actions button').evaluateAll(nodes=>nodes.filter(n=>n.getClientRects().length).map(n=>n.getBoundingClientRect().toJSON()));
+   for(const r of primary){expect(r.left).toBeGreaterThanOrEqual(-1);expect(r.right).toBeLessThanOrEqual(viewport.width+1);expect(r.top).toBeGreaterThanOrEqual(-1);expect(r.bottom).toBeLessThanOrEqual(viewport.height+1);}
+   const board=await frame.locator('.xq-board').boundingBox();if(viewport.width>viewport.height)expect(board.height).toBeGreaterThan(viewport.height*.86);
+  }
   if(viewport.width>viewport.height){
-   const selectors=kind==='guandan'?'.gd-action-bar button,.gd-header-tools button':kind==='go'?'.board-shell,.go-rail button':'.xq-board';
+   const selectors=kind==='guandan'?'.gd-action-bar button,.gd-header-tools button':kind==='go'?'.board-shell,.go-rail button':'.xq-board,.xq-player,.xq-header button,.xq-confirm-row button,.xq-quick-actions button';
    const boxes=await frame.locator(selectors).evaluateAll(nodes=>nodes.filter(n=>n.getClientRects().length).map(n=>n.getBoundingClientRect().toJSON()));
    for(const r of boxes){expect(r.left).toBeGreaterThanOrEqual(-1);expect(r.right).toBeLessThanOrEqual(viewport.width+1);expect(r.top).toBeGreaterThanOrEqual(-1);expect(r.bottom).toBeLessThanOrEqual(viewport.height+1);}
   }
