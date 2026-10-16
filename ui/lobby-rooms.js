@@ -20,7 +20,7 @@
    const value=await response.json();
    if(mine!==revision||uid!==owner)return;
    if(!Array.isArray(value.rooms)||!Number.isSafeInteger(value.total))throw Error('directory');
-   state={owner:uid,status:'ready',rooms:value.rooms.filter(r=>['waiting','playing'].includes(r.status)&&['go','guandan'].includes(r.kind)),total:value.total,offset:state.offset,hasNext:!!value.hasNext};
+   state={owner:uid,status:'ready',rooms:value.rooms.filter(r=>['waiting','playing'].includes(r.status)&&['go','guandan','xiangqi'].includes(r.kind)),total:value.total,offset:state.offset,hasNext:!!value.hasNext};
    // Rooms may finish while browsing a later page; recover to the first page.
    if(!state.rooms.length&&state.offset>0){pending=null;return refresh(0);}
   }catch{if(mine!==revision||uid!==owner)return;state={...state,status:'error',rooms:[],total:0,hasNext:false};}

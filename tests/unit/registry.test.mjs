@@ -4,8 +4,8 @@ import { sandbox, load } from './legacy-harness.mjs';
 function registry() { const c = sandbox({ NobiPlatform: { canUsePCGames: () => true } }); load('ui/registry.js', c); return c.NobiGames; }
 test('catalogue orders games and isolates all mobile search/lookup routes', () => {
   const { catalogue } = registry();
-  expect(catalogue.list('pc').map(g => g.gameId)).toEqual(['guandan', 'go', 'cs16']);
-  expect(catalogue.list('mobile').map(g => g.gameId)).toEqual(['guandan', 'go']);
+  expect(catalogue.list('pc').map(g => g.gameId)).toEqual(['guandan', 'go', 'xiangqi', 'cs16']);
+  expect(catalogue.list('mobile').map(g => g.gameId)).toEqual(['guandan', 'go', 'xiangqi']);
   expect(catalogue.list('mobile', 'CS')).toEqual([]);
   expect(catalogue.get('cs16', 'mobile')).toBeNull();
   expect(catalogue.get('go', 'pc').route).toBe('game.html?game=go');

@@ -53,7 +53,7 @@
     try { if (frame?.contentDocument && closeDialog(frame.contentDocument)) return true; } catch (_) {}
     if (handler?.()) return true;
     if (index > 0) { history.back(); return true; }
-    if (location.pathname.endsWith('/online.html')) { location.replace('game.html#/games/' + (new URLSearchParams(location.search).get('game') === 'go' ? 'go' : 'guandan')); return true; }
+    if (location.pathname.endsWith('/online.html')) { location.replace('game.html#/games/' + (['go','xiangqi'].includes(new URLSearchParams(location.search).get('game')) ? new URLSearchParams(location.search).get('game') : 'guandan')); return true; }
     if (location.pathname.endsWith('/register.html')) { location.replace('login.html'); return true; }
     if (location.pathname.endsWith('/game.html') && location.hash && location.hash !== '#/home') {
       location.replace('game.html#/home'); return true;

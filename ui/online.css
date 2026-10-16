@@ -2,11 +2,6 @@
 
 input[type=checkbox]{width:24px;min-height:24px}#scoring{max-width:760px;margin:16px auto;padding:16px;background:#10263e;border:1px solid #355975;border-radius:12px}#scoring label{margin:10px 0}#session>a{color:#79c9ff;display:inline-block;padding:12px}
 
-/* Keep the four-seat table clear when embedded in a landscape room. */
-@media(max-height:550px) and (orientation:landscape){body[data-game-type=guandan] #game-frame{height:max(390px,calc(100dvh - 140px));min-height:390px}}
-
-@media(max-width:650px) and (max-height:550px) and (orientation:landscape){body[data-game-type=guandan] #game-frame{height:max(320px,calc(100dvh - 140px));min-height:320px}}
-
 #room-controls-toggle{display:none}
 #room-roster{display:none;list-style:none;padding:0;gap:10px}
 body[data-room-phase=waiting] #room-roster{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));max-width:800px;margin:24px auto}
@@ -59,3 +54,18 @@ body[data-game-type=go] #room-controls-toggle{display:none!important}
 
 #go-result-dialog{width:min(420px,92vw);padding:26px;border:1px solid #7595bc;border-radius:22px;background:#102643;color:#eef6ff}#go-result-dialog::backdrop{background:#020914aa}#go-result-dialog h2{font-size:22px;color:#e9cb90}#go-result-detail{line-height:1.8;color:#c8dbee}
 #room-roster .room-remove{min-height:38px;margin-top:8px;padding:7px 14px;border:1px solid #8b5968;background:#493143;color:#ffdfdf;border-radius:10px;font-size:12px;grid-column:2}
+/* Xiangqi owns its board controls inside the frame, in both orientations. */
+body[data-game-type=xiangqi] #room-controls-toggle{display:none!important}
+body[data-game-type=xiangqi][data-room-phase=playing] #game-frame,body[data-game-type=xiangqi][data-room-phase=ended] #game-frame{position:fixed;inset:0;width:100%;height:100dvh;min-height:0;margin:0;border-radius:0;z-index:10}
+body[data-game-type=xiangqi][data-room-phase=playing]>header,body[data-game-type=xiangqi][data-room-phase=ended]>header,body[data-game-type=xiangqi]:not([data-room-phase=waiting]) #session>.room-bar,body[data-game-type=xiangqi]:not([data-room-phase=waiting]) #session>.operations,body[data-game-type=xiangqi]:not([data-room-phase=waiting]) #session>a{display:none}
+body[data-game-type=xiangqi] #notice:not(:empty){position:fixed;z-index:30;bottom:8px;left:15%;right:15%;padding:10px 16px;border:1px solid #c6a56a;border-radius:12px;background:#112b38ed;font-size:12px;text-align:center}
+
+/* A running room is sized by the WebView, never by a table's old minimum height.
+   Insets belong to the inner game; the outer frame must not add them twice. */
+body[data-game-type]:is([data-room-phase=playing],[data-room-phase=ended]){padding:0;min-width:0}
+body[data-game-type]:is([data-room-phase=playing],[data-room-phase=ended]) #game-frame{inset:0;width:auto;height:auto;min-width:0;min-height:0;max-width:100%;max-height:100%;margin:0}
+header{flex-wrap:wrap}header>span{min-width:0;overflow-wrap:anywhere}
+main,#setup,#session,.online-account,.online-account>div{min-width:0}
+.online-account strong,#room-roster strong{overflow-wrap:anywhere}
+#room-list li{grid-template-columns:46px minmax(0,1fr) auto}
+#room-confirmation,#go-result-dialog{max-height:calc(100% - 24px);overflow:auto}

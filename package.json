@@ -6,6 +6,8 @@
   "scripts": {
     "dev": "node scripts/frontend.mjs dev",
     "dev:online": "node scripts/frontend.mjs dev online",
+    "dev:online:server": "node scripts/local-online-server.mjs",
+    "test:xiangqi:integration": "node --test tests/integration/xiangqi-online.test.mjs",
     "build": "node scripts/frontend.mjs build",
     "preview": "node scripts/frontend.mjs preview",
     "build:mobile": "node scripts/frontend.mjs build mobile",

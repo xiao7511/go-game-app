@@ -34,6 +34,8 @@ test('login/register load bundled SDK and index redirects under a subpath', asyn
 });
 
 test('missing Auth/config cannot launch a network room or strand the lobby', async ({page}) => {
+  await page.route('**/config.local.js',route=>route.fulfill({contentType:'application/javascript',body:'window.CONFIG={};'}));
+  await page.route('**/online-config.js',route=>route.fulfill({contentType:'application/javascript',body:'window.NOBI_ONLINE_CONFIG=null;'}));
   await page.goto('http://127.0.0.1:4174/game.html');
   page.once('dialog',dialog=>dialog.accept());
   await page.locator('#perfect-go-net').click();
