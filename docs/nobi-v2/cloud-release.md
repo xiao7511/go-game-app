@@ -8,7 +8,7 @@
 
 ## 生产部署
 
-网站：推送 `main` 会触发 `.github/workflows/deploy.yml`，构建 `dist/web` 发布 GitHub Pages；生产域名为 `https://game.nobistudio.com`。
+网站：推送 `main` 会触发 `.github/workflows/deploy.yml`，构建 `dist/web` 发布 GitHub Pages。正式域名 `https://game.nobistudio.com` 当前 DNS 指向 Cloudflare Pages 项目 `nobigame`（`nobigame.pages.dev`），该项目也从同一仓库 `main` 自动部署；验收必须检查 Cloudflare 部署和正式域名，不能只看 GitHub Actions。该项目构建命令为 `node scripts/prepare-cloudflare-downloads.mjs`，大于 25 MiB 的 APK 先上传现有公开 R2 下载桶，构建校验后生成重定向，详见 [安卓 1.0.8 下载发布](android-download-1.0.8.md)。
 
 联机服务：GitHub Pages 不运行 Node 服务。`server/production.mjs` 用 Node 24 运行单实例权威规则服务，SQLite 保存局面，托管平台提供 HTTPS。不接入生产积分结算。
 
