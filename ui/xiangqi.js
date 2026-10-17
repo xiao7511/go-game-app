@@ -3,8 +3,17 @@ import {xiangqiMoveEffect} from './xiangqi-feedback.mjs';
 
 let root,game,mode='solo',seat=0,flipped=false,selected=null,preview=null,undo=[],send=null,available=true,thinking=false,worker=null,ticket=0,depth=2,lastStatus='',deadline=0,clock=null,layoutObserver=null;
 let audioRoom=null;
-function moveSound(before,after){const effect=xiangqiMoveEffect(before,after);if(effect)window.NobiAudio?.playEffect(effect);}
-function commitSoloMove(from,to){const before=game;game=play(game,from,to);selected=preview=null;render();moveSound(before,game);}
+const landings=new Map();
+function clearLandings(){for(const {animation} of landings.values())animation.cancel();landings.clear();}
+function moveFeedback(before,after){
+ const effect=xiangqiMoveEffect(before,after);if(!effect)return;window.NobiAudio?.playEffect(effect);
+ clearLandings();
+ if(window.matchMedia('(prefers-reduced-motion: reduce)').matches)return;
+ const to=after.log.at(-1).to,button=$(`[data-square="${to}"]`);if(!button?.animate)return;
+ const animation=button.animate([{filter:'none'},{filter:'brightness(1.8) drop-shadow(0 0 7px #ffe39a)'},{filter:'none'}],{duration:500,iterations:Infinity,easing:'ease-in-out'});
+ animation.id='xq-landing';landings.set(button,{animation,piece:after.board[to]});
+}
+function commitSoloMove(from,to){const before=game;game=play(game,from,to);selected=preview=null;render();moveFeedback(before,game);}
 const $=selector=>root.querySelector(selector);
 const text=(selector,value)=>{const node=$(selector);if(node.textContent!==value)node.textContent=value;};
 const coord=index=>{const i=flipped?89-index:index;return {x:(i%9+.5)/9*100,y:(Math.floor(i/9)+.5)/10*100};};
@@ -41,6 +50,7 @@ function player(node,info,side){const target=$(`[data-player="${node}"]`),name=i
 function canMove(){return game?.status==='playing'&&available&&!thinking&&game.turn===seat;}
 function render(){
  if(!root||!game)return;
+ for(const [button,{animation,piece}] of landings)if(game.board[Number(button.dataset.square)]!==piece){animation.cancel();landings.delete(button);}
  const moves=selected===null?[]:legalMoves(game).filter(m=>m.from===selected),last=game.log.at(-1),check=inCheck(game.board,game.turn);
  root.dataset.mode=mode;root.dataset.status=game.status;root.dataset.turn=String(game.turn);root.dataset.thinking=String(thinking);
  for(const button of $('.xq-squares').children){const i=Number(button.dataset.square),p=game.board[i],{x,y}=coord(i);button.style.left=x+'%';button.style.top=y+'%';
@@ -83,7 +93,7 @@ function askAI(hint=false){
 }
 function restart(side=seat,force=false){
  if(!force&&game?.ply&&game.status==='playing'&&!confirm('重新开局会结束当前单机对局，是否继续？')){$('[data-xq-side]').value=String(seat);return;}
- stopAI();seat=side;flipped=seat===1;game=createGame();undo=[];selected=preview=null;lastStatus='';$('[data-xq-side]').value=String(seat);player('self',accountPlayer(),seat);player('opponent',{nickname:'Nobi 棋友 · 人机',avatar:'ui/avatar-presets/4.svg'},1-seat);message('');window.NobiAudio?.setScene('xiangqi');render();root.scrollTop=0;$('.xq-panel').scrollTop=0;if(seat===1)askAI();
+ stopAI();clearLandings();seat=side;flipped=seat===1;game=createGame();undo=[];selected=preview=null;lastStatus='';$('[data-xq-side]').value=String(seat);player('self',accountPlayer(),seat);player('opponent',{nickname:'Nobi 棋友 · 人机',avatar:'ui/avatar-presets/4.svg'},1-seat);message('');window.NobiAudio?.setScene('xiangqi');render();root.scrollTop=0;$('.xq-panel').scrollTop=0;if(seat===1)askAI();
 }
 function showDialog(title,copy){text('.xq-dialog h2',title);text('.xq-dialog-copy',copy);const dialog=$('.xq-dialog');if(!dialog.open)dialog.showModal();}
 async function action(id){
@@ -97,7 +107,7 @@ async function action(id){
  if(id==='hint'&&canMove())askAI(true);
  if(id==='undo'){
   if(mode==='online'){await send('undo-request');return;}
-  stopAI();const previous=undo.pop();if(previous){game=previous;selected=preview=null;lastStatus='';message('已撤回你和人机最近一轮走棋。');render();}
+  stopAI();const previous=undo.pop();if(previous){clearLandings();game=previous;selected=preview=null;lastStatus='';message('已撤回你和人机最近一轮走棋。');render();}
  }
  if(id==='restart')restart();
  if(id==='flip'){flipped=!flipped;render();}
@@ -121,9 +131,9 @@ function applyAuthoritySnapshot(snapshot,command,enabled){
  if(snapshot.gameType!=='xiangqi')return;
  const first=!root||mode!=='online'||audioRoom!==snapshot.roomId,before=first?null:game;mode='online';audioRoom=snapshot.roomId;mount();seat=snapshot.privateState.seat;send=command;available=enabled;deadline=snapshot.deadline;
  const state=snapshot.publicState;
- if(snapshot.status==='waiting'){game={...createGame(),status:'waiting'};message('等待两位玩家就位，由房主开始对局。');}
- else{const changed=!game||game.ply!==state.ply||positionKey(game)!==state.positionKey;game={...state,status:snapshot.status,result:snapshot.result};if(changed){selected=preview=null;message('');}}
- if(first){flipped=seat===1;lastStatus='';selected=preview=null;}player('self',snapshot.players.find(p=>p.seat===seat),seat);player('opponent',snapshot.players.find(p=>p.seat!==seat),1-seat);render();moveSound(before,game);
+ if(snapshot.status==='waiting'){clearLandings();game={...createGame(),status:'waiting'};message('等待两位玩家就位，由房主开始对局。');}
+ else{const changed=!game||game.ply!==state.ply||positionKey(game)!==state.positionKey;game={...state,status:snapshot.status,result:snapshot.result};if(changed){if(!xiangqiMoveEffect(before,game))clearLandings();selected=preview=null;message('');}}
+ if(first){clearLandings();flipped=seat===1;lastStatus='';selected=preview=null;}player('self',snapshot.players.find(p=>p.seat===seat),seat);player('opponent',snapshot.players.find(p=>p.seat!==seat),1-seat);render();moveFeedback(before,game);
 }
-function destroy(){layoutObserver?.disconnect();layoutObserver=null;stopAI();clearInterval(clock);clock=null;deadline=0;audioRoom=null;root?.remove();root=null;game=null;selected=preview=null;undo=[];lastStatus='';}
+function destroy(){clearLandings();layoutObserver?.disconnect();layoutObserver=null;stopAI();clearInterval(clock);clock=null;deadline=0;audioRoom=null;root?.remove();root=null;game=null;selected=preview=null;undo=[];lastStatus='';}
 window.XQ=Object.freeze({startSolo,applyAuthoritySnapshot,destroy,getView:()=>game?{...game,selected,preview,seat,thinking}:null});
