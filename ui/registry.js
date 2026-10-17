@@ -4,7 +4,7 @@
   const initial = [
     { gameId: 'guandan', name: '掼蛋', description: '经典牌类 · 好友对局', cover: 'cards', icon: 'cards', platforms: ['pc', 'mobile'], modes: ['SINGLE', 'NET'], enabled: true, sortOrder: 10, route: 'game.html?game=guandan', musicScene: 'guandan' },
     { gameId: 'go', name: '围棋', description: '黑白对弈 · 智慧博弈', cover: 'board', icon: 'go', platforms: ['pc', 'mobile'], modes: ['SINGLE', 'NET'], enabled: true, sortOrder: 20, route: 'game.html?game=go', musicScene: 'go' },
-    { gameId: 'xiangqi', name: '中国象棋', description: '楚河汉界 · 人机与好友对弈', cover: 'xiangqi', icon: 'go', platforms: ['pc', 'mobile'], modes: ['SINGLE', 'NET'], enabled: true, sortOrder: 25, route: 'game.html?game=xiangqi', musicScene: 'go' },
+    { gameId: 'xiangqi', name: '中国象棋', description: '楚河汉界 · 人机与好友对弈', cover: 'xiangqi', icon: 'go', platforms: ['pc', 'mobile'], modes: ['SINGLE', 'NET'], enabled: true, sortOrder: 25, route: 'game.html?game=xiangqi', musicScene: 'xiangqi' },
     { gameId: 'cs16', name: 'CS1.6', description: '经典竞技 · Windows 启动器', cover: 'crosshair', icon: 'target', platforms: ['pc'], modes: ['SINGLE', 'NET'], enabled: true, sortOrder: 30, route: 'game.html?game=cs16', musicScene: 'lobby' }
   ];
   function create(entries = initial) {

@@ -56,7 +56,7 @@ function render(){
  $('[data-xq="draw"]').hidden=mode==='solo';$('[data-xq="chat"]').hidden=mode==='solo';$('.xq-solo-settings').hidden=mode!=='solo';
  text('[data-xq-turn="self"]',game.status==='playing'&&game.turn===seat?'走棋中':'');text('[data-xq-turn="opponent"]',game.status==='playing'&&game.turn!==seat?'走棋中':'');
  text('[data-xq-record-count]',game.ply+' 步');const list=$('.xq-record ol');list.replaceChildren(...game.log.slice(-60).map(entry=>{const item=document.createElement('li');item.textContent=(entry.side===0?'红 ':'黑 ')+entry.notation;return item;}));
- const audio=window.NobiAudio?.getSettings();text('[data-xq="music"]','音乐：'+(audio?.musicEnabled?'开':'关'));
+ const audio=window.NobiAudio?.getSettings();text('[data-xq="music"]','音乐与音效设置');
  text('[data-xq="effects"]','音效：'+(audio?.effectsEnabled?'开':'关'));$('[data-xq="effects"]').setAttribute('aria-pressed',String(!!audio?.effectsEnabled));
  if(result&&lastStatus!=='ended'){showDialog('本局结束',status);window.NobiAudio?.setScene('result');}lastStatus=game.status;
  tick();requestAnimationFrame(fitBoard);
@@ -83,7 +83,7 @@ function askAI(hint=false){
 }
 function restart(side=seat,force=false){
  if(!force&&game?.ply&&game.status==='playing'&&!confirm('重新开局会结束当前单机对局，是否继续？')){$('[data-xq-side]').value=String(seat);return;}
- stopAI();seat=side;flipped=seat===1;game=createGame();undo=[];selected=preview=null;lastStatus='';$('[data-xq-side]').value=String(seat);player('self',accountPlayer(),seat);player('opponent',{nickname:'Nobi 棋友 · 人机',avatar:'ui/avatar-presets/4.svg'},1-seat);message('');window.NobiAudio?.setScene('go');render();root.scrollTop=0;$('.xq-panel').scrollTop=0;if(seat===1)askAI();
+ stopAI();seat=side;flipped=seat===1;game=createGame();undo=[];selected=preview=null;lastStatus='';$('[data-xq-side]').value=String(seat);player('self',accountPlayer(),seat);player('opponent',{nickname:'Nobi 棋友 · 人机',avatar:'ui/avatar-presets/4.svg'},1-seat);message('');window.NobiAudio?.setScene('xiangqi');render();root.scrollTop=0;$('.xq-panel').scrollTop=0;if(seat===1)askAI();
 }
 function showDialog(title,copy){text('.xq-dialog h2',title);text('.xq-dialog-copy',copy);const dialog=$('.xq-dialog');if(!dialog.open)dialog.showModal();}
 async function action(id){
@@ -103,11 +103,11 @@ async function action(id){
  if(id==='flip'){flipped=!flipped;render();}
  if(id==='draw')await send('draw-request');
  if(id==='resign'&&confirm('确认认输并结束本局？')){if(mode==='online')await send('resign-request');else{stopAI();game={...game,status:'ended',result:{winner:1-seat,reason:'resignation'}};render();}}
- if(id==='music'&&window.NobiAudio){const settings=window.NobiAudio.getSettings();window.NobiAudio.setSettings({musicEnabled:!settings.musicEnabled});window.NobiAudio.setScene('go');window.NobiAudio.unlock();render();}
+ if(id==='music'){ $('.xq-options').close();window.NobiMatchSettings?.open(); }
  if(id==='effects'&&window.NobiAudio){const settings=window.NobiAudio.getSettings();window.NobiAudio.setSettings({effectsEnabled:!settings.effectsEnabled});render();}
  if(id==='chat')window.NobiRoomChat?.open();
  if(id==='rules')showDialog('象棋玩法 · 休闲对局','红方先行。车走直线，马走日且不能蹩马腿，相（象）走田且不能塞象眼、不能过河；仕（士）和帅（将）在九宫内走，双方将帅不能照面。炮隔一个棋子吃子；兵卒只向前，过河后可横走，不能后退。选子后可再次点击取消，选择目标后确认走棋。将死或困毙的一方判负。本版单方连续长将循环判负，其他三次重复局面判和；连续 60 回合无吃子或兵卒前进判和。双方也可申请和棋。首版采用休闲循环裁定，不包含赛事长捉细则，联机对局暂不计积分。');
- if(id==='options')$('.xq-options').showModal();
+ if(id==='options'){render();$('.xq-options').showModal();}
  if(id==='close-options')$('.xq-options').close();
  if(id==='close-dialog')$('.xq-dialog').close();
  if(id==='exit'){

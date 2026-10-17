@@ -1,29 +1,27 @@
-// Original procedural wood impacts; no third-party recording or runtime synth.
-import fs from 'node:fs';
-import path from 'node:path';
-import {fileURLToPath} from 'node:url';
-const rate=44100,tau=Math.PI*2;
-export function xiangqiSound(kind) {
- if(!['move','capture'].includes(kind))throw Error('Unknown Xiangqi cue');
- const capture=kind==='capture',duration=capture ? .26 : .16,count=Math.round(rate*duration),samples=[];
- const hits=capture?[[0,430,1],[.027,810,.48]]:[[0,640,1]];
- let seed=0x5849414e,filtered=0;
- for(let i=0;i<count;i++){
-  seed=(Math.imul(seed,1664525)+1013904223)>>>0;filtered=.42*filtered+.58*(seed/4294967296*2-1);
-  const t=i/rate;let value=0;
-  for(const [offset,pitch,gain] of hits){const d=t-offset;if(d<0)continue;
-   const attack=1-Math.exp(-d*5000);
-   value+=gain*attack*(.6*Math.sin(tau*pitch*d)*Math.exp(-48*d)+.24*Math.sin(tau*pitch*2.23*d)*Math.exp(-75*d)+.14*Math.sin(tau*pitch*3.86*d)*Math.exp(-120*d)+.35*filtered*Math.exp(-150*d));
-  }
-  samples.push(value*Math.min(1,(duration-t)/.015));
+// Derive a clear board click from the same local sample used for Go placement.
+// Decode only during asset preparation; shipped games play local WAV files.
+import fs from 'node:fs/promises';
+import {chromium} from '../tooling/node_modules/@playwright/test/index.mjs';
+const rate=44100,source=await fs.readFile(new URL('../assets/sounds/button-22.mp3',import.meta.url));
+const browser=await chromium.launch({channel:process.env.NOBI_BROWSER_CHANNEL||undefined});
+try{
+ const page=await browser.newPage();
+ const decoded=await page.evaluate(async bytes=>{
+  const context=new OfflineAudioContext(1,1,44100),buffer=await context.decodeAudioData(new Uint8Array(bytes).buffer);
+  const output=new Float32Array(buffer.length);for(let channel=0;channel<buffer.numberOfChannels;channel++){const input=buffer.getChannelData(channel);for(let i=0;i<output.length;i++)output[i]+=input[i]/buffer.numberOfChannels;}
+  return Array.from(output);
+ },Array.from(source));
+ const peak=Math.max(...decoded.map(Math.abs)),threshold=peak*.003;
+ let start=decoded.findIndex(x=>Math.abs(x)>threshold),end=decoded.findLastIndex(x=>Math.abs(x)>threshold)+1;
+ start=Math.max(0,start-132);end=Math.min(decoded.length,end+441);
+ const stone=decoded.slice(start,end).map(x=>Math.tanh(x/peak*1.7));
+ for(const kind of ['move','capture']){
+  const capture=kind==='capture',gap=Math.round(rate*.065),count=stone.length+(capture?gap:0),samples=new Float32Array(count);
+  for(let i=0;i<stone.length;i++){samples[i]+=stone[i];if(capture)samples[i+gap]+=stone[i]*.85;}
+  const gain=(capture ? .97 : .94)/Math.max(...samples.map(Math.abs));
+  const buffer=Buffer.alloc(44+count*2);buffer.write('RIFF');buffer.writeUInt32LE(buffer.length-8,4);buffer.write('WAVEfmt ',8);buffer.writeUInt32LE(16,16);buffer.writeUInt16LE(1,20);buffer.writeUInt16LE(1,22);buffer.writeUInt32LE(rate,24);buffer.writeUInt32LE(rate*2,28);buffer.writeUInt16LE(2,32);buffer.writeUInt16LE(16,34);buffer.write('data',36);buffer.writeUInt32LE(count*2,40);
+  for(let i=0;i<count;i++){const fade=Math.min(1,i/44,(count-1-i)/220);buffer.writeInt16LE(Math.round(samples[i]*gain*fade*32767),44+i*2);}
+  await fs.writeFile(new URL(`../assets/sounds/xiangqi-${kind}.wav`,import.meta.url),buffer);
+  console.log(kind,{seconds:count/rate,peak:Math.max(...samples.map(Math.abs))*gain,rms:Math.sqrt(samples.reduce((sum,x)=>sum+x*x,0)/count)*gain});
  }
- const peak=Math.max(...samples.map(Math.abs)),gain=(capture ? .72 : .58)/peak,buffer=Buffer.alloc(44+count*2);
- buffer.write('RIFF');buffer.writeUInt32LE(buffer.length-8,4);buffer.write('WAVEfmt ',8);buffer.writeUInt32LE(16,16);buffer.writeUInt16LE(1,20);buffer.writeUInt16LE(1,22);buffer.writeUInt32LE(rate,24);buffer.writeUInt32LE(rate*2,28);buffer.writeUInt16LE(2,32);buffer.writeUInt16LE(16,34);buffer.write('data',36);buffer.writeUInt32LE(count*2,40);
- for(let i=0;i<count;i++)buffer.writeInt16LE(Math.round(samples[i]*gain*32767),44+i*2);
- return buffer;
-}
-if(process.argv[1]&&path.resolve(process.argv[1])===fileURLToPath(import.meta.url)){
- const directory=new URL('../assets/sounds/',import.meta.url);
- for(const kind of ['move','capture'])fs.writeFileSync(new URL('xiangqi-'+kind+'.wav',directory),xiangqiSound(kind));
- console.log('Generated Xiangqi wood move and capture WAV cues.');
-}
+}finally{await browser.close();}

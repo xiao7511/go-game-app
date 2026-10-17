@@ -18,14 +18,14 @@ test('initial mount, duplicate, undo, catch-up and unrelated board changes stay 
  // A legal new move after undo should sound even if that position occurred earlier.
  expect(xiangqiMoveEffect(initial,one)).toBe('xiangqiMove');
 });
-test('local PCM cues have distinct durations, audible energy, headroom and quiet tails',()=>{
+test('Go-style PCM cues have stronger energy, distinct impacts, headroom and quiet tails',()=>{
  const buffers=['move','capture'].map(kind=>fs.readFileSync(new URL('../../assets/sounds/xiangqi-'+kind+'.wav',import.meta.url)));
  const summaries=buffers.map(buffer=>{
   expect(buffer.toString('ascii',0,4)).toBe('RIFF');expect(buffer.toString('ascii',8,12)).toBe('WAVE');expect(buffer.readUInt16LE(20)).toBe(1);expect(buffer.readUInt16LE(22)).toBe(1);expect(buffer.readUInt16LE(34)).toBe(16);
   const samples=Array.from({length:(buffer.length-44)/2},(_,i)=>buffer.readInt16LE(44+i*2)/32768),peak=Math.max(...samples.map(Math.abs));
-  expect(peak).toBeGreaterThan(.5);expect(peak).toBeLessThan(.8);expect(samples[0]).toBe(0);expect(Math.max(...samples.slice(-441).map(Math.abs))).toBeLessThan(.003);
-  const rms=Math.sqrt(samples.reduce((sum,x)=>sum+x*x,0)/samples.length);expect(rms).toBeGreaterThan(.02);
+  expect(peak).toBeGreaterThan(.9);expect(peak).toBeLessThan(.99);expect(samples[0]).toBe(0);expect(Math.max(...samples.slice(-132).map(Math.abs))).toBeLessThan(.003);
+  const rms=Math.sqrt(samples.reduce((sum,x)=>sum+x*x,0)/samples.length);expect(rms).toBeGreaterThan(.12);
   return {duration:samples.length/buffer.readUInt32LE(24),rms};
  });
- expect(summaries[0].duration).toBe(.16);expect(summaries[1].duration).toBe(.26);expect(buffers[0].equals(buffers[1])).toBe(false);
+ expect(summaries[0].duration).toBeGreaterThan(.2);expect(summaries[0].duration).toBeLessThan(.4);expect(summaries[1].duration-summaries[0].duration).toBeCloseTo(.065,3);expect(buffers[0].equals(buffers[1])).toBe(false);
 });

@@ -97,7 +97,7 @@ test('music settings persist on refresh, expose classical BGM and use real effec
   await expect(page.getByRole('checkbox',{name:'游戏音效开关',exact:true})).not.toBeChecked();
   await expect(page.locator('#music-volume')).toHaveValue('23');await expect(page.locator('#effects-volume')).toHaveValue('41');await expect(page.locator('#prompt-volume')).toHaveValue('67');
   expect(await page.evaluate(()=>NobiAudio.getStatus().available)).toBe(true);
-  await expect(page.getByLabel('选择围棋背景音乐').locator('option')).toHaveCount(3);
+  await expect(page.getByLabel('选择围棋背景音乐').locator('option')).toHaveCount(6);
   await page.getByRole('button',{name:'围棋',exact:true}).click();
   expect(await page.evaluate(()=>window.NobiAudio.getStatus().scene)).toBe('go');
   await page.getByRole('checkbox',{name:'游戏音效开关',exact:true}).check();

@@ -70,7 +70,7 @@ test('audio source validation rejects remote, traversal and unlicensed music',()
 
 test('classical selection persists, crossfades immediately in Guandan and rejects unknown paths',async()=>{
   const a=audio();const manager=a.create();await manager.unlock();await manager.setScene('guandan');a.advance();
-  expect(manager.getTracks('guandan').map(t=>t.id)).toEqual(['moonlight','nocturne','dreaming']);
+  expect(manager.getTracks('guandan').map(t=>t.id)).toEqual(['pingsha','liushui','duyi','moonlight','nocturne','dreaming']);
   manager.setSettings({guandanTrack:'nocturne'});await new Promise(resolve=>setImmediate(resolve));a.advance();
   expect(manager.getStatus().trackId).toBe('nocturne');expect(a.elements[0].paused).toBe(true);
   expect(a.elements.at(-1).src).toBe('assets/music/guandan-nocturne.mp3');
@@ -85,6 +85,16 @@ test('rapid track changes leave only the latest music playing and mute cancels e
   expect(a.elements.filter(e=>!e.paused).map(e=>e.src)).toEqual(['assets/music/guandan-dreaming.mp3']);
   manager.setSettings({guandanTrack:'moonlight'});manager.setSettings({musicEnabled:false});
   await new Promise(resolve=>setImmediate(resolve));a.advance();expect(a.elements.every(e=>e.paused)).toBe(true);
+});
+
+test('Chinese classics share one library across three games; legacy choices and shared volume persist',async()=>{
+ const a=audio(JSON.stringify({goTrack:'nocturne',guandanTrack:'dreaming',musicVolume:.23})),manager=a.create();
+ expect(manager.getSettings()).toMatchObject({goTrack:'nocturne',guandanTrack:'dreaming',xiangqiTrack:'pingsha',musicVolume:.23});
+ for(const scene of ['xiangqi','go','guandan'])expect(manager.getTracks(scene).slice(0,3).map(t=>t.id)).toEqual(['pingsha','liushui','duyi']);
+ await manager.setScene('xiangqi');await manager.unlock();a.advance();expect(manager.getStatus().trackId).toBe('pingsha');
+ manager.setSettings({xiangqiTrack:'liushui'});await new Promise(resolve=>setImmediate(resolve));a.advance();expect(manager.getStatus().trackId).toBe('liushui');expect(a.elements.at(-1).volume).toBe(.23);
+ expect(a.create().getSettings()).toMatchObject({xiangqiTrack:'liushui',goTrack:'nocturne',guandanTrack:'dreaming'});
+ manager.suspend();expect(a.elements.every(e=>e.paused)).toBe(true);await manager.resume();a.advance();expect(manager.getStatus().trackId).toBe('liushui');
 });
 test('rank provider is unavailable by default; validates queries, demo rows and failures',async()=>{
   const c=sandbox();load('ui/rankings.js',c);const query={gameId:'go',scope:'global',period:'season',userId:null};

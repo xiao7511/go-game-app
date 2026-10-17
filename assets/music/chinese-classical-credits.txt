@@ -1,0 +1,25 @@
+Chinese classical guqin recordings / 中国古琴实录
+
+Performer and recording copyright: Charlie Huang (CharlieHuang on Wikimedia Commons).
+Chosen license for all three recordings: Creative Commons Attribution 2.5 Generic (CC BY 2.5).
+License: https://creativecommons.org/licenses/by/2.5/
+License legal code: https://creativecommons.org/licenses/by/2.5/legalcode
+You may share and adapt these recordings with appropriate credit and a license link.
+No endorsement by the performer or Wikimedia is implied.
+
+平沙落雁 / Pingsha Luoyan — 古琴, Charlie Huang, 23 April 2006.
+Source: https://commons.wikimedia.org/wiki/File:Pingsha_Luoyan.ogg
+Local file: chinese-pingsha.mp3
+
+流水 / Liu Shui — 古琴, Charlie Huang, 15 April 2006.
+Source: https://commons.wikimedia.org/wiki/File:Liu_Shui.ogg
+Local file: chinese-liushui.mp3
+
+孔子读易 / Kongzi Duyi — 古琴, Charlie Huang, 15 April 2006.
+Source: https://commons.wikimedia.org/wiki/File:Kongzi_Duyi.ogg
+Local file: chinese-duyi.mp3
+
+Each source offers CC BY 2.5 as one of its selectable licenses (alongside GFDL and CC BY-SA 3.0).
+We use CC BY 2.5. Full MP3 transcodes supplied by Wikimedia are included without trimming,
+pitch/tempo changes or remixing. No remote media is fetched during game playback.
+Imported 2026-10-17; reproducible URLs: scripts/import-chinese-classical.mjs.

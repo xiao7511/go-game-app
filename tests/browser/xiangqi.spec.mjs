@@ -22,8 +22,8 @@ for(const [name,viewport] of [['desktop',{width:1440,height:940}],['portrait',{w
   await page.getByRole('button',{name:'取消选择',exact:true}).click();await expect(page.getByRole('button',{name:'确认走棋',exact:true})).toBeDisabled();
   await page.getByRole('button',{name:'更多',exact:true}).click();
   const position=await page.evaluate(()=>XQ.getView().board);await page.getByRole('button',{name:'翻转棋盘',exact:true}).click();expect(await page.evaluate(()=>XQ.getView().board)).toEqual(position);await page.getByRole('button',{name:'翻转棋盘',exact:true}).click();
-  const music=page.locator('[data-xq="music"]'),musicBefore=await music.textContent();await music.click();await expect(music).not.toHaveText(musicBefore);
-  await page.getByRole('button',{name:'重新开局',exact:true}).click();await page.getByRole('button',{name:'返回棋盘',exact:true}).click();
+  await page.getByRole('button',{name:'音乐与音效设置',exact:true}).click();await expect(page.getByLabel('选择中国象棋背景音乐').locator('option')).toHaveCount(6);const music=page.getByRole('checkbox',{name:'背景音乐',exact:true}),musicBefore=await music.isChecked();await music.setChecked(!musicBefore);expect(await page.evaluate(()=>NobiAudio.getSettings().musicEnabled)).toBe(!musicBefore);await page.getByRole('button',{name:'关闭面板',exact:true}).click();
+  await page.getByRole('button',{name:'更多',exact:true}).click();await page.getByRole('button',{name:'重新开局',exact:true}).click();await page.getByRole('button',{name:'返回棋盘',exact:true}).click();
   const screenshots=path.resolve('.nobi-isolated/xiangqi/screenshots');await fs.mkdir(screenshots,{recursive:true});await page.screenshot({path:path.join(screenshots,'solo-'+name+'.png'),fullPage:false});
   await page.getByRole('button',{name:'更多',exact:true}).click();await page.getByLabel('选择执棋颜色').selectOption('1');await page.getByRole('button',{name:'返回棋盘',exact:true}).click();await expect.poll(()=>page.evaluate(()=>XQ.getView().ply)).toBe(1);expect(await page.evaluate(()=>XQ.getView().seat)).toBe(1);
   page.once('dialog',dialog=>dialog.accept());await page.getByRole('button',{name:'返回大厅',exact:true}).click();await expect(page.locator('#nobi-xiangqi')).toHaveCount(0);await expect(page.locator('[data-id="xiangqi"]')).toBeVisible();
@@ -71,6 +71,25 @@ async function watchXiangqiAudio(context){
 }
 const audioAttempts=target=>target.locator('#nobi-xiangqi').evaluate(()=>window.xqAudioAttempts);
 
+test('PC Chinese classics: shared settings, real recording playback and persistent Xiangqi selection',async({browser})=>{
+ const context=await browser.newContext({viewport:{width:1440,height:940}}),page=await context.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));
+ await page.addInitScript(()=>{window.musicPlays=[];const play=HTMLMediaElement.prototype.play;HTMLMediaElement.prototype.play=function(){if(/chinese-.*\.mp3$/.test(this.src)){const event={src:this.src,result:'pending'};musicPlays.push(event);const result=play.call(this);result?.then(()=>event.result='played',()=>event.result='blocked');return result;}return play.call(this);};});
+ await page.goto('http://127.0.0.1:4173/game.html#/music');
+ for(const label of ['中国象棋','围棋','掼蛋']){const picker=page.getByLabel('选择'+label+'背景音乐');await expect(picker.locator('option')).toHaveCount(6);await expect(picker).toContainText('平沙落雁');await expect(picker).toContainText('流水');await expect(picker).toContainText('孔子读易');}
+ await page.getByRole('checkbox',{name:'背景音乐开关',exact:true}).check();await page.getByLabel('选择中国象棋背景音乐').selectOption('liushui');await page.getByRole('button',{name:'试听所选音乐',exact:true}).click();
+ await expect.poll(()=>page.evaluate(()=>musicPlays.filter(e=>e.src.endsWith('chinese-liushui.mp3')&&e.result==='played').length)).toBeGreaterThan(0);
+ await page.locator('#music-volume').fill('27');
+ await page.goto('http://127.0.0.1:4173/game.html?game=xiangqi&mode=SINGLE');await expect(page.locator('.xq-board')).toBeVisible();await page.getByRole('button',{name:'更多',exact:true}).click();await page.getByRole('button',{name:'音乐与音效设置',exact:true}).click();
+ const choice=page.getByLabel('选择中国象棋背景音乐');await expect(choice).toHaveValue('liushui');await expect(page.getByRole('slider',{name:'背景音乐音量',exact:true})).toHaveValue('27');
+ await choice.selectOption('duyi');await expect.poll(()=>page.evaluate(()=>NobiAudio.getStatus().trackId)).toBe('duyi');await expect.poll(()=>page.evaluate(()=>musicPlays.some(e=>e.src.endsWith('chinese-duyi.mp3')&&e.result==='played'))).toBe(true);
+ await page.getByRole('checkbox',{name:'背景音乐',exact:true}).uncheck();await expect.poll(()=>page.evaluate(()=>NobiAudio.getStatus().playing)).toBe(false);await page.getByRole('checkbox',{name:'背景音乐',exact:true}).check();
+ const decoded=await page.evaluate(async()=>{const context=new OfflineAudioContext(1,1,22050),out=[];for(const track of NobiAudio.getTracks('xiangqi').slice(0,3)){const response=await fetch(track.src),buffer=await context.decodeAudioData(await response.arrayBuffer());const samples=buffer.getChannelData(0);let energy=0;for(let i=0;i<samples.length;i++)energy+=samples[i]*samples[i];out.push({id:track.id,duration:buffer.duration,rms:Math.sqrt(energy/samples.length)});}return out;});
+ expect(decoded.map(x=>x.id)).toEqual(['pingsha','liushui','duyi']);expect(decoded.every(x=>x.duration>300&&x.rms>.005)).toBe(true);
+ await fs.mkdir('.nobi-isolated/xiangqi',{recursive:true});await page.screenshot({path:'.nobi-isolated/xiangqi/chinese-music-pc.png'});
+ await page.getByRole('button',{name:'关闭面板',exact:true}).click();await page.getByRole('button',{name:'返回大厅',exact:true}).click();await page.goto('http://127.0.0.1:4173/game.html#/music');await expect(page.getByLabel('选择中国象棋背景音乐')).toHaveValue('duyi');await expect(page.locator('#music-volume')).toHaveValue('27');
+ await page.getByLabel('选择围棋背景音乐').selectOption('pingsha');await page.getByLabel('选择掼蛋背景音乐').selectOption('liushui');await page.reload();await expect(page.getByLabel('选择围棋背景音乐')).toHaveValue('pingsha');await expect(page.getByLabel('选择掼蛋背景音乐')).toHaveValue('liushui');await expect(page.getByLabel('选择中国象棋背景音乐')).toHaveValue('duyi');expect(errors).toEqual([]);await context.close();
+});
+
 test('PC Xiangqi audio: confirmed solo/AI moves, capture, cancel, undo, mute and real decoding',async({browser})=>{
  const context=await browser.newContext({viewport:{width:1440,height:940}});await watchXiangqiAudio(context);
  // A deterministic legal AI capture exercises the same real worker callback and engine.
@@ -90,7 +109,7 @@ test('PC Xiangqi audio: confirmed solo/AI moves, capture, cancel, undo, mute and
  await page.locator('[data-square="64"]').click();await page.locator('[data-square="1"]').click();await page.getByRole('button',{name:'确认走棋',exact:true}).click();await expect.poll(()=>page.evaluate(()=>XQ.getView().ply)).toBe(2);
  await expect.poll(async()=> (await audioAttempts(page)).length).toBe(4);expect((await audioAttempts(page)).slice(2).map(e=>[e.src,e.volume])).toEqual([['xiangqi-capture.wav',.25],['xiangqi-capture.wav',.25]]);
  const decoded=await page.evaluate(async()=>{const context=new OfflineAudioContext(1,1,44100),out=[];for(const name of ['xiangqiMove','xiangqiCapture']){const response=await fetch(NobiAudioManifest.effects[name]),buffer=await context.decodeAudioData(await response.arrayBuffer()),data=buffer.getChannelData(0);out.push({name,duration:buffer.duration,peak:Math.max(...data.map(Math.abs))});}return out;});
- expect(decoded.map(x=>x.duration)).toEqual([.16,.26]);expect(decoded.every(x=>x.peak>.5&&x.peak<.8)).toBe(true);
+ expect(decoded[0].duration).toBeGreaterThan(.2);expect(decoded[1].duration-decoded[0].duration).toBeCloseTo(.065,3);expect(decoded.every(x=>x.peak>.9&&x.peak<.99)).toBe(true);
  await fs.mkdir('.nobi-isolated/xiangqi',{recursive:true});await page.screenshot({path:'.nobi-isolated/xiangqi/audio-pc.png'});
  await page.reload();await expect(page.locator('.xq-board')).toBeVisible();expect(await audioAttempts(page)).toEqual([]);expect(await page.evaluate(()=>NobiAudio.getSettings().effectsVolume)).toBe(.25);
  expect(errors).toEqual([]);await context.close();
