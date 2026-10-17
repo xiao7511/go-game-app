@@ -48,7 +48,8 @@ $taskManifest+=@{path='package-info.json';sha256=(Get-FileHash -LiteralPath (Joi
 [IO.File]::WriteAllText((Join-Path $taskStage 'source-manifest.json'),(ConvertTo-Json -InputObject $taskManifest -Depth 4))
 $taskOutput=Join-Path $taskRepo 'dist/mobile-device'
 [IO.Directory]::CreateDirectory($taskOutput) | Out-Null
-$taskZip=Join-Path $taskOutput ('Nobi-ios-test-source-20261014-'+$taskId+'.zip')
+$taskDate=Get-Date -Format 'yyyyMMdd'
+$taskZip=Join-Path $taskOutput ('Nobi-ios-test-source-'+$taskDate+'-'+$taskId+'.zip')
 $taskZipStream=[IO.File]::Open($taskZip,[IO.FileMode]::CreateNew)
 $taskArchive=[IO.Compression.ZipArchive]::new($taskZipStream,[IO.Compression.ZipArchiveMode]::Create)
 try {
