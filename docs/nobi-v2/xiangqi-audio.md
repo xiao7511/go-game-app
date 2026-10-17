@@ -1,6 +1,6 @@
 # 中国象棋走棋音效与 PC 验证
 
-根据 PC 试听反馈，已替换最初偏轻的合成木声。普通落子以围棋现用的 `assets/sounds/button-22.mp3` 为源，去除首尾静音、温和压缩并归一至 0.94 峰值，输出 `assets/sounds/xiangqi-move.wav`（约 0.260 秒）；吃子叠加间隔 65ms 的第二次敲击，归一至 0.97 峰值，输出 `assets/sounds/xiangqi-capture.wav`（约 0.325 秒）。两者为 44.1kHz、单声道、16bit PCM，保留尾部淡出，无削波；RMS 约 0.134 / 0.165。原围棋源文件不修改。运行 `node scripts/generate-xiangqi-audio.mjs` 通过 Playwright 浏览器解码本地源文件并重现；本机可设置 `NOBI_BROWSER_CHANNEL=msedge`。不在构建或播放时执行转码。
+根据 PC 试听反馈，已替换最初偏轻的合成木声。普通落子以围棋现用的 `assets/sounds/button-22.mp3` 为源，仅截取第一下敲击（原音源约 120ms 处还有第二下），温和压缩并归一至 0.94 峰值，输出 `assets/sounds/xiangqi-move.wav`（0.110 秒）。吃子将同一次敲击适度降调并归一至 0.97 峰值，输出 `assets/sounds/xiangqi-capture.wav`（约 0.125 秒）；不再叠加第二次声音。两者为 44.1kHz、单声道、16bit PCM，保留尾部淡出，无削波；RMS 约 0.178 / 0.184。原围棋源文件不修改。运行 `node scripts/generate-xiangqi-audio.mjs` 通过 Playwright 浏览器解码本地源文件并重现；本机可设置 `NOBI_BROWSER_CHANNEL=msedge`。不在构建或播放时执行转码。
 
 人机双方均在合法走棋提交后播放。联机以服务端确认的相邻一步状态为准，房间初次载入、重复快照、悔棋、跨多步重连恢复均保持静音；后续新走的一步照常播放。选子、再次点击取消和落点预览不会触发落子声。
 

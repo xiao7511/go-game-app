@@ -138,7 +138,7 @@
       body.appendChild(group);
     }
     const mute=document.createElement('button');mute.type='button';mute.dataset.matchMute='';mute.textContent='静音全部（保存设置）';body.appendChild(mute);
-    const info=document.createElement('p');info.textContent=scene==='xiangqi'?'象棋选子后可再次点击取消；选择落点并确认后播放落子声，吃子使用更有力度的双击声。':'掼蛋点选 / 连续拖选，取消后重新选牌；只有“出牌”或 PC 右击才提交。围棋触屏先预览再确认；单机悔棋撤回自己与 AI 最近一轮。全屏在竖屏提示处手动开启。';body.appendChild(info);
+    const info=document.createElement('p');info.textContent=scene==='xiangqi'?'象棋选子后可再次点击取消；选择落点并确认后播放一次落子声，吃子音色稍沉，同样只敲击一次。':'掼蛋点选 / 连续拖选，取消后重新选牌；只有“出牌”或 PC 右击才提交。围棋触屏先预览再确认；单机悔棋撤回自己与 AI 最近一轮。全屏在竖屏提示处手动开启。';body.appendChild(info);
   }
   window.NobiMatchSettings=Object.freeze({open:showSettings});
   function showRecord() {

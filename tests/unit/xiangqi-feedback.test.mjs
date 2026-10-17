@@ -23,9 +23,12 @@ test('Go-style PCM cues have stronger energy, distinct impacts, headroom and qui
  const summaries=buffers.map(buffer=>{
   expect(buffer.toString('ascii',0,4)).toBe('RIFF');expect(buffer.toString('ascii',8,12)).toBe('WAVE');expect(buffer.readUInt16LE(20)).toBe(1);expect(buffer.readUInt16LE(22)).toBe(1);expect(buffer.readUInt16LE(34)).toBe(16);
   const samples=Array.from({length:(buffer.length-44)/2},(_,i)=>buffer.readInt16LE(44+i*2)/32768),peak=Math.max(...samples.map(Math.abs));
-  expect(peak).toBeGreaterThan(.9);expect(peak).toBeLessThan(.99);expect(samples[0]).toBe(0);expect(Math.max(...samples.slice(-132).map(Math.abs))).toBeLessThan(.003);
+  expect(peak).toBeGreaterThan(.9);expect(peak).toBeLessThan(.99);expect(samples[0]).toBe(0);expect(samples.at(-1)).toBe(0);
   const rms=Math.sqrt(samples.reduce((sum,x)=>sum+x*x,0)/samples.length);expect(rms).toBeGreaterThan(.12);
+  const frames=[];for(let i=0;i<samples.length;i+=220)frames.push(Math.sqrt(samples.slice(i,i+220).reduce((sum,x)=>sum+x*x,0)/220));
+  // Reject the previous second impact at ~120ms (and capture's extra layered hit).
+  expect(Math.max(...frames.slice(16))).toBeLessThan(Math.max(...frames.slice(0,8))*.2);
   return {duration:samples.length/buffer.readUInt32LE(24),rms};
  });
- expect(summaries[0].duration).toBeGreaterThan(.2);expect(summaries[0].duration).toBeLessThan(.4);expect(summaries[1].duration-summaries[0].duration).toBeCloseTo(.065,3);expect(buffers[0].equals(buffers[1])).toBe(false);
+ expect(summaries[0].duration).toBeCloseTo(.11,3);expect(summaries[1].duration).toBeCloseTo(.125,3);expect(buffers[0].equals(buffers[1])).toBe(false);
 });

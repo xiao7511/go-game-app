@@ -109,7 +109,7 @@ test('PC Xiangqi audio: confirmed solo/AI moves, capture, cancel, undo, mute and
  await page.locator('[data-square="64"]').click();await page.locator('[data-square="1"]').click();await page.getByRole('button',{name:'确认走棋',exact:true}).click();await expect.poll(()=>page.evaluate(()=>XQ.getView().ply)).toBe(2);
  await expect.poll(async()=> (await audioAttempts(page)).length).toBe(4);expect((await audioAttempts(page)).slice(2).map(e=>[e.src,e.volume])).toEqual([['xiangqi-capture.wav',.25],['xiangqi-capture.wav',.25]]);
  const decoded=await page.evaluate(async()=>{const context=new OfflineAudioContext(1,1,44100),out=[];for(const name of ['xiangqiMove','xiangqiCapture']){const response=await fetch(NobiAudioManifest.effects[name]),buffer=await context.decodeAudioData(await response.arrayBuffer()),data=buffer.getChannelData(0);out.push({name,duration:buffer.duration,peak:Math.max(...data.map(Math.abs))});}return out;});
- expect(decoded[0].duration).toBeGreaterThan(.2);expect(decoded[1].duration-decoded[0].duration).toBeCloseTo(.065,3);expect(decoded.every(x=>x.peak>.9&&x.peak<.99)).toBe(true);
+ expect(decoded[0].duration).toBeCloseTo(.11,3);expect(decoded[1].duration).toBeCloseTo(.125,3);expect(decoded.every(x=>x.peak>.9&&x.peak<.99)).toBe(true);
  await fs.mkdir('.nobi-isolated/xiangqi',{recursive:true});await page.screenshot({path:'.nobi-isolated/xiangqi/audio-pc.png'});
  await page.reload();await expect(page.locator('.xq-board')).toBeVisible();expect(await audioAttempts(page)).toEqual([]);expect(await page.evaluate(()=>NobiAudio.getSettings().effectsVolume)).toBe(.25);
  expect(errors).toEqual([]);await context.close();
