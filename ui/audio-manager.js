@@ -1,12 +1,12 @@
 (() => {
   'use strict';
   const KEY='nobi.audio.v1';
-  const defaults=Object.freeze({musicEnabled:true,musicVolume:.35,effectsEnabled:true,effectsVolume:.8,promptEnabled:true,promptVolume:.7,guandanTrack:'moonlight',goTrack:'dreaming'});
+  const defaults=Object.freeze({musicEnabled:true,musicVolume:.35,effectsEnabled:true,effectsVolume:.8,promptEnabled:true,promptVolume:.7,guandanTrack:'moonlight',goTrack:'dreaming',xiangqiTrack:'pingsha'});
   function normalize(input={}) {
     const output={...defaults};
     for(const key of Object.keys(defaults)) {
       if(typeof defaults[key]==='boolean') { if(typeof input[key]==='boolean') output[key]=input[key]; }
-      else if(key.endsWith('Track')) { if(['moonlight','nocturne','dreaming'].includes(input[key])) output[key]=input[key]; }
+      else if(key.endsWith('Track')) { if(['pingsha','liushui','duyi','moonlight','nocturne','dreaming'].includes(input[key])) output[key]=input[key]; }
       else if(typeof input[key]==='number' && Number.isFinite(input[key])) output[key]=Math.max(0,Math.min(1,input[key]));
     }
     return output;
@@ -20,7 +20,7 @@
     const schedule=options.schedule || ((fn,ms)=>setTimeout(fn,ms));
     const cancel=options.cancel || (id=>clearTimeout(id));
     const now=options.now || (()=>performance.now());
-    const scenes=['lobby','guandan','go','result'];
+    const scenes=['lobby','guandan','go','xiangqi','result'];
     function safePath(src) { return typeof src==='string' && /^assets\/(?:sounds|music)\/[a-zA-Z0-9_./-]+\.(?:mp3|ogg|wav)$/.test(src) && !src.includes('..'); }
     for(const scene of scenes) {
       const entry=manifest?.scenes?.[scene];
@@ -34,7 +34,7 @@
     let scene='lobby', unlocked=false, suspended=false, blocked=null, epoch=0, interruptions=0, current=null;
     const active=new Set(), fades=new Map(), listeners=new Set();
     const getTracks=next=>Object.freeze([...(manifest.tracks?.[next] || [])]);
-    const selectedTrack=()=>['go','guandan'].includes(scene)?(getTracks(scene).find(track=>track.id===settings[scene+'Track']) || manifest.scenes[scene]):manifest.scenes[scene];
+    const selectedTrack=()=>['go','guandan','xiangqi'].includes(scene)?(getTracks(scene).find(track=>track.id===settings[scene+'Track']) || manifest.scenes[scene]):manifest.scenes[scene];
     const status=()=>Object.freeze({scene,unlocked,suspended,blocked,available:!!selectedTrack(),trackId:selectedTrack()?.id || null,playing:!!current && !current.paused});
     const emit=()=>listeners.forEach(fn=>fn(status()));
     function stopFade(audio) { if(fades.has(audio)) { cancel(fades.get(audio)); fades.delete(audio); } }

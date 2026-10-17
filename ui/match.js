@@ -124,13 +124,13 @@
   }
   function showSettings() {
     const body=openPanel('音乐与对局设置');const settings=window.NobiAudio.getSettings();
-    body.innerHTML='<p>舒缓古典钢琴；背景音乐、游戏音效与最后 10 秒倒计时提示可独立调整。</p>';
-    const scene=document.body.classList.contains('nobi-playing-go')?'go':'guandan',label=scene==='go'?'围棋':'掼蛋';
+    body.innerHTML='<p>中国古琴与舒缓钢琴；背景音乐、游戏音效独立调整，掼蛋最后 10 秒倒计时提示可单独设置，偏好与大厅同步。</p>';
+    const scene=document.body.classList.contains('nobi-playing-xiangqi')?'xiangqi':document.body.classList.contains('nobi-playing-go')?'go':'guandan',label={xiangqi:'中国象棋',go:'围棋',guandan:'掼蛋'}[scene];
     const choice=document.createElement('label');choice.className='match-music-choice';choice.textContent=label+'背景音乐';
     const select=document.createElement('select');select.dataset.matchTrack=scene+'Track';select.setAttribute('aria-label','选择'+label+'背景音乐');
     for(const track of window.NobiAudio.getTracks(scene)){const option=document.createElement('option');option.value=track.id;option.textContent=track.composer+' · '+track.title;select.appendChild(option);}
     select.value=settings[scene+'Track'];choice.appendChild(select);body.appendChild(choice);
-    const credit=document.createElement('p');credit.className='match-music-credit';credit.innerHTML='钢琴录音：Paul Pitman / Donald Betts / <a href="https://musopen.org" target="_blank" rel="noopener noreferrer">Musopen</a>。爆炸录音：<a href="https://freesound.org/people/qubodup/sounds/189778/" target="_blank" rel="noopener noreferrer">qubodup</a>（CC0，节选）。';body.appendChild(credit);
+    const credit=document.createElement('p');credit.className='match-music-credit';credit.innerHTML='古琴实录：Charlie Huang（<a href="assets/music/chinese-classical-credits.txt" target="_blank" rel="noopener noreferrer">来源与 CC BY 2.5 授权</a>）。钢琴：Paul Pitman / Donald Betts / Musopen。爆炸录音：qubodup（CC0，节选）。';body.appendChild(credit);
     const preview=document.createElement('button');preview.type='button';preview.dataset.matchBombPreview='';preview.textContent='试听炸弹音效';if(scene==='guandan')body.appendChild(preview);
     for(const [domain,label] of [['music','背景音乐'],['effects','游戏音效'],['prompt','回合提示音']]) {
       const group=document.createElement('div');group.className='match-audio-group';
@@ -138,8 +138,9 @@
       body.appendChild(group);
     }
     const mute=document.createElement('button');mute.type='button';mute.dataset.matchMute='';mute.textContent='静音全部（保存设置）';body.appendChild(mute);
-    const info=document.createElement('p');info.textContent='掼蛋点选 / 连续拖选，取消后重新选牌；只有“出牌”或 PC 右击才提交。围棋触屏先预览再确认；单机悔棋撤回自己与 AI 最近一轮。全屏在竖屏提示处手动开启。';body.appendChild(info);
+    const info=document.createElement('p');info.textContent=scene==='xiangqi'?'象棋选子后可再次点击取消；选择落点并确认后播放一次落子声，吃子音色稍沉，同样只敲击一次。':'掼蛋点选 / 连续拖选，取消后重新选牌；只有“出牌”或 PC 右击才提交。围棋触屏先预览再确认；单机悔棋撤回自己与 AI 最近一轮。全屏在竖屏提示处手动开启。';body.appendChild(info);
   }
+  window.NobiMatchSettings=Object.freeze({open:showSettings});
   function showRecord() {
     const body=openPanel('本局棋谱 · 本地记录');const view=window.MP?.getViewState?.();
     const note=document.createElement('p');note.textContent='仅记录本页面会话收到的实际落子；中途加入或丢包时不完整。不是服务端裁决、历史战绩或正式 SGF。';body.appendChild(note);

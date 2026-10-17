@@ -103,7 +103,7 @@ test('5178: local classical music plays, mute stops it and leaving returns to lo
   expect(await page.evaluate(()=>NobiAudio.getStatus().trackId)).toBe('dreaming');
 });
 
-test('5178: three classical recordings decode, in-game selection persists and lobby can preview it',async({page})=>{
+test('5178: six classical recordings decode, in-game selection persists and lobby can preview it',async({page})=>{
   await launch(page);
   const decoded=await page.evaluate(async()=>{
     const context=new OfflineAudioContext(1,1,22050),out=[];
@@ -114,11 +114,11 @@ test('5178: three classical recordings decode, in-game selection persists and lo
     const response=await fetch('assets/sounds/guandan-bomb.wav'),buffer=await context.decodeAudioData(await response.arrayBuffer());
     out.push({id:'bomb',status:response.status,duration:buffer.duration,channels:buffer.numberOfChannels});return out;
   });
-  expect(decoded.slice(0,3).map(track=>track.id)).toEqual(['moonlight','nocturne','dreaming']);
-  for(const track of decoded.slice(0,3)){expect(track.status).toBe(200);expect(track.duration).toBeGreaterThan(180);}
-  expect(decoded[3].duration).toBeCloseTo(1.8,2);
+  expect(decoded.slice(0,6).map(track=>track.id)).toEqual(['pingsha','liushui','duyi','moonlight','nocturne','dreaming']);
+  for(const track of decoded.slice(0,6)){expect(track.status).toBe(200);expect(track.duration).toBeGreaterThan(180);}
+  expect(decoded[6].duration).toBeCloseTo(1.8,2);
   await page.locator('[data-match-settings]').filter({visible:true}).click();
-  const choice=page.getByLabel('选择掼蛋背景音乐');await expect(choice.locator('option')).toHaveCount(3);
+  const choice=page.getByLabel('选择掼蛋背景音乐');await expect(choice.locator('option')).toHaveCount(6);
   await choice.selectOption('nocturne');await expect.poll(()=>page.evaluate(()=>NobiAudio.getStatus().trackId)).toBe('nocturne');
   await expect.poll(()=>page.evaluate(()=>audioPlays.some(s=>s.endsWith('guandan-nocturne.mp3')))).toBe(true);
   await choice.selectOption('dreaming');await expect.poll(()=>page.evaluate(()=>audioPlays.some(s=>s.endsWith('guandan-dreaming.mp3')))).toBe(true);
