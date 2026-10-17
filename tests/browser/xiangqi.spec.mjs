@@ -74,20 +74,22 @@ async function watchLandings(context){await context.addInitScript(()=>{window.xq
 const landingMoves=target=>target.locator('#nobi-xiangqi').evaluate(()=>window.xqLandings);
 const landingStates=target=>target.locator('#nobi-xiangqi').evaluate(node=>node.ownerDocument.getAnimations().filter(a=>a.id==='xq-landing').map(a=>({square:Number(a.effect.target.dataset.square),time:a.currentTime,state:a.playState,...a.effect.getTiming()})));
 
-test('PC landing blink: confirmed human/AI moves, undo, natural expiry and reduced motion',async({browser})=>{
+test('PC landing blink: persists through selection until the next confirmed move, undo and reduced motion',async({browser})=>{
  const context=await browser.newContext({viewport:{width:1440,height:940}});await watchLandings(context);await context.addInitScript(()=>localStorage.setItem('nobi.audio.v1',JSON.stringify({musicEnabled:false,effectsEnabled:false})));
- await context.route('**/xiangqi-worker.mjs',route=>route.fulfill({contentType:'application/javascript',body:`self.onmessage=({data})=>setTimeout(()=>self.postMessage({ticket:data.ticket,move:{from:27,to:36}}),800);`}));
+ await context.route('**/xiangqi-worker.mjs',route=>route.fulfill({contentType:'application/javascript',body:`self.onmessage=({data})=>{if(data.game.ply===1)setTimeout(()=>self.postMessage({ticket:data.ticket,move:{from:27,to:36}}),800);};`}));
  const page=await context.newPage();await page.goto('http://127.0.0.1:4173/game.html?game=xiangqi&mode=SINGLE');await expect(page.locator('.xq-board')).toBeVisible();expect(await landingMoves(page)).toEqual([]);
  const move=async()=>{await page.locator('[data-square="54"]').click();await page.locator('[data-square="45"]').click();};
  await move();expect(await landingMoves(page)).toEqual([]);await page.getByRole('button',{name:'确认走棋',exact:true}).click();await expect.poll(()=>landingMoves(page)).toEqual([45]);
- const first=(await landingStates(page))[0];expect(first).toMatchObject({square:45,duration:500,iterations:3,state:'running'});await expect.poll(async()=> (await landingStates(page))[0]?.time).toBeGreaterThan(first.time);
+ const first=(await landingStates(page))[0];expect(first).toMatchObject({square:45,duration:500,iterations:Infinity,state:'running'});await expect.poll(async()=> (await landingStates(page))[0]?.time).toBeGreaterThan(first.time);
  await page.getByRole('button',{name:'悔棋',exact:true}).click();expect(await landingStates(page)).toEqual([]);expect(await page.evaluate(()=>XQ.getView().ply)).toBe(0);
  await move();await page.getByRole('button',{name:'确认走棋',exact:true}).click();await expect.poll(()=>page.evaluate(()=>XQ.getView().ply)).toBe(2);expect(await landingMoves(page)).toEqual([45,45,36]);
- expect((await landingStates(page)).some(a=>a.square===36&&a.state==='running')).toBe(true);
+ expect((await landingStates(page)).map(a=>a.square)).toEqual([36]);
  await page.evaluate(()=>document.getAnimations().filter(a=>a.id==='xq-landing').forEach(a=>{a.pause();a.currentTime=250;}));await expect(page.locator('[data-square="36"]')).toHaveCSS('filter',/brightness\(1.8\)/);
  await fs.mkdir('.nobi-isolated/xiangqi',{recursive:true});await page.screenshot({path:'.nobi-isolated/xiangqi/landing-blink-pc.png'});await page.evaluate(()=>document.getAnimations().filter(a=>a.id==='xq-landing').forEach(a=>a.play()));
  await page.locator('[data-square="45"]').click();await page.getByRole('button',{name:'取消选择',exact:true}).click();expect(await landingMoves(page)).toEqual([45,45,36]);
- await expect.poll(()=>landingStates(page)).toEqual([]);await context.close();
+ await page.locator('[data-square="45"]').click();await page.locator('[data-square="36"]').click();await expect.poll(async()=> (await landingStates(page))[0]?.time).toBeGreaterThan(1800);expect((await landingStates(page)).map(a=>a.square)).toEqual([36]);expect(await landingMoves(page)).toEqual([45,45,36]);
+ await page.evaluate(()=>window.previousLanding=document.getAnimations().find(a=>a.id==='xq-landing'));await page.getByRole('button',{name:'确认走棋',exact:true}).click();expect(await landingMoves(page)).toEqual([45,45,36,36]);expect(await page.evaluate(()=>previousLanding.playState)).toBe('idle');expect((await landingStates(page)).map(a=>a.square)).toEqual([36]);
+ await page.getByRole('button',{name:'更多',exact:true}).click();page.once('dialog',dialog=>dialog.accept());await page.getByRole('button',{name:'重新开局',exact:true}).click();expect(await landingStates(page)).toEqual([]);await context.close();
  const reduced=await browser.newContext({viewport:{width:1440,height:940},reducedMotion:'reduce'});await watchLandings(reduced);await reduced.route('**/xiangqi-worker.mjs',route=>route.fulfill({contentType:'application/javascript',body:'self.onmessage=()=>{};'}));
  const quiet=await reduced.newPage();await quiet.goto('http://127.0.0.1:4173/game.html?game=xiangqi&mode=SINGLE');await quiet.locator('[data-square="54"]').click();await quiet.locator('[data-square="45"]').click();await quiet.getByRole('button',{name:'确认走棋',exact:true}).click();await expect(quiet.locator('[data-square="45"]')).toHaveClass(/last-move/);expect(await landingMoves(quiet)).toEqual([]);await reduced.close();
 });

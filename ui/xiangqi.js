@@ -7,12 +7,11 @@ const landings=new Map();
 function clearLandings(){for(const {animation} of landings.values())animation.cancel();landings.clear();}
 function moveFeedback(before,after){
  const effect=xiangqiMoveEffect(before,after);if(!effect)return;window.NobiAudio?.playEffect(effect);
+ clearLandings();
  if(window.matchMedia('(prefers-reduced-motion: reduce)').matches)return;
  const to=after.log.at(-1).to,button=$(`[data-square="${to}"]`);if(!button?.animate)return;
- landings.get(button)?.animation.cancel();
- const animation=button.animate([{filter:'none'},{filter:'brightness(1.8) drop-shadow(0 0 7px #ffe39a)'},{filter:'none'}],{duration:500,iterations:3,easing:'ease-in-out'});
+ const animation=button.animate([{filter:'none'},{filter:'brightness(1.8) drop-shadow(0 0 7px #ffe39a)'},{filter:'none'}],{duration:500,iterations:Infinity,easing:'ease-in-out'});
  animation.id='xq-landing';landings.set(button,{animation,piece:after.board[to]});
- animation.onfinish=()=>{if(landings.get(button)?.animation===animation)landings.delete(button);};
 }
 function commitSoloMove(from,to){const before=game;game=play(game,from,to);selected=preview=null;render();moveFeedback(before,game);}
 const $=selector=>root.querySelector(selector);
